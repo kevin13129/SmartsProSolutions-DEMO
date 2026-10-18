@@ -1,0 +1,89 @@
+/**
+ * SMARTS PRO SOLUTIONS - GENERAL UI CONTROLLER
+ * Handles navigation, tab switching, contact form submissions, and UI polish.
+ */
+
+(function () {
+  'use strict';
+
+  // Mobile menu toggle
+  const mobileToggle = document.getElementById('mobile-nav-toggle');
+  const navLinks = document.querySelector('.nav-links');
+
+  if (mobileToggle && navLinks) {
+    mobileToggle.addEventListener('click', () => {
+      const isExpanded = navLinks.classList.toggle('mobile-open');
+      mobileToggle.setAttribute('aria-expanded', isExpanded);
+    });
+
+    // Close when clicking a link
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navLinks.classList.remove('mobile-open');
+      });
+    });
+  }
+
+  // Header scroll appearance
+  const header = document.querySelector('.site-header');
+  window.addEventListener('scroll', () => {
+    if (window.scrollY > 20) {
+      header?.classList.add('scrolled');
+    } else {
+      header?.classList.remove('scrolled');
+    }
+  });
+
+  // Services tabs filtering
+  const serviceTabs = document.querySelectorAll('.tab-btn');
+  const serviceCards = document.querySelectorAll('.service-feature-card');
+
+  serviceTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      serviceTabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      const filter = tab.getAttribute('data-filter');
+
+      serviceCards.forEach(card => {
+        const category = card.getAttribute('data-category');
+        if (filter === 'all' || category === filter) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
+      });
+    });
+  });
+
+  // General contact form handler (Let's Get In Touch section)
+  const generalContactForm = document.getElementById('general-contact-form');
+  const contactSuccessNotice = document.getElementById('contact-form-success');
+
+  if (generalContactForm) {
+    generalContactForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const submitBtn = generalContactForm.querySelector('button[type="submit"]');
+      const origText = submitBtn.innerHTML;
+
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<span>Sending Message...</span>';
+
+      setTimeout(() => {
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = origText;
+        generalContactForm.reset();
+
+        if (contactSuccessNotice) {
+          contactSuccessNotice.style.display = 'block';
+          setTimeout(() => {
+            contactSuccessNotice.style.display = 'none';
+          }, 6000);
+        } else {
+          alert('Thank you! Your message has been sent to Smarts Pro Solutions. We will contact you promptly at 318-564-4360 or 318-200-3782.');
+        }
+      }, 700);
+    });
+  }
+
+})();
