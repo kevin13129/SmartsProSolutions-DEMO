@@ -3,8 +3,8 @@
    Clean Spaces. Happier & Healthier Lives.
    ========================================================================== */
 
-/* --- Google Fonts & Resets --- */
-@import url('https://fonts.googleapis.com/css2?family=Caveat:wght@600;700&family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+/* --- Self-hosted Fonts & Resets --- */
+@import url('./fonts.css');
 
 :root {
   /* Brand Color Palette (Derived from Logo & Business Card) */
@@ -155,11 +155,13 @@ button, input, select, textarea {
 .top-bar-contacts {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 1.25rem;
 }
 
 .top-bar-link {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: 0.35rem;
   color: #E2E8F0;
@@ -974,7 +976,7 @@ button, input, select, textarea {
 /* Service Type Cards (Radio Cards) */
 .service-cards-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
   gap: 1.25rem;
 }
 
@@ -1096,7 +1098,7 @@ button, input, select, textarea {
 /* Frequency Options (Pills Grid) */
 .frequency-options-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
   gap: 1rem;
 }
 
@@ -1354,6 +1356,26 @@ button, input, select, textarea {
   border-radius: var(--radius-pill);
   font-size: 0.78rem;
   font-weight: 700;
+}
+
+.quote-minimum-note {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  margin-top: 0.5rem;
+  padding: 0.25rem 0.75rem;
+  background: var(--blue-light);
+  border: 1px solid rgba(0, 102, 204, 0.2);
+  color: var(--blue-primary);
+  border-radius: var(--radius-pill);
+  font-size: 0.74rem;
+  font-weight: 600;
+}
+
+.quote-minimum-note svg {
+  color: var(--blue-primary);
+  flex-shrink: 0;
 }
 
 /* Itemized Breakdown List */
@@ -2142,7 +2164,7 @@ button, input, select, textarea {
 }
 
 /* ==========================================================================
-   MODAL DIALOG (BOOKING QUOTE & DEMO LEADS VIEWER)
+   MODAL DIALOG (ESTIMATE RECAP)
    ========================================================================== */
 .modal-overlay {
   position: fixed;
@@ -2157,7 +2179,7 @@ button, input, select, textarea {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transition: opacity 0.25s ease, visibility 0.25s ease;
+  transition: opacity 0.25s ease;
 }
 
 .modal-overlay.open {
@@ -2363,7 +2385,7 @@ button, input, select, textarea {
   }
 
   .calc-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .calc-summary-wrapper {
@@ -2388,7 +2410,7 @@ button, input, select, textarea {
   }
 
   .contact-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .footer-top-grid {
@@ -2397,6 +2419,18 @@ button, input, select, textarea {
 }
 
 @media (max-width: 768px) {
+  .calc-grid > *, .contact-grid > *, .contact-item-text { min-width: 0; }
+
+  .contact-item-text { overflow-wrap: anywhere; }
+
+  .contact-info-panel, .contact-form-panel, .calc-step-card, .quote-card-body {
+    padding: 1.25rem;
+  }
+
+  .footer-top-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .nav-links, .nav-actions .btn-outline {
     display: none;
   }

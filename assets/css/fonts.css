@@ -1,0 +1,4 @@
+/* Self-hosted Latin fonts. Licenses and provenance: assets/fonts/. */
+@font-face { font-family: 'Caveat'; font-style: normal; font-weight: 600 700; font-display: swap; src: url('../fonts/caveat-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Outfit'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('../fonts/outfit-latin.woff2') format('woff2'); }
+@font-face { font-family: 'Plus Jakarta Sans'; font-style: normal; font-weight: 400 800; font-display: swap; src: url('../fonts/plusjakartasans-latin.woff2') format('woff2'); }

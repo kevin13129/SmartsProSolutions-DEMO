@@ -2,9 +2,11 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'">
+  <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smarts Pro Solutions | Residential & Commercial Cleaning Shreveport LA | Instant Price Calculator</title>
-  <meta name="description" content="Smarts Pro Solutions provides premium residential home cleaning, commercial janitorial, deep cleaning, and move-in/out services in Shreveport & Bossier City, LA. Calculate your exact price online in 60 seconds!">
+  <meta name="description" content="Smarts Pro Solutions provides premium residential home cleaning, commercial janitorial, deep cleaning, and move-in/out services in Shreveport & Bossier City, LA. Calculate an estimated cleaning price online in 60 seconds!">
   <meta name="keywords" content="cleaning services Shreveport, house cleaning Bossier City, commercial cleaning, deep cleaning, move out clean, office cleaning Shreveport LA">
   
   <!-- Favicon -->
@@ -12,6 +14,7 @@
   
   <!-- CSS Stylesheet -->
   <link rel="stylesheet" href="assets/css/styles.css">
+  <link rel="stylesheet" href="assets/css/security.css">
 </head>
 <body>
 
@@ -52,7 +55,6 @@
           <li><a href="#commercial" class="nav-link">Commercial & Industrial</a></li>
           <li><a href="#checklist" class="nav-link">What's Included</a></li>
           <li><a href="#why-us" class="nav-link">Why Smarts Pro</a></li>
-          <li><a href="#reviews" class="nav-link">Reviews</a></li>
           <li><a href="#contact" class="nav-link">Contact</a></li>
         </ul>
       </nav>
@@ -77,7 +79,7 @@
       <div class="hero-content">
         <div class="hero-badge-pill">
           <span class="sparkle-icon">✦</span>
-          <span>Shreveport & Bossier City's Premier Cleaning Service</span>
+          <span>Founded in 2012 • Shreveport & Bossier City's Premier Cleaning Service</span>
         </div>
         <h1 class="hero-title">
           Clean Spaces. <br>
@@ -99,15 +101,15 @@
         <div class="hero-trust-row">
           <div class="hero-trust-item">
             <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-            <span>Fully Licensed & Insured</span>
-          </div>
-          <div class="hero-trust-item">
-            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-            <span>100% Satisfaction Guarantee</span>
+            <span>Founded in 2012</span>
           </div>
           <div class="hero-trust-item">
             <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
             <span>Fast, Reliable Scheduling</span>
+          </div>
+          <div class="hero-trust-item">
+            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>
+            <span>Eco-Friendly Supplies</span>
           </div>
         </div>
       </div>
@@ -124,8 +126,8 @@
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
           </div>
           <div>
-            <div class="floating-badge-title">5.0 Star Rated Pro</div>
-            <div class="floating-badge-subtitle">Shreveport Homeowners Choice</div>
+            <div class="floating-badge-title">Locally Owned</div>
+            <div class="floating-badge-subtitle">Shreveport & Bossier City</div>
           </div>
         </div>
 
@@ -198,7 +200,7 @@
         </div>
         <div class="brand-strip-text">
           <h4>Custom Add-Ons</h4>
-          <p>Windows, appliances, linens</p>
+          <p>Refrigerators, ovens, pet care</p>
         </div>
       </div>
     </div>
@@ -286,7 +288,7 @@
                   <span>Approximate Square Footage</span>
                 </div>
                 <div class="sqft-display-input-wrap">
-                  <input type="number" id="input-sqft" class="sqft-number-input" value="1800" min="400" max="7000" step="50" aria-label="Square footage number">
+                  <input type="number" id="input-sqft" class="sqft-number-input" value="1800" min="400" max="6000" step="50" aria-label="Square footage number">
                   <span class="sqft-unit">sq ft</span>
                 </div>
               </div>
@@ -355,6 +357,20 @@
                 <p class="service-card-desc">Complete empty-property turnover: inside empty cabinets & closets wiped, detailed baseboards, ready for inspection.</p>
                 <span class="service-multiplier-tag">100% Turnover Ready</span>
               </label>
+
+              <!-- Airbnb / Vacation Rental Turnover -->
+              <label class="service-card-option" data-type="airbnb">
+                <input type="radio" name="service_type" value="airbnb">
+                <div class="service-card-top">
+                  <div class="service-icon-wrap">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline><path d="M12 2v4"></path></svg>
+                  </div>
+                  <div class="service-radio-custom"></div>
+                </div>
+                <div class="service-card-name">Airbnb / STR Turnover</div>
+                <p class="service-card-desc">Fast guest turnover: fresh bed linens, sanitized bathrooms, kitchen restocked, trash cleared, and guest-ready staging.</p>
+                <span class="service-multiplier-tag">Guest-Ready Staged</span>
+              </label>
             </div>
           </div>
 
@@ -393,6 +409,14 @@
                 <div class="freq-sub">Monthly Refresh</div>
               </label>
 
+              <!-- Per Turnover: 15% Discount -->
+              <label class="freq-card-option" data-freq="turnover">
+                <span class="freq-discount-badge">Save 15%</span>
+                <input type="radio" name="frequency_choice" value="turnover">
+                <div class="freq-name">Per Turnover</div>
+                <div class="freq-sub">Airbnb / Host Partner</div>
+              </label>
+
               <!-- One Time: No Discount -->
               <label class="freq-card-option" data-freq="onetime">
                 <input type="radio" name="frequency_choice" value="onetime">
@@ -413,43 +437,43 @@
             </div>
 
             <div class="addons-grid">
-              <!-- Bed Linens: $5 each -->
-              <div class="addon-card-item" id="addon-item-linens">
-                <div class="addon-info-block">
-                  <div class="addon-icon-circle">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path></svg>
-                  </div>
-                  <div class="addon-text-wrap">
-                    <h4>Change Bed Linens</h4>
-                    <span class="addon-rate-badge">$5 each</span>
-                  </div>
-                </div>
-                <div class="stepper-control" style="width: auto;">
-                  <button type="button" class="stepper-btn" id="btn-linens-minus" aria-label="Decrease Linens">−</button>
-                  <span class="stepper-value" id="val-addon-linens">0</span>
-                  <button type="button" class="stepper-btn" id="btn-linens-plus" aria-label="Increase Linens">+</button>
-                </div>
-              </div>
-
-              <!-- Inside Refrigerator: $50 each -->
+              <!-- Single Refrigerator: $65 each -->
               <div class="addon-card-item" id="addon-item-fridge">
                 <div class="addon-info-block">
                   <div class="addon-icon-circle">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="5" y1="10" x2="19" y2="10"></line><line x1="10" y1="6" x2="10" y2="7"></line><line x1="10" y1="14" x2="10" y2="16"></line></svg>
                   </div>
                   <div class="addon-text-wrap">
-                    <h4>Inside Refrigerator</h4>
-                    <span class="addon-rate-badge">$50 each</span>
+                    <h4>Single Refrigerator</h4>
+                    <span class="addon-rate-badge">$65 each</span>
                   </div>
                 </div>
-                <div class="stepper-control" style="width: auto;">
-                  <button type="button" class="stepper-btn" id="btn-fridge-minus" aria-label="Decrease Fridge">−</button>
+                <div class="stepper-auto stepper-control">
+                  <button type="button" class="stepper-btn" id="btn-fridge-minus" aria-label="Decrease Single Refrigerator">−</button>
                   <span class="stepper-value" id="val-addon-fridge">0</span>
-                  <button type="button" class="stepper-btn" id="btn-fridge-plus" aria-label="Increase Fridge">+</button>
+                  <button type="button" class="stepper-btn" id="btn-fridge-plus" aria-label="Increase Single Refrigerator">+</button>
                 </div>
               </div>
 
-              <!-- Inside Oven: $60 each -->
+              <!-- Double Refrigerator: $75 each -->
+              <div class="addon-card-item" id="addon-item-fridge-double">
+                <div class="addon-info-block">
+                  <div class="addon-icon-circle">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="12" y1="2" x2="12" y2="22"></line><line x1="4" y1="11" x2="20" y2="11"></line><line x1="10" y1="6" x2="10" y2="8"></line><line x1="14" y1="6" x2="14" y2="8"></line></svg>
+                  </div>
+                  <div class="addon-text-wrap">
+                    <h4>Double / French Door Fridge</h4>
+                    <span class="addon-rate-badge">$75 each</span>
+                  </div>
+                </div>
+                <div class="stepper-auto stepper-control">
+                  <button type="button" class="stepper-btn" id="btn-fridge-double-minus" aria-label="Decrease Double Refrigerator">−</button>
+                  <span class="stepper-value" id="val-addon-fridge-double">0</span>
+                  <button type="button" class="stepper-btn" id="btn-fridge-double-plus" aria-label="Increase Double Refrigerator">+</button>
+                </div>
+              </div>
+
+              <!-- Inside Oven: $80 each -->
               <div class="addon-card-item" id="addon-item-oven">
                 <div class="addon-info-block">
                   <div class="addon-icon-circle">
@@ -457,31 +481,31 @@
                   </div>
                   <div class="addon-text-wrap">
                     <h4>Inside Oven</h4>
-                    <span class="addon-rate-badge">$60 each</span>
+                    <span class="addon-rate-badge">$80 (subject to condition)</span>
                   </div>
                 </div>
-                <div class="stepper-control" style="width: auto;">
+                <div class="stepper-auto stepper-control">
                   <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Oven">−</button>
                   <span class="stepper-value" id="val-addon-oven">0</span>
                   <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Oven">+</button>
                 </div>
               </div>
 
-              <!-- Interior Windows: $3 each -->
-              <div class="addon-card-item" id="addon-item-windows">
+              <!-- Pet Hair & Detailing: $35 extra -->
+              <div class="addon-card-item" id="addon-item-pets">
                 <div class="addon-info-block">
                   <div class="addon-icon-circle">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line><line x1="3" y1="12" x2="21" y2="12"></line></svg>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="8" r="2.5"></circle><circle cx="17" cy="8" r="2.5"></circle><circle cx="12" cy="4.5" r="2.5"></circle><path d="M12 11c-3 0-5.5 2-5.5 5 0 2 2.5 4 5.5 4s5.5-2 5.5-4c0-3-2.5-5-5.5-5z"></path></svg>
                   </div>
                   <div class="addon-text-wrap">
-                    <h4>Interior Windows</h4>
-                    <span class="addon-rate-badge">$3 each</span>
+                    <h4>Pet Hair & Detailing</h4>
+                    <span class="addon-rate-badge">$35 extra</span>
                   </div>
                 </div>
-                <div class="stepper-control" style="width: auto;">
-                  <button type="button" class="stepper-btn" id="btn-windows-minus" aria-label="Decrease Windows">−</button>
-                  <span class="stepper-value" id="val-addon-windows">0</span>
-                  <button type="button" class="stepper-btn" id="btn-windows-plus" aria-label="Increase Windows">+</button>
+                <div class="stepper-auto stepper-control">
+                  <button type="button" class="stepper-btn" id="btn-pets-minus" aria-label="Decrease Pet Detailing">−</button>
+                  <span class="stepper-value" id="val-addon-pets">0</span>
+                  <button type="button" class="stepper-btn" id="btn-pets-plus" aria-label="Increase Pet Detailing">+</button>
                 </div>
               </div>
             </div>
@@ -515,6 +539,10 @@
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
                   <span>You're saving <strong id="quote-savings-amount">$0.00</strong> per clean!</span>
                 </div>
+                <div class="quote-minimum-note">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <span>$110 minimum service floor applies</span>
+                </div>
               </div>
 
               <!-- Itemized Breakdown -->
@@ -543,7 +571,7 @@
                   <span class="breakdown-value" id="summary-discount-val">-$0.00</span>
                 </div>
 
-                <div class="breakdown-row" id="summary-addons-row" style="display: none;">
+                <div class="addons-hidden breakdown-row" id="summary-addons-row">
                   <span class="breakdown-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
                     Custom Add-Ons
@@ -552,22 +580,10 @@
                 </div>
               </div>
 
-              <!-- Estimated Cleaning Time & Crew -->
-              <div class="estimate-metrics-row">
-                <div class="metric-pill">
-                  <div class="metric-pill-title">Est. Duration</div>
-                  <div class="metric-pill-val" id="summary-est-time">3.0 - 4.0 hrs</div>
-                </div>
-                <div class="metric-pill">
-                  <div class="metric-pill-title">Assigned Crew</div>
-                  <div class="metric-pill-val" id="summary-crew-size">2 Specialists</div>
-                </div>
-              </div>
-
               <!-- Action Buttons -->
               <div class="quote-cta-actions">
-                <button type="button" class="btn btn-green btn-book-now" id="btn-book-quote-now" onclick="window.SmartsProModal && window.SmartsProModal.openBookingModal()">
-                  <span>Lock In Quote & Book Clean</span>
+                <button type="button" class="btn btn-green btn-book-now" id="btn-book-quote-now">
+                  <span>Review Estimate & Call to Book</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
 
@@ -585,7 +601,7 @@
 
               <div class="quote-guarantee-note">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                <span>100% Satisfaction Guarantee • No Card Required Today</span>
+                <span>Transparent Pricing • No Card Required Today</span>
               </div>
             </div>
           </div>
@@ -685,12 +701,12 @@
           <div class="service-card-content">
             <h3 class="service-card-title">Move-In & Move-Out Turnover</h3>
             <p class="service-card-description">
-              Guaranteed deposit-return standards for renters and pristine conditions for homebuyers. We leave empty properties immaculate and ready for keys.
+              High-standard turnover cleaning for renters and pristine conditions for homebuyers. We leave empty properties immaculate and ready for keys.
             </p>
             <ul class="service-bullet-list">
               <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Wipe-down inside cabinets, drawers & pantries</li>
               <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Closet shelving & interior door frame sanitizing</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Final inspection walkthrough guarantee</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Detailed turnover checklist for inspection walkthroughs</li>
             </ul>
             <a href="#calculator" class="btn btn-outline btn-sm">Calculate Move Clean →</a>
           </div>
@@ -745,7 +761,7 @@
   <section class="commercial-banner-section" id="commercial">
     <div class="container commercial-grid">
       <div class="commercial-content-wrap">
-        <span class="badge-shreveport" style="margin-bottom: 1rem; display: inline-block;">Commercial & Industrial Facilities</span>
+        <span class="commercial-badge badge-shreveport">Commercial & Industrial Facilities</span>
         <h2>Shreveport's Trusted Partner for Commercial Janitorial</h2>
         <p>
           Smarts Pro Solutions delivers enterprise-grade facility cleaning tailored to Shreveport and Bossier City businesses. Whether you run a bustling medical clinic, law practice, corporate headquarters, or industrial warehouse, we protect your workplace health and professional brand image.
@@ -762,10 +778,10 @@
 
           <div class="comm-feature-box">
             <h4>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-              Bonded & Insured
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
+              Commercial Equipment
             </h4>
-            <p>Full comprehensive liability and workers' comp coverage for your peace of mind.</p>
+            <p>Heavy-duty sanitizing equipment and professional-grade solutions for commercial facilities.</p>
           </div>
 
           <div class="comm-feature-box">
@@ -1004,8 +1020,8 @@
   <section class="service-area-section">
     <div class="container">
       <span class="badge-shreveport">Service Coverage</span>
-      <h3 style="color:#FFFFFF; font-size: 2rem; margin-top: 0.75rem;">Proudly Serving Northwest Louisiana</h3>
-      <p style="color: #94A3B8; max-width: 600px; margin: 0.5rem auto 1.5rem auto;">
+      <h3 class="service-area-title">Proudly Serving Northwest Louisiana</h3>
+      <p class="service-area-copy">
         We bring our cleaning professionals directly to homes and commercial facilities across Caddo and Bossier parishes.
       </p>
       <div class="area-pills-row">
@@ -1084,53 +1100,14 @@
 
         <!-- Contact Form Side -->
         <div class="contact-form-panel">
-          <h3>Send Us a Message</h3>
-          <p>Have questions about commercial quotes, special scheduling, or customized cleanings? Leave us a note and we'll reply right away.</p>
+          <h3>Talk With Our Team</h3>
+          <p>Have questions about commercial quotes, special scheduling, or customized cleanings? Call our team to discuss your needs.</p>
 
-          <form id="general-contact-form">
-            <div class="form-group-row">
-              <div class="form-control-wrap">
-                <label for="contact-name">Full Name *</label>
-                <input type="text" id="contact-name" class="form-input" placeholder="Your name" required>
-              </div>
-              <div class="form-control-wrap">
-                <label for="contact-phone">Phone Number *</label>
-                <input type="tel" id="contact-phone" class="form-input" placeholder="(318) 000-0000" required>
-              </div>
-            </div>
-
-            <div class="form-group-row">
-              <div class="form-control-wrap">
-                <label for="contact-email">Email Address</label>
-                <input type="email" id="contact-email" class="form-input" placeholder="you@domain.com">
-              </div>
-              <div class="form-control-wrap">
-                <label for="contact-service-interest">Service of Interest</label>
-                <select id="contact-service-interest" class="form-select">
-                  <option value="residential">Residential Home Cleaning</option>
-                  <option value="commercial">Commercial / Office Cleaning</option>
-                  <option value="deep">Deep Clean Restoration</option>
-                  <option value="move">Move-In / Move-Out Clean</option>
-                  <option value="industrial">Industrial / Construction</option>
-                  <option value="other">Other Inquiry</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-control-wrap">
-              <label for="contact-message">Message or Scope Details</label>
-              <textarea id="contact-message" class="form-textarea" placeholder="Tell us about your property, approximate square footage, or any specific requirements..."></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
-              <span>Send Message</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
-            </button>
-
-            <div id="contact-form-success" style="display: none; margin-top: 1rem; padding: 0.85rem; background: var(--green-light); color: var(--green-dark); border-radius: var(--radius-md); text-align: center; font-weight: 700;">
-              ✔ Thank you! We received your message and will call you shortly.
-            </div>
-          </form>
+          <div class="intake-notice" id="contact-intake-notice">
+            <p>Online requests are not available yet. This preview does not collect your contact details or send booking requests.</p>
+            <a class="btn btn-primary btn-lg" href="tel:3185644360">Call (318) 564-4360</a>
+            <p class="privacy-note">Please do not send card details, passwords, or home access codes by email.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -1143,13 +1120,13 @@
     <div class="container">
       <div class="footer-top-grid">
         <div class="footer-col-brand">
-          <div class="brand-title" style="color: #FFFFFF; font-size: 1.5rem; margin-bottom: 0.5rem;">
+          <div class="footer-brand-title brand-title">
             SMARTS <span class="pro-accent">PRO</span>SOLUTIONS
           </div>
           <p>
             Shreveport and Bossier City's premier residential, commercial, deep cleaning, and turnover specialists. Committed to healthy, sparkling environments for families and businesses.
           </p>
-          <div class="script-font" style="font-size: 1.4rem; color: var(--green-vibrant);">
+          <div class="footer-brand-tagline script-font">
             Clean Spaces. Happier & Healthier Lives.
           </div>
         </div>
@@ -1162,6 +1139,7 @@
             <li><a href="#commercial">Commercial Janitorial</a></li>
             <li><a href="#services">Deep Cleaning</a></li>
             <li><a href="#services">Move In & Out Clean</a></li>
+            <li><a href="#services">Airbnb & STR Turnover</a></li>
             <li><a href="#calculator">Custom Add-Ons</a></li>
           </ul>
         </div>
@@ -1191,165 +1169,34 @@
 
       <div class="footer-bottom">
         <div>
-          © <span id="footer-year">2026</span> Smarts Pro Solutions. All Rights Reserved. • Licensed & Insured.
+          © <span id="footer-year">2026</span> Smarts Pro Solutions. Founded in 2012. All Rights Reserved. • Licensed & Insured.
         </div>
-        <div style="display: flex; gap: 1.5rem; align-items: center;">
-          <a href="#" id="link-open-leads-admin" style="color: #64748B; font-size: 0.75rem; text-decoration: underline;" title="Press Shift+L to open Demo Leads Inspector">
-            ⚡ Admin / Demo Leads View
-          </a>
-          <a href="#calculator" style="color: #E2E8F0; font-weight: 700;">Calculate Quote ⚡</a>
+        <div class="footer-actions">
+          <a href="#calculator" class="footer-calculator-link">Calculate Quote ⚡</a>
         </div>
       </div>
     </div>
   </footer>
 
-  <!-- ==========================================================================
-       MODAL: BOOKING & ESTIMATE SUBMISSION
-       ========================================================================== -->
-  <div class="modal-overlay" id="booking-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-booking-title">
+  <!-- Estimate recap: customer intake remains unavailable until the backend is ready. -->
+  <div class="modal-overlay" id="booking-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-booking-title" aria-describedby="booking-intake-notice">
     <div class="modal-container">
       <div class="modal-header">
-        <h3 id="modal-booking-title">Lock In Your Quote & Schedule</h3>
-        <button class="modal-close-btn" id="modal-close-btn" aria-label="Close Modal">&times;</button>
-      </div>
-
-      <div class="modal-body">
-        <!-- Form State -->
-        <div id="modal-form-state">
-          <!-- Active Quote Recap -->
-          <div class="modal-quote-recap">
-            <div class="recap-row">
-              <span style="color: #64748B;">Service Selected:</span>
-              <strong id="modal-recap-service">Standard Clean</strong>
-            </div>
-            <div class="recap-row">
-              <span style="color: #64748B;">Property Specs:</span>
-              <strong id="modal-recap-specs">3 Bed, 2 Bath • 1,800 sq ft</strong>
-            </div>
-            <div class="recap-row">
-              <span style="color: #64748B;">Frequency:</span>
-              <strong id="modal-recap-freq" style="color: var(--green-dark);">Every 2 Weeks (15% OFF)</strong>
-            </div>
-            <div class="recap-row">
-              <span style="color: #64748B;">Custom Add-Ons:</span>
-              <span id="modal-recap-addons">None selected</span>
-            </div>
-            <div class="recap-row recap-total">
-              <span>Estimated Quote:</span>
-              <span id="modal-recap-total" style="color: var(--blue-primary);">$165.00</span>
-            </div>
-          </div>
-
-          <form id="booking-quote-form">
-            <div class="form-group-row">
-              <div class="form-control-wrap">
-                <label for="book-name">Your Full Name *</label>
-                <input type="text" id="book-name" class="form-input" placeholder="e.g. Jane Doe" required>
-              </div>
-              <div class="form-control-wrap">
-                <label for="book-phone">Mobile Phone (for SMS confirmation) *</label>
-                <input type="tel" id="book-phone" class="form-input" placeholder="(318) 555-0192" required>
-              </div>
-            </div>
-
-            <div class="form-group-row">
-              <div class="form-control-wrap">
-                <label for="book-email">Email Address</label>
-                <input type="email" id="book-email" class="form-input" placeholder="jane@example.com">
-              </div>
-              <div class="form-control-wrap">
-                <label for="book-date">Preferred Cleaning Date *</label>
-                <input type="date" id="book-date" class="form-input" required>
-              </div>
-            </div>
-
-            <div class="form-group-row">
-              <div class="form-control-wrap">
-                <label for="book-address">Service Address (Street, City, Zip) *</label>
-                <input type="text" id="book-address" class="form-input" placeholder="123 Magnolia St, Shreveport, LA 71101" required>
-              </div>
-              <div class="form-control-wrap">
-                <label for="book-time">Preferred Time of Day</label>
-                <select id="book-time" class="form-select">
-                  <option value="morning">Morning (8:00 AM – 12:00 PM)</option>
-                  <option value="afternoon">Afternoon (12:00 PM – 4:00 PM)</option>
-                  <option value="evening">Late Afternoon / Evening</option>
-                  <option value="flexible">Flexible / Any Time</option>
-                </select>
-              </div>
-            </div>
-
-            <div class="form-control-wrap">
-              <label for="book-notes">Special Instructions or Pet Details (Optional)</label>
-              <textarea id="book-notes" class="form-textarea" placeholder="e.g. Gate code, friendly dog inside, focus on master bath..."></textarea>
-            </div>
-
-            <button type="submit" class="btn btn-green btn-lg" style="width: 100%; margin-top: 0.5rem;">
-              <span>Submit & Lock In This Quote</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
-            </button>
-
-            <p style="text-align: center; font-size: 0.78rem; color: #64748B; margin-top: 0.75rem;">
-              🔒 No credit card required today. We will call/text you promptly to confirm your appointment.
-            </p>
-          </form>
-        </div>
-
-        <!-- Success State -->
-        <div id="modal-success-state" class="booking-success-box" style="display: none;">
-          <div class="success-check-circle">
-            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>
-          </div>
-          <h3 style="font-size: 1.8rem; margin-bottom: 0.5rem;">Quote Request Received!</h3>
-          <p style="color: #64748B; font-size: 1rem; max-width: 480px; margin: 0 auto 1.5rem auto;">
-            Thank you! Your cleaning estimate has been logged with reference code:
-          </p>
-          <div style="display: inline-block; background: var(--bg-ice); border: 2px dashed var(--blue-primary); padding: 0.6rem 1.5rem; border-radius: var(--radius-md); font-weight: 800; font-size: 1.5rem; color: var(--navy-dark); margin-bottom: 1.5rem;">
-            <span id="success-ref-code">SPS-93821</span>
-          </div>
-          <p style="color: #475569; font-size: 0.92rem; margin-bottom: 2rem;">
-            A Smarts Pro Solutions representative will call or text your mobile number within 1 business hour to finalize your time slot. Need immediate assistance? Call us right away at <strong>(318) 564-4360</strong>.
-          </p>
-          <button type="button" class="btn btn-primary" onclick="window.SmartsProModal.closeBookingModal()">Done & Return to Site</button>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- ==========================================================================
-       MODAL: DEMO LEADS VIEWER (FOR CLIENT PRESENTATION & BACKEND VALIDATION)
-       ========================================================================== -->
-  <div class="modal-overlay" id="leads-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-leads-title">
-    <div class="modal-container" style="max-width: 850px;">
-      <div class="modal-header">
-        <h3 id="modal-leads-title">⚡ Smarts Pro Solutions - Captured Leads</h3>
-        <button class="modal-close-btn" id="leads-modal-close-btn">&times;</button>
+        <h3 id="modal-booking-title">Review Your Estimate</h3>
+        <button type="button" class="modal-close-btn" id="modal-close-btn" aria-label="Close estimate">&times;</button>
       </div>
       <div class="modal-body">
-        <p style="font-size: 0.88rem; color: #64748B; margin-bottom: 1rem;">
-          This demo panel displays quote bookings captured via the calculator. In production, this framework hooks directly to Supabase, an email dispatcher, or your CRM webhook.
-        </p>
-        <div style="display: flex; justify-content: flex-end; gap: 0.75rem; margin-bottom: 1rem;">
-          <button type="button" class="btn btn-outline btn-sm" id="btn-export-leads-csv">
-            📥 Download CSV of Leads
-          </button>
+        <div class="modal-quote-recap">
+          <div class="recap-row"><span>Service Selected:</span><strong id="modal-recap-service">Standard Clean</strong></div>
+          <div class="recap-row"><span>Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
+          <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks (15% OFF)</strong></div>
+          <div class="recap-row"><span>Custom Add-Ons:</span><span id="modal-recap-addons">None selected</span></div>
+          <div class="recap-row recap-total"><span>Estimated Quote:</span><span id="modal-recap-total">$246.50</span></div>
         </div>
-        <div style="overflow-x: auto;">
-          <table class="leads-table">
-            <thead>
-              <tr>
-                <th>Ref Code</th>
-                <th>Customer Contact</th>
-                <th>Property & Service</th>
-                <th>Frequency</th>
-                <th>Est. Price</th>
-                <th>Time Logged</th>
-              </tr>
-            </thead>
-            <tbody id="leads-table-body">
-              <!-- Dynamically populated -->
-            </tbody>
-          </table>
+        <div class="intake-notice" id="booking-intake-notice">
+          <p>This is an estimate, subject to confirmation of the property and service scope. It does not reserve a time or lock in a price.</p>
+          <p>Online booking is not available yet. Call our team to confirm your price and availability.</p>
+          <a class="btn btn-green btn-lg" href="tel:3185644360">Call (318) 564-4360 to Book</a>
         </div>
       </div>
     </div>

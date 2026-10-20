@@ -1,0 +1,19 @@
+/* Rules extracted to support a policy that blocks inline styles. */
+.stepper-auto { width: auto; }
+.addons-hidden { display: none; }
+.commercial-badge { margin-bottom: 1rem; display: inline-block; }
+.service-area-title { color:#FFFFFF; font-size: 2rem; margin-top: 0.75rem; }
+.service-area-copy { color: #94A3B8; max-width: 600px; margin: 0.5rem auto 1.5rem auto; }
+.footer-brand-title { color: #FFFFFF; font-size: 1.5rem; margin-bottom: 0.5rem; }
+.footer-brand-tagline { font-size: 1.4rem; color: var(--green-vibrant); }
+.footer-actions { display: flex; gap: 1.5rem; align-items: center; }
+.footer-calculator-link { color: #E2E8F0; font-weight: 700; }
+
+body.modal-open { overflow: hidden; }
+.intake-notice { padding: 1.25rem; border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-ice); }
+.intake-notice p { margin: 0 0 1rem; color: var(--text-main); }
+.intake-notice .privacy-note { font-size: 0.85rem; color: var(--text-muted); margin: 1rem 0 0; }
+.intake-notice .btn { white-space: normal; text-align: center; }
+.btn-book-now { white-space: normal; }
+#modal-recap-freq { color: var(--green-dark); }
+#modal-recap-total { color: var(--blue-primary); }

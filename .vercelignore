@@ -1,0 +1,15 @@
+.git
+.github
+.env*
+node_modules
+dist
+.security-preview
+test-results
+coverage
+*.log
+*.csv
+*.sql
+*.pem
+*.key
+*.p12
+*.pfx

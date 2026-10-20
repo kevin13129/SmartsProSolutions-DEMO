@@ -13,43 +13,48 @@
     fullBaths: 2,
     halfBaths: 1,
     sqft: 1800,
-    serviceType: 'standard', // 'standard' | 'deep' | 'moveinout'
-    frequency: 'biweekly',   // 'weekly' | 'biweekly' | 'monthly' | 'onetime'
+    serviceType: 'standard', // 'standard' | 'deep' | 'moveinout' | 'airbnb'
+    frequency: 'biweekly',   // 'weekly' | 'biweekly' | 'turnover' | 'monthly' | 'onetime'
     addons: {
       linens: 0,
-      fridge: 0,
+      fridgeSingle: 0,
+      fridgeDouble: 0,
       oven: 0,
-      windows: 0
+      pets: 0
     }
   };
 
-  // Pricing Parameters & Rates
+  // Pricing Parameters & Rates ($40/hr standard, $50/hr deep clean baseline)
   const PRICING = {
-    baseFlat: 85,
-    perBedroom: 25,
-    perFullBath: 35,
-    perHalfBath: 20,
+    minimumFloor: 110,
+    baseFlat: 60,
+    perBedroom: 20,
+    perFullBath: 30,
+    perHalfBath: 15,
     sqftBaseThreshold: 1000,
-    sqftPerFootOver: 0.05,
+    sqftPerFootOver: 0.04,
     
     serviceMultipliers: {
       standard: 1.0,
       deep: 1.45,
-      moveinout: 1.65
+      moveinout: 1.65,
+      airbnb: 1.15
     },
 
     frequencyDiscounts: {
       weekly: 0.20,     // 20% OFF
       biweekly: 0.15,   // 15% OFF
+      turnover: 0.15,   // 15% OFF (Airbnb host partner)
       monthly: 0.10,    // 10% OFF
       onetime: 0.00     // No discount
     },
 
     addonRates: {
-      linens: 5,     // $5 each
-      fridge: 50,    // $50 each
-      oven: 60,      // $60 each
-      windows: 3     // $3 each
+      linens: 5,           // $5 each
+      fridgeSingle: 65,    // $65 each
+      fridgeDouble: 75,    // $75 each
+      oven: 80,            // $80 each (subject to condition)
+      pets: 35             // $35 pet hair/detailing fee
     }
   };
 
@@ -85,13 +90,17 @@
     addonFridgeMinus: document.getElementById('btn-fridge-minus'),
     addonFridgePlus: document.getElementById('btn-fridge-plus'),
 
+    addonFridgeDoubleVal: document.getElementById('val-addon-fridge-double'),
+    addonFridgeDoubleMinus: document.getElementById('btn-fridge-double-minus'),
+    addonFridgeDoublePlus: document.getElementById('btn-fridge-double-plus'),
+
     addonOvenVal: document.getElementById('val-addon-oven'),
     addonOvenMinus: document.getElementById('btn-oven-minus'),
     addonOvenPlus: document.getElementById('btn-oven-plus'),
 
-    addonWindowsVal: document.getElementById('val-addon-windows'),
-    addonWindowsMinus: document.getElementById('btn-windows-minus'),
-    addonWindowsPlus: document.getElementById('btn-windows-plus'),
+    addonPetsVal: document.getElementById('val-addon-pets'),
+    addonPetsMinus: document.getElementById('btn-pets-minus'),
+    addonPetsPlus: document.getElementById('btn-pets-plus'),
 
     // Summary outputs
     quoteTotal: document.getElementById('quote-total-amount'),
@@ -117,7 +126,7 @@
   };
 
   /**
-   * Calculate exact quote details from current state
+   * Calculate a display-only estimate. This is never a trusted price for billing.
    */
   function calculateQuote() {
     // 1. Base rooms calculation
@@ -138,25 +147,36 @@
     // 4. Frequency Discount
     const discountRate = PRICING.frequencyDiscounts[state.frequency] || 0;
     const discountAmount = serviceSubtotal * discountRate;
-    const cleanAfterDiscount = serviceSubtotal - discountAmount;
+    let cleanAfterDiscount = serviceSubtotal - discountAmount;
 
-    // 5. Add-ons
+    // 5. Minimum Job Floor ($110 floor)
+    let isFloorApplied = false;
+    if (cleanAfterDiscount < PRICING.minimumFloor) {
+      cleanAfterDiscount = PRICING.minimumFloor;
+      isFloorApplied = true;
+    }
+
+    // 6. Add-ons
     const addonsTotal = 
       (state.addons.linens * PRICING.addonRates.linens) +
-      (state.addons.fridge * PRICING.addonRates.fridge) +
+      (state.addons.fridgeSingle * PRICING.addonRates.fridgeSingle) +
+      (state.addons.fridgeDouble * PRICING.addonRates.fridgeDouble) +
       (state.addons.oven * PRICING.addonRates.oven) +
-      (state.addons.windows * PRICING.addonRates.windows);
+      (state.addons.pets * PRICING.addonRates.pets);
 
-    // 6. Grand total
+    // 7. Grand total
     const grandTotal = cleanAfterDiscount + addonsTotal;
 
-    // 7. Time estimation
+    // 8. Time estimation
     let estHours = 1.75 + (state.bedrooms * 0.45) + (state.fullBaths * 0.6) + (state.sqft / 1400);
     if (state.serviceType === 'deep') estHours += 1.5;
     if (state.serviceType === 'moveinout') estHours += 2.0;
-    if (state.addons.fridge > 0) estHours += 0.5 * state.addons.fridge;
-    if (state.addons.oven > 0) estHours += 0.5 * state.addons.oven;
-    if (state.addons.windows > 0) estHours += 0.1 * state.addons.windows;
+    if (state.serviceType === 'airbnb') estHours += 0.5;
+    if (state.addons.fridgeSingle > 0) estHours += 0.6 * state.addons.fridgeSingle;
+    if (state.addons.fridgeDouble > 0) estHours += 0.9 * state.addons.fridgeDouble;
+    if (state.addons.oven > 0) estHours += 0.75 * state.addons.oven;
+    if (state.addons.linens > 0) estHours += 0.15 * state.addons.linens;
+    if (state.addons.pets > 0) estHours += 0.5 * state.addons.pets;
 
     const roundedHoursMin = (Math.floor(estHours * 2) / 2).toFixed(1);
     const roundedHoursMax = (Math.ceil((estHours + 0.75) * 2) / 2).toFixed(1);
@@ -168,6 +188,7 @@
       serviceMultiplier,
       discountRate,
       discountAmount,
+      isFloorApplied,
       addonsTotal,
       grandTotal,
       estTime: `${roundedHoursMin} - ${roundedHoursMax} hrs`,
@@ -228,20 +249,23 @@
 
     // Addons display
     if (els.addonLinensVal) els.addonLinensVal.textContent = state.addons.linens;
-    if (els.addonFridgeVal) els.addonFridgeVal.textContent = state.addons.fridge;
+    if (els.addonFridgeVal) els.addonFridgeVal.textContent = state.addons.fridgeSingle;
+    if (els.addonFridgeDoubleVal) els.addonFridgeDoubleVal.textContent = state.addons.fridgeDouble;
     if (els.addonOvenVal) els.addonOvenVal.textContent = state.addons.oven;
-    if (els.addonWindowsVal) els.addonWindowsVal.textContent = state.addons.windows;
+    if (els.addonPetsVal) els.addonPetsVal.textContent = state.addons.pets;
 
     if (els.addonLinensMinus) els.addonLinensMinus.disabled = state.addons.linens <= 0;
-    if (els.addonFridgeMinus) els.addonFridgeMinus.disabled = state.addons.fridge <= 0;
+    if (els.addonFridgeMinus) els.addonFridgeMinus.disabled = state.addons.fridgeSingle <= 0;
+    if (els.addonFridgeDoubleMinus) els.addonFridgeDoubleMinus.disabled = state.addons.fridgeDouble <= 0;
     if (els.addonOvenMinus) els.addonOvenMinus.disabled = state.addons.oven <= 0;
-    if (els.addonWindowsMinus) els.addonWindowsMinus.disabled = state.addons.windows <= 0;
+    if (els.addonPetsMinus) els.addonPetsMinus.disabled = state.addons.pets <= 0;
 
     // Highlight addon card if quantity > 0
     toggleAddonCardHighlight('addon-item-linens', state.addons.linens > 0);
-    toggleAddonCardHighlight('addon-item-fridge', state.addons.fridge > 0);
+    toggleAddonCardHighlight('addon-item-fridge', state.addons.fridgeSingle > 0);
+    toggleAddonCardHighlight('addon-item-fridge-double', state.addons.fridgeDouble > 0);
     toggleAddonCardHighlight('addon-item-oven', state.addons.oven > 0);
-    toggleAddonCardHighlight('addon-item-windows', state.addons.windows > 0);
+    toggleAddonCardHighlight('addon-item-pets', state.addons.pets > 0);
 
     // Active Service radio card
     els.serviceCards.forEach(card => {
@@ -271,6 +295,7 @@
     const freqLabels = {
       weekly: 'Billed Weekly (Every 7 Days)',
       biweekly: 'Billed Bi-Weekly (Every 2 Weeks)',
+      turnover: 'Per Guest Turnover (Airbnb / STR)',
       monthly: 'Billed Monthly (Every 4 Weeks)',
       onetime: 'One-Time Cleaning Rate'
     };
@@ -296,7 +321,8 @@
     const serviceNames = {
       standard: 'Standard Clean',
       deep: 'Deep Restoration Clean',
-      moveinout: 'Move In / Move Out Clean'
+      moveinout: 'Move In / Move Out Clean',
+      airbnb: 'Airbnb / STR Turnover'
     };
     if (els.breakdownServiceType) {
       els.breakdownServiceType.textContent = serviceNames[state.serviceType] || 'Standard';
@@ -335,7 +361,7 @@
     if (els.summaryEstTime) els.summaryEstTime.textContent = quote.estTime;
     if (els.summaryCrew) els.summaryCrew.textContent = quote.crewSize;
 
-    // Broadcast state for booking modal and backend framework
+    // Public display state for the estimate recap, never a booking/payment authority.
     window.SmartsProCurrentQuote = {
       state: JSON.parse(JSON.stringify(state)),
       calculation: quote
@@ -404,26 +430,28 @@
       }
     });
 
+    // Bound both controls consistently. Server-side validation is still required
+    // before these display-only values can be used in a real booking.
+    function updateSquareFootage(value) {
+      const parsed = Number(value);
+      state.sqft = Number.isFinite(parsed) ? Math.min(6000, Math.max(400, Math.round(parsed))) : 400;
+      updateUI();
+    }
+
     // Sqft slider & input
     els.sqftSlider?.addEventListener('input', (e) => {
-      state.sqft = parseInt(e.target.value, 10);
-      updateUI();
+      updateSquareFootage(e.target.value);
     });
 
     els.sqftInput?.addEventListener('input', (e) => {
-      let val = parseInt(e.target.value, 10);
-      if (isNaN(val)) val = 400;
-      if (val < 200) val = 200;
-      if (val > 10000) val = 10000;
-      state.sqft = val;
-      updateUI();
+      updateSquareFootage(e.target.value);
     });
 
     // Service Type radio cards
     els.serviceCards.forEach(card => {
       card.addEventListener('click', () => {
         const radio = card.querySelector('input[type="radio"]');
-        if (radio) {
+        if (radio && Object.hasOwn(PRICING.serviceMultipliers, radio.value)) {
           state.serviceType = radio.value;
           updateUI();
         }
@@ -434,7 +462,7 @@
     els.freqCards.forEach(card => {
       card.addEventListener('click', () => {
         const radio = card.querySelector('input[type="radio"]');
-        if (radio) {
+        if (radio && Object.hasOwn(PRICING.frequencyDiscounts, radio.value)) {
           state.frequency = radio.value;
           updateUI();
         }
@@ -450,10 +478,17 @@
     });
 
     els.addonFridgeMinus?.addEventListener('click', () => {
-      if (state.addons.fridge > 0) { state.addons.fridge--; updateUI(); }
+      if (state.addons.fridgeSingle > 0) { state.addons.fridgeSingle--; updateUI(); }
     });
     els.addonFridgePlus?.addEventListener('click', () => {
-      if (state.addons.fridge < 5) { state.addons.fridge++; updateUI(); }
+      if (state.addons.fridgeSingle < 5) { state.addons.fridgeSingle++; updateUI(); }
+    });
+
+    els.addonFridgeDoubleMinus?.addEventListener('click', () => {
+      if (state.addons.fridgeDouble > 0) { state.addons.fridgeDouble--; updateUI(); }
+    });
+    els.addonFridgeDoublePlus?.addEventListener('click', () => {
+      if (state.addons.fridgeDouble < 5) { state.addons.fridgeDouble++; updateUI(); }
     });
 
     els.addonOvenMinus?.addEventListener('click', () => {
@@ -463,11 +498,11 @@
       if (state.addons.oven < 5) { state.addons.oven++; updateUI(); }
     });
 
-    els.addonWindowsMinus?.addEventListener('click', () => {
-      if (state.addons.windows > 0) { state.addons.windows--; updateUI(); }
+    els.addonPetsMinus?.addEventListener('click', () => {
+      if (state.addons.pets > 0) { state.addons.pets--; updateUI(); }
     });
-    els.addonWindowsPlus?.addEventListener('click', () => {
-      if (state.addons.windows < 50) { state.addons.windows++; updateUI(); }
+    els.addonPetsPlus?.addEventListener('click', () => {
+      if (state.addons.pets < 5) { state.addons.pets++; updateUI(); }
     });
 
     // Print Quote button
@@ -482,7 +517,7 @@
       if (navigator.clipboard) {
         navigator.clipboard.writeText(shareText).then(() => {
           alert('Estimate summary copied to clipboard! You can paste and send this via text or email.');
-        });
+        }).catch(() => alert(shareText));
       } else {
         alert(shareText);
       }
