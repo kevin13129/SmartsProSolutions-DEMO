@@ -24,7 +24,6 @@
       onetime: 'One-Time Service'
     };
     const addonLabels = {
-      linens: 'Linens',
       fridgeSingle: 'Single Fridge',
       fridgeDouble: 'Double Fridge',
       oven: 'Inside Oven',

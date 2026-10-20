@@ -16,7 +16,6 @@
     serviceType: 'standard', // 'standard' | 'deep' | 'moveinout' | 'airbnb'
     frequency: 'biweekly',   // 'weekly' | 'biweekly' | 'turnover' | 'monthly' | 'onetime'
     addons: {
-      linens: 0,
       fridgeSingle: 0,
       fridgeDouble: 0,
       oven: 0,
@@ -50,7 +49,6 @@
     },
 
     addonRates: {
-      linens: 5,           // $5 each
       fridgeSingle: 65,    // $65 each
       fridgeDouble: 75,    // $75 each
       oven: 80,            // $80 each (subject to condition)
@@ -82,10 +80,6 @@
     freqCards: document.querySelectorAll('.freq-card-option'),
 
     // Addons
-    addonLinensVal: document.getElementById('val-addon-linens'),
-    addonLinensMinus: document.getElementById('btn-linens-minus'),
-    addonLinensPlus: document.getElementById('btn-linens-plus'),
-
     addonFridgeVal: document.getElementById('val-addon-fridge'),
     addonFridgeMinus: document.getElementById('btn-fridge-minus'),
     addonFridgePlus: document.getElementById('btn-fridge-plus'),
@@ -116,9 +110,6 @@
     breakdownDiscountLabel: document.getElementById('summary-discount-label'),
     breakdownAddonsRow: document.getElementById('summary-addons-row'),
     breakdownAddonsVal: document.getElementById('summary-addons-val'),
-    
-    summaryEstTime: document.getElementById('summary-est-time'),
-    summaryCrew: document.getElementById('summary-crew-size'),
 
     btnBookNow: document.getElementById('btn-book-quote-now'),
     btnPrintQuote: document.getElementById('btn-print-quote'),
@@ -158,7 +149,6 @@
 
     // 6. Add-ons
     const addonsTotal = 
-      (state.addons.linens * PRICING.addonRates.linens) +
       (state.addons.fridgeSingle * PRICING.addonRates.fridgeSingle) +
       (state.addons.fridgeDouble * PRICING.addonRates.fridgeDouble) +
       (state.addons.oven * PRICING.addonRates.oven) +
@@ -175,7 +165,6 @@
     if (state.addons.fridgeSingle > 0) estHours += 0.6 * state.addons.fridgeSingle;
     if (state.addons.fridgeDouble > 0) estHours += 0.9 * state.addons.fridgeDouble;
     if (state.addons.oven > 0) estHours += 0.75 * state.addons.oven;
-    if (state.addons.linens > 0) estHours += 0.15 * state.addons.linens;
     if (state.addons.pets > 0) estHours += 0.5 * state.addons.pets;
 
     const roundedHoursMin = (Math.floor(estHours * 2) / 2).toFixed(1);
@@ -248,20 +237,17 @@
     updateSliderBackground(els.sqftSlider);
 
     // Addons display
-    if (els.addonLinensVal) els.addonLinensVal.textContent = state.addons.linens;
     if (els.addonFridgeVal) els.addonFridgeVal.textContent = state.addons.fridgeSingle;
     if (els.addonFridgeDoubleVal) els.addonFridgeDoubleVal.textContent = state.addons.fridgeDouble;
     if (els.addonOvenVal) els.addonOvenVal.textContent = state.addons.oven;
     if (els.addonPetsVal) els.addonPetsVal.textContent = state.addons.pets;
 
-    if (els.addonLinensMinus) els.addonLinensMinus.disabled = state.addons.linens <= 0;
     if (els.addonFridgeMinus) els.addonFridgeMinus.disabled = state.addons.fridgeSingle <= 0;
     if (els.addonFridgeDoubleMinus) els.addonFridgeDoubleMinus.disabled = state.addons.fridgeDouble <= 0;
     if (els.addonOvenMinus) els.addonOvenMinus.disabled = state.addons.oven <= 0;
     if (els.addonPetsMinus) els.addonPetsMinus.disabled = state.addons.pets <= 0;
 
     // Highlight addon card if quantity > 0
-    toggleAddonCardHighlight('addon-item-linens', state.addons.linens > 0);
     toggleAddonCardHighlight('addon-item-fridge', state.addons.fridgeSingle > 0);
     toggleAddonCardHighlight('addon-item-fridge-double', state.addons.fridgeDouble > 0);
     toggleAddonCardHighlight('addon-item-oven', state.addons.oven > 0);
@@ -356,10 +342,6 @@
         els.breakdownAddonsRow.style.display = 'none';
       }
     }
-
-    // Duration & crew
-    if (els.summaryEstTime) els.summaryEstTime.textContent = quote.estTime;
-    if (els.summaryCrew) els.summaryCrew.textContent = quote.crewSize;
 
     // Public display state for the estimate recap, never a booking/payment authority.
     window.SmartsProCurrentQuote = {
@@ -470,13 +452,6 @@
     });
 
     // Addons Steppers
-    els.addonLinensMinus?.addEventListener('click', () => {
-      if (state.addons.linens > 0) { state.addons.linens--; updateUI(); }
-    });
-    els.addonLinensPlus?.addEventListener('click', () => {
-      if (state.addons.linens < 15) { state.addons.linens++; updateUI(); }
-    });
-
     els.addonFridgeMinus?.addEventListener('click', () => {
       if (state.addons.fridgeSingle > 0) { state.addons.fridgeSingle--; updateUI(); }
     });
