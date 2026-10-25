@@ -8,11 +8,17 @@ const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=u
 
 // Local preview only: binds to loopback and serves the public manifest, never
 // the repository root. Production TLS/edge protections belong to the host.
-export function createPreviewServer() {
+export function createPreviewServer({ allowFraming = false } = {}) {
   return http.createServer(async (req, res) => {
     const localHeaders = { ...headers };
     delete localHeaders['Strict-Transport-Security'];
     localHeaders['Content-Security-Policy'] = localHeaders['Content-Security-Policy'].replace('; upgrade-insecure-requests', '');
+    if (allowFraming) {
+      delete localHeaders['X-Frame-Options'];
+      delete localHeaders['Cross-Origin-Opener-Policy'];
+      delete localHeaders['Cross-Origin-Resource-Policy'];
+      localHeaders['Content-Security-Policy'] = localHeaders['Content-Security-Policy'].replace("; frame-ancestors 'none'", '');
+    }
     // Headers are set on every response, including errors.
     Object.entries(localHeaders).forEach(([key, value]) => res.setHeader(key, value));
     if (!['GET', 'HEAD'].includes(req.method)) {
@@ -36,6 +42,7 @@ export function createPreviewServer() {
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const port = Number(process.env.PORT || 3000);
-  const server = createPreviewServer();
-  server.listen(port, '127.0.0.1', () => console.log(`Security preview: http://127.0.0.1:${port}`));
+  const host = process.env.HOST || '0.0.0.0';
+  const server = createPreviewServer({ allowFraming: true });
+  server.listen(port, host, () => console.log(`Security preview: http://${host}:${port}`));
 }
