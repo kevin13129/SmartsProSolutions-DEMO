@@ -43,7 +43,7 @@ test('unavailable browser storage never enables collection', async () => {
 
 test('security policy denies injection, framing, unneeded connections, and form posts', async () => {
   const csp = headers['Content-Security-Policy'];
-  for (const directive of ["default-src 'none'", "script-src 'self'", "script-src-attr 'none'", "style-src 'self'", "style-src-attr 'none'", "connect-src 'none'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-src 'none'", 'upgrade-insecure-requests']) {
+  for (const directive of ["default-src 'none'", "script-src 'self'", "script-src-attr 'none'", "style-src 'self'", "style-src-attr 'none'", "img-src 'self'", "media-src 'self'", "connect-src 'none'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-src 'none'", 'upgrade-insecure-requests']) {
     assert.ok(csp.split('; ').includes(directive), directive);
   }
   assert.doesNotMatch(csp, /unsafe-|https:|\*/);
@@ -74,6 +74,7 @@ test('public HTML has no personal-data forms, inline code, or external executabl
       assert.ok(publicFiles.includes(asset[1]), 'Unpublished asset: ' + asset[1]);
     }
     assert.doesNotMatch(html, /(?:src|href)="(?:https?:)?\/\//i);
+    assert.doesNotMatch(html, /(?:src|href)="data:/i);
   }
 });
 
@@ -83,6 +84,7 @@ test('browser scripts have no unsafe HTML sinks, credential signatures, network 
     new Script(source, { filename: file });
     assert.doesNotMatch(source, /innerHTML|outerHTML|insertAdjacentHTML|document\.write|\beval\s*\(|new Function\s*\(/);
     assert.doesNotMatch(source, /\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket|\.setItem\s*\(|indexedDB|document\.cookie/);
+    assert.doesNotMatch(source, /data:/i, 'Application scripts must not introduce embedded data URLs');
     assert.doesNotMatch(source, /(?:sk|rk)_(?:live|test)_[A-Za-z0-9]{16,}|-----BEGIN (?:RSA |EC )?PRIVATE KEY-----|AKIA[A-Z0-9]{16}|ghp_[A-Za-z0-9]{30,}/);
   }
   for (const file of publicFiles.filter(file => file.endsWith('.css'))) {

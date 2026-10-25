@@ -74,17 +74,24 @@ implement the corresponding server protections in the security roadmap first.
 
 ## Files
 
+Business groundwork is documented in [Project scope and owner decisions](docs/PROJECT-SCOPE.md),
+[Future implementation framework](docs/IMPLEMENTATION-FRAMEWORK.md), and
+[Acceptance and handover checklist](docs/ACCEPTANCE-HANDOVER.md).
+These are drafts for approval; backend services and customer intake remain unavailable.
+Residential pricing is provisional. Commercial and Airbnb scopes require assessment.
+
 | Path | Purpose |
 | --- | --- |
 | `index.html` | Public page, calculator, contact options and estimate recap |
-| `assets/js/calculator.js` | Display-only pricing and bounded property controls |
+| `assets/js/estimate-model.js` | Provisional pricing, service-specific scope, common summaries and future request selection shape |
+| `assets/js/calculator.js` | Bounded controls and service-specific estimate rendering; memory only |
 | `assets/js/api.js` | Legacy storage cleanup and explicit unavailable-intake response |
 | `assets/js/booking-modal.js` | Estimate recap and keyboard interaction |
 | `assets/js/main.js` | Navigation and service filtering |
 | `assets/css/` | External styles and local font definitions |
 | `assets/fonts/` | Licensed Latin fonts, licenses and recorded source hashes |
 | `scripts/` | Allowlisted build, local preview, browser and deployment checks |
-| `tests/security.test.mjs` | Automated security regression checks |
+| `tests/` | Automated security and estimator regression checks |
 | `docs/` | Security status, operations and future implementation requirements |
 
 Fonts retain their SIL Open Font License notices. Provenance is recorded in

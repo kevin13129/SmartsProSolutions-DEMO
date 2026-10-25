@@ -40,6 +40,7 @@ try {
   const pending = new Map();
   const exceptions = [];
   const requests = [];
+  const embeddedImages = [];
   const responses = [];
   socket.onmessage = event => {
     const message = JSON.parse(event.data);
@@ -52,7 +53,13 @@ try {
       else entry.resolve(message.result);
     } else {
       if (message.method === 'Runtime.exceptionThrown') exceptions.push(message.params.exceptionDetails.text);
-      if (message.method === 'Network.requestWillBeSent') requests.push(message.params.request.url);
+      if (message.method === 'Network.requestWillBeSent') {
+        const url = message.params.request.url;
+        // Native time controls render a browser-supplied data SVG clock icon.
+        // This has no network destination; application data URLs remain banned.
+        if (url.startsWith('data:image/svg+xml;base64,')) embeddedImages.push(message.params);
+        else requests.push(url);
+      }
       if (message.method === 'Network.responseReceived') responses.push(message.params.response);
     }
   };
@@ -87,7 +94,51 @@ try {
   await evaluate('document.fonts.ready.then(() => true)');
   assert.deepEqual(await evaluate('window.__violations'), [], 'Legitimate page triggered CSP');
   assert.deepEqual(exceptions, [], 'Runtime errors');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 192.95);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), null);
+  assert.equal(await evaluate('document.querySelectorAll("input[type=radio]:checked").length'), 0);
+  assert.equal(await evaluate('document.querySelectorAll("select, option").length'), 0);
+  assert.equal(await evaluate('document.querySelector("[data-required=serviceType]").classList.contains("needs-answer")'), true);
+  assert.equal(await evaluate('document.querySelectorAll("#hero-reel .hero-reel-slide video").length'), 4);
+  assert.equal(await evaluate('window.SmartsProReel.getCurrentIndex()'), 0);
+  await evaluate('window.SmartsProReel.selectSlide(1)');
+  assert.equal(await evaluate('window.SmartsProReel.getCurrentIndex()'), 1);
+  assert.match(await evaluate('document.getElementById("hero-reel-title").textContent'), /Bathrooms, Glass/i);
+  await evaluate('window.SmartsProReel.togglePause(true)');
+  assert.equal(await evaluate('document.getElementById("hero-reel-toggle").getAttribute("aria-pressed")'), 'true');
+  await evaluate('window.SmartsProReel.togglePause(false)');
+  assert.equal(await evaluate('document.getElementById("hero-reel-toggle").getAttribute("aria-pressed")'), 'false');
+  await evaluate('window.SmartsProReel.selectSlide(0)');
+  const choose = async (id, value) => evaluate(`(() => { const field = document.getElementById(${JSON.stringify(id)}); const radio = field.querySelector('input[type=radio][value=' + JSON.stringify(${JSON.stringify(value)}) + ']'); if (radio) radio.click(); else { field.value = ${JSON.stringify(value)}; field.dispatchEvent(new Event('change', {bubbles:true})); } })()`);
+  const click = async selector => evaluate(`document.querySelector(${JSON.stringify(selector)}).click()`);
+  await click('input[name=service_type][value=residential]');
+  assert.equal(await evaluate('document.querySelector("[data-required=serviceType]").classList.contains("needs-answer")'), false);
+  assert.equal(await evaluate('document.getElementById("pets").classList.contains("needs-answer")'), true);
+  assert.equal(await evaluate('getComputedStyle(document.getElementById("pets")).borderTopColor'), 'rgb(220, 38, 38)');
+  assert.notEqual(await evaluate('getComputedStyle(document.getElementById("pets")).boxShadow'), 'none');
+  assert.deepEqual(await evaluate('[...document.querySelectorAll("#pets .scope-answer span")].map(el => el.textContent)'), ['No', 'Yes']);
+  assert.equal(await evaluate('document.querySelectorAll("input[name=frequency_choice]:checked").length'), 0);
+  await choose('cleaningLevel', 'standard');
+  await choose('condition', 'routine');
+  assert.equal(await evaluate('document.getElementById("condition").classList.contains("needs-answer")'), false);
+  assert.equal(await evaluate('document.getElementById("pets").getAttribute("aria-invalid")'), 'true');
+  await send('Emulation.setDeviceMetricsOverride', {width:390, height:844, deviceScaleFactor:1, mobile:true});
+  await evaluate('document.getElementById("pets").scrollIntoView({behavior:"instant", block:"center"}); new Promise(resolve => setTimeout(resolve, 300))');
+  const missingChoiceCapture = await send('Page.captureScreenshot', {format:'png', captureBeyondViewport:false});
+  await writeFile(resolve(artifacts, 'missing-pets-mobile.png'), Buffer.from(missingChoiceCapture.data, 'base64'));
+  await send('Emulation.setDeviceMetricsOverride', {width:1440, height:1000, deviceScaleFactor:1, mobile:false});
+  await choose('pets', 'none');
+  assert.equal(await evaluate('document.getElementById("pets").classList.contains("needs-answer")'), false);
+  assert.equal(await evaluate('document.getElementById("pets-prompt").hidden'), true);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), null);
+  await click('input[name=frequency_choice][value=biweekly]');
+  assert.equal(await evaluate('document.querySelectorAll(".needs-answer").length'), 0);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 153);
+  assert.match(await evaluate('document.getElementById("summary-rows").textContent'), /4.50 hours/);
+  assert.doesNotMatch(await evaluate('document.getElementById("summary-rows").textContent'), /40\.00\/hour/);
+  await choose('pets', 'present');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.pets'), 'present');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 153);
+  await choose('pets', 'none');
   assert.equal(await evaluate('localStorage.getItem("smartspro_leads_v1")'), null);
   assert.equal(await evaluate('localStorage.getItem("unrelated")'), 'keep');
   assert.equal(await evaluate('document.querySelectorAll("form, textarea, input[type=email], input[type=tel]").length'), 0);
@@ -97,28 +148,120 @@ try {
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"L", shiftKey:true}))');
   assert.equal(await evaluate('document.querySelectorAll(".modal-overlay.open").length'), 0);
   await evaluate('document.getElementById("btn-bed-plus").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 209.95);
-  await evaluate('document.getElementById("btn-fridge-plus").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 274.95);
-  assert.equal(await evaluate('getComputedStyle(document.getElementById("summary-addons-row")).display'), 'flex');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 161.5);
+  await click('#btn-fridgeSingle-plus');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 226.50);
+  assert.equal(await evaluate('document.getElementById("summary-addons").open'), true);
+  await click('#btn-oven-plus');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 306.5);
+  assert.equal(await evaluate('document.getElementById("summary-addons").open'), false);
+  await click('#summary-addons-heading');
+  assert.equal(await evaluate('document.getElementById("summary-addon-list").children.length'), 2);
+  assert.match(await evaluate('document.getElementById("summary-addon-list").textContent'), /Single refrigerator.*65.00.*Inside oven.*80.00/);
+  await click('#btn-fridgeSingle-plus');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 371.5);
+  assert.match(await evaluate('document.getElementById("summary-addon-list").textContent'), /2 × Single refrigerator.*130.00/);
+  await click('#btn-fridgeSingle-minus');
+  await click('#btn-oven-minus');
+  assert.equal(await evaluate('document.getElementById("summary-addons").open'), true);
   for (const [input, expected] of [['-100', 400], ['999999', 6000], ['', 400], ['1800', 1800]]) {
-    await evaluate(`(() => { const field = document.getElementById('input-sqft'); field.value = ${JSON.stringify(input)}; field.dispatchEvent(new Event('input')); })()`);
+    await choose('input-sqft', input);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.state.sqft'), expected);
   }
   await evaluate('document.getElementById("btn-book-quote-now").click()');
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
-  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$274.95');
+  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$226.50');
   assert.equal(await evaluate('document.activeElement.id'), 'modal-close-btn', await evaluate(`JSON.stringify({ active: document.activeElement.outerHTML.slice(0, 150), modalVisibility: getComputedStyle(document.getElementById('booking-modal-overlay')).visibility, buttonVisibility: getComputedStyle(document.getElementById('modal-close-btn')).visibility, rect: document.getElementById('modal-close-btn').getBoundingClientRect().toJSON() })`));
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"}))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);
 
-  for (const [width, height] of [[1440, 1000], [390, 844]]) {
+  await click('input[name=frequency_choice][value=monthly]');
+  assert.equal(await evaluate('document.getElementById("quote-billing-freq").textContent'), 'Monthly');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 236);
+  await choose('condition', 'heavy');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), null);
+  assert.equal(await evaluate('document.getElementById("quote-total-amount").textContent'), 'Assessment needed');
+  await choose('condition', 'routine');
+  await click('#btn-oven-plus');
+  await evaluate(`Object.defineProperty(navigator, 'clipboard', {configurable: true, value: {writeText: async text => {window.__copied = text;}}})`);
+  await click('#btn-share-quote');
+  assert.equal(await evaluate('window.__copied'), await evaluate('window.SmartsProCurrentQuote.summary.text'));
+  assert.equal(await evaluate('document.getElementById("estimate-print-summary").textContent'), await evaluate('window.__copied'));
+  await send('Emulation.setEmulatedMedia', {media: 'print'});
+  assert.equal(await evaluate('getComputedStyle(document.getElementById("estimate-print-summary")).display'), 'block');
+  assert.equal(await evaluate('getComputedStyle(document.querySelector(".calc-grid")).display'), 'none');
+  await send('Emulation.setEmulatedMedia', {media: ''});
+
+  for (const family of ['commercial', 'airbnb']) {
+    await click(`input[name=service_type][value=${family}]`);
+    assert.equal(await evaluate('document.querySelectorAll("input[name=frequency_choice]:checked").length'), 0);
+    assert.deepEqual(await evaluate('window.SmartsProCurrentQuote.selection.addons'), []);
+    assert.equal(await evaluate('document.getElementById("summary-addons").hidden'), true);
+    assert.equal(await evaluate('document.getElementById("btn-fridgeSingle-plus")'), null);
+    if (family === 'commercial') {
+      await choose('buildingUse', 'retail');
+      await choose('restrooms', '3');
+      await choose('walkthrough', 'afternoon');
+      await click('input[name=floor_type][value=tile]');
+      await click('input[name=floor_type][value=vinyl]');
+      await click('input[name=frequency_choice][value=monthly]');
+      await click('#btn-interiorGlass-plus');
+      await click('#btn-floorDetail-plus');
+      assert.equal(await evaluate('window.SmartsProCurrentQuote.selection.property.bedrooms'), undefined);
+      assert.deepEqual(await evaluate('window.SmartsProCurrentQuote.selection.requirements.floors'), ['tile', 'vinyl']);
+    } else {
+      await choose('beds', '4');
+      await choose('laundry', 'onsite');
+      await choose('restocking', 'supplied');
+      await choose('checkout', '11:00');
+      await choose('checkin', '15:00');
+      await click('input[name=frequency_choice][value=turnover]');
+      await click('#btn-fridgeInterior-plus');
+      await click('#btn-dishes-plus');
+      assert.equal(await evaluate('window.SmartsProCurrentQuote.selection.requirements.beds'), 4);
+      assert.equal(await evaluate('window.SmartsProCurrentQuote.selection.requirements.checkin'), '15:00');
+    }
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), null);
+    assert.deepEqual(await evaluate('window.SmartsProCurrentQuote.calculation.missing'), []);
+    assert.equal(await evaluate('document.getElementById("summary-addons").open'), false);
+    await click('#btn-book-quote-now');
+    assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), family === 'commercial' ? 'Walkthrough first' : 'Assessment first');
+    assert.equal(await evaluate('document.getElementById("modal-recap-addons").children.length'), 2);
+    assert.match(await evaluate('document.getElementById("modal-recap-addons").textContent'), /Price after assessment/);
+    await evaluate('SmartsProModal.closeBookingModal()');
+  }
+  await click('input[name=service_type][value=residential]');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.frequency'), '');
+  await click('input[name=frequency_choice][value=monthly]');
+  await click('#btn-fridgeSingle-plus');
+  await click('#btn-oven-plus');
+
+  for (const [width, height] of [[1440, 1000], [1024, 900], [768, 900], [320, 760], [390, 844]]) {
     await send('Emulation.setDeviceMetricsOverride', { width, height, deviceScaleFactor: 1, mobile: width < 500 });
-    await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+    await evaluate('window.scrollTo({top:0, behavior:"instant"})');
+    // Let responsive font/spacing transitions finish before measuring layout.
+    await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+    assert.equal(await evaluate(`(() => { const amount = document.getElementById('quote-total-amount'); return amount.getBoundingClientRect().height <= parseFloat(getComputedStyle(amount).fontSize) * 1.4; })()`), true, 'Money amount must remain on one line');
     assert.equal(await evaluate(`document.documentElement.scrollWidth <= document.documentElement.clientWidth && window.innerWidth === ${width}`), true, await evaluate(`JSON.stringify({width: innerWidth, clientWidth: document.documentElement.clientWidth, overflow: [...document.querySelectorAll('body *')].filter(el => !el.closest('.checklist-table-wrapper')).map(el => ({tag: el.tagName, id: el.id, classes: el.className, right: el.getBoundingClientRect().right})).filter(el => el.right > document.documentElement.clientWidth + 1).sort((a,b) => b.right-a.right).slice(0,20)})`));
+    if (width <= 1100) {
+      await click('#mobile-nav-toggle');
+      assert.equal(await evaluate('getComputedStyle(document.querySelector(".nav-links")).display'), 'flex');
+      assert.equal(await evaluate('document.getElementById("mobile-nav-toggle").getAttribute("aria-expanded")'), 'true');
+      await click('.nav-link');
+      assert.equal(await evaluate('getComputedStyle(document.querySelector(".nav-links")).display'), 'none');
+      assert.equal(await evaluate('document.getElementById("mobile-nav-toggle").getAttribute("aria-expanded")'), 'false');
+      await evaluate('window.scrollTo({top:0, behavior:"instant"})');
+    }
     const capture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
     await writeFile(resolve(artifacts, `home-${width}.png`), Buffer.from(capture.data, 'base64'));
+    for (const [label, selector] of [['scope', '#step-2-title'], ['quote', '.quote-summary-card']]) {
+      await evaluate(`document.querySelector(${JSON.stringify(selector)}).scrollIntoView({behavior:'instant', block:'start'})`);
+      await evaluate('new Promise(resolve => setTimeout(resolve, 150))');
+      const screenshot = await send('Page.captureScreenshot', {format:'png', captureBeyondViewport:false});
+      await writeFile(resolve(artifacts, `${label}-${width}.png`), Buffer.from(screenshot.data, 'base64'));
+    }
+    await evaluate('window.scrollTo({top:0, behavior:"instant"})');
   }
   await evaluate('SmartsProModal.openBookingModal()');
   await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
@@ -129,8 +272,10 @@ try {
   const contactCapture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   await writeFile(resolve(artifacts, 'contact-mobile.png'), Buffer.from(contactCapture.data, 'base64'));
   assert.deepEqual(await evaluate('window.__violations'), [], 'Interactions triggered CSP');
+  assert.deepEqual(exceptions, [], 'Interactions triggered runtime errors');
   assert.ok(responses.filter(response => response.url.startsWith(base)).every(response => response.status === 200), 'A page asset failed to load');
-  assert.ok(requests.every(url => url.startsWith(base)), 'Unexpected third-party network request');
+  assert.ok(requests.every(url => url.startsWith(base)), 'Unexpected third-party network request: ' + JSON.stringify(requests.filter(url => !url.startsWith(base))));
+  assert.ok(embeddedImages.every(request => request.type === 'Image' && request.initiator.type === 'other'), 'Only native-control embedded images are expected');
   assert.equal(await evaluate('[...document.fonts].filter(font => font.status === "loaded").length'), 3);
   console.log('PASS calculator, estimate modal, mobile layout, local fonts, legacy cleanup, and unavailable intake');
 

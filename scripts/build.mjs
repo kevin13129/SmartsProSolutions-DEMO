@@ -12,7 +12,7 @@ export async function build() {
   // Validate every source before touching the old output. No directory copying,
   // environment interpolation, symlink following, or dependency downloads.
   for (const file of publicFiles) {
-    if (!/^(?:index\.html|404\.html|assets\/(?:css|js|fonts|images)\/[a-zA-Z0-9-]+\.(?:css|js|woff2|txt|png|jpg))$/.test(file)) {
+    if (!/^(?:index\.html|404\.html|assets\/images\/brand-mark\.svg|assets\/(?:css|js|fonts|images|videos)\/[a-zA-Z0-9-]+\.(?:css|js|woff2|txt|png|jpg|webm))$/.test(file)) {
       throw new Error('Unapproved public path: ' + file);
     }
     const source = resolve(root, file);
