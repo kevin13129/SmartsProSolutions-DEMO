@@ -5,14 +5,6 @@ exist. Keep online collection unavailable until its server-side safeguards,
 storage, delivery and operational checks work. Choose the business providers and
 policies before adding secrets or opening new network destinations.
 
-Business scope and provider decisions are recorded in [PROJECT-SCOPE.md](PROJECT-SCOPE.md).
-Use [IMPLEMENTATION-FRAMEWORK.md](IMPLEMENTATION-FRAMEWORK.md) for service-specific
-fields, pricing approaches, account setup order and the proposed communication
-flow; use [ACCEPTANCE-HANDOVER.md](ACCEPTANCE-HANDOVER.md) for owner acceptance.
-All remain future requirements, not configured services. A proposed hosted-form
-route needs an explicit architecture review and equivalent server-side controls
-before enabling collection; a browser-to-database shortcut is still prohibited.
-
 ## 1. Customer inquiries and booking requests
 
 Proposed flow: browser → same-origin intake API → validated durable request →
@@ -24,7 +16,7 @@ webhook URL or privileged database key in static code.
 | --- | --- | --- |
 | Request parsing | POST JSON only; reject unsupported content types, unknown fields and oversized bodies (start at 16 KiB, including transport limit) | Oversized, malformed JSON, duplicate/unexpected fields, unsupported methods |
 | Customer fields | Normalize bounded strings; proposed limits: name 120, phone 32, email 254, optional notes 1000 characters. Require name and at least one valid contact method. Preserve international names; reject control characters where inappropriate | Unicode names accepted; long/malformed/control-character data rejected without echoing it |
-| Property inputs | Versioned discriminated schema per residential/commercial/Airbnb service; bounds and fields in the implementation framework. Validate explicit service/frequency, applicable extras, condition, beds/laundry/restocking/times or building/restrooms/floors/walkthrough; reject inactive-service fields. Define production bounds before launch | Negative, fractional, nonfinite, missing, prototype-related, wrong-service and out-of-range values |
+| Property inputs | Server schema: bedrooms 0–10, full baths 1–8, half baths 0–6, sqft 400–6000, integer add-ons within current UI limits; explicit service/frequency enums | Negative, fractional, nonfinite, missing, prototype-related and out-of-range values |
 | Scheduling | Server validates future dates, business timezone, service area and availability; transaction/uniqueness prevents double booking | Past/invalid dates, timezone boundaries, concurrent attempts for one slot |
 | Price and ownership | Recalculate from trusted versioned rates. Reject client totals, discounts, reference codes, owner IDs, role and status fields | Edited browser totals, forged customer IDs and discounts never change authoritative values |
 | Abuse controls | Host WAF plus shared atomic rate limits, bounded queues, provider quotas and cost alerts. Start with a measured per-IP limit (for example 5 requests/10 minutes) plus global/contact limits and tune for shared networks | Concurrent requests across instances hit the same limit; outages reject safely; response uses 429 and Retry-After |

@@ -1,6 +1,6 @@
 /**
- * SMARTS PRO SOLUTIONS - GENERAL UI & HERO REEL CONTROLLER
- * Handles navigation, slow-motion video reel crossfades, tab switching, and scroll polish.
+ * SMARTS PRO SOLUTIONS - GENERAL UI CONTROLLER
+ * Handles navigation, tab switching, and UI polish.
  */
 
 (function () {
@@ -16,36 +16,25 @@
       mobileToggle.setAttribute('aria-expanded', isExpanded);
     });
 
+    // Close when clicking a link
     navLinks.querySelectorAll('a').forEach(link => {
       link.addEventListener('click', () => {
         navLinks.classList.remove('mobile-open');
-        mobileToggle.setAttribute('aria-expanded', 'false');
       });
     });
   }
 
-  // Header scroll appearance & Mobile Quote Dock visibility
+  // Header scroll appearance
   const header = document.querySelector('.site-header');
-  const mobileDock = document.getElementById('mobile-quote-dock');
-  const calcSection = document.getElementById('calculator');
-
-  function updateScrollUI() {
+  window.addEventListener('scroll', () => {
     if (window.scrollY > 20) {
       header?.classList.add('scrolled');
     } else {
       header?.classList.remove('scrolled');
     }
-    if (mobileDock && calcSection) {
-      const rect = calcSection.getBoundingClientRect();
-      const inView = rect.top < window.innerHeight * 0.85 && rect.bottom > 160;
-      mobileDock.classList.toggle('visible', inView);
-    }
-  }
+  });
 
-  window.addEventListener('scroll', updateScrollUI, { passive: true });
-  window.addEventListener('resize', updateScrollUI, { passive: true });
-
-  // Services tabs filtering (using .hidden for strict CSP cleanliness)
+  // Services tabs filtering
   const serviceTabs = document.querySelectorAll('.tab-btn');
   const serviceCards = document.querySelectorAll('.service-feature-card');
 
@@ -58,8 +47,11 @@
 
       serviceCards.forEach(card => {
         const category = card.getAttribute('data-category');
-        const matches = filter === 'all' || category === filter;
-        card.hidden = !matches;
+        if (filter === 'all' || category === filter) {
+          card.style.display = 'flex';
+        } else {
+          card.style.display = 'none';
+        }
       });
     });
   });
@@ -83,98 +75,94 @@
     });
   }
 
-  // Hero Slow-Motion Video Reel Crossfader
-  const reel = document.getElementById('hero-reel');
-  if (reel) {
-    const slides = [...reel.querySelectorAll('.hero-reel-slide')];
-    const tabs = [...reel.querySelectorAll('.hero-reel-tab')];
-    const badgeEl = document.getElementById('hero-reel-badge');
-    const titleEl = document.getElementById('hero-reel-title');
-    const subEl = document.getElementById('hero-reel-sub');
-    const ctaEl = document.getElementById('hero-reel-cta');
-    const toggleBtn = document.getElementById('hero-reel-toggle');
-    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches || false;
+  // Widescreen Hero Slideshow Controller
+  const heroSlides = document.querySelectorAll('.hero-slide');
+  const heroTabs = document.querySelectorAll('.hero-slide-tab');
+  const prevBtn = document.getElementById('hero-slide-prev');
+  const nextBtn = document.getElementById('hero-slide-next');
+  const stepEl = document.getElementById('hero-active-step');
+  const catEl = document.getElementById('hero-active-category');
+  const titleEl = document.getElementById('hero-active-title');
+  const descEl = document.getElementById('hero-active-desc');
 
-    let currentIndex = 0;
-    let paused = reducedMotion;
-    let timerId = null;
-    const intervalMs = 5200;
+  const slideCopy = [
+    {
+      step: '01 / 03',
+      category: 'Luxury Residential Homes',
+      title: 'Precision Recurring & One-Time Home Care',
+      desc: 'Meticulous sanitization of living spaces, hardwood and stone floors, bedrooms, and high-touch surfaces using non-toxic, family-safe formulas.'
+    },
+    {
+      step: '02 / 03',
+      category: 'Deep Kitchen & Bath Restoration',
+      title: 'Intensive Hand-Scrubbed Detail & Move Turnovers',
+      desc: 'From marble countertops and stainless appliances to baseboards, cabinetry, and grout lines—restoring every corner to inspection-ready brilliance.'
+    },
+    {
+      step: '03 / 03',
+      category: 'Executive Commercial & Office Suites',
+      title: 'Dependable After-Hours & Scheduled Janitorial',
+      desc: 'Spotless conference rooms, reception lobbies, workstations, and restrooms maintained on your custom schedule across Shreveport and Bossier City.'
+    }
+  ];
 
-    function syncVideoPlayback(activeSlide) {
-      slides.forEach(slide => {
-        const video = slide.querySelector('video');
-        if (!video) return;
-        video.playbackRate = 0.65;
-        if (slide === activeSlide && !paused) {
-          video.play().catch(() => {});
-        } else {
-          video.pause();
+  if (heroSlides.length > 0) {
+    let activeSlide = 0;
+    let slideTimer = null;
+
+    const setHeroSlide = (index) => {
+      activeSlide = (index + heroSlides.length) % heroSlides.length;
+
+      heroSlides.forEach((slide, idx) => {
+        slide.classList.toggle('is-active', idx === activeSlide);
+      });
+
+      heroTabs.forEach((tab, idx) => {
+        const isCurrent = idx === activeSlide;
+        tab.classList.toggle('is-active', isCurrent);
+        tab.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
+      });
+
+      const currentCopy = slideCopy[activeSlide];
+      if (currentCopy) {
+        if (stepEl) stepEl.textContent = currentCopy.step;
+        if (catEl) catEl.textContent = currentCopy.category;
+        if (titleEl) titleEl.textContent = currentCopy.title;
+        if (descEl) descEl.textContent = currentCopy.desc;
+      }
+    };
+
+    const startSlideTimer = () => {
+      if (slideTimer) clearInterval(slideTimer);
+      slideTimer = setInterval(() => {
+        setHeroSlide(activeSlide + 1);
+      }, 5500);
+    };
+
+    heroTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = Number(tab.getAttribute('data-slide-target'));
+        if (!Number.isNaN(target)) {
+          setHeroSlide(target);
+          startSlideTimer();
         }
       });
-    }
-
-    function selectSlide(nextIndex) {
-      currentIndex = ((nextIndex % slides.length) + slides.length) % slides.length;
-      const activeSlide = slides[currentIndex];
-      slides.forEach((slide, idx) => {
-        slide.classList.toggle('active', idx === currentIndex);
-      });
-      tabs.forEach((tab, idx) => {
-        const isCurrent = idx === currentIndex;
-        tab.classList.toggle('active', isCurrent);
-        tab.setAttribute('aria-selected', String(isCurrent));
-      });
-      if (badgeEl) badgeEl.textContent = activeSlide.dataset.reelTag || '';
-      if (titleEl) titleEl.textContent = activeSlide.dataset.reelTitle || '';
-      if (subEl) subEl.textContent = activeSlide.dataset.reelSub || '';
-      if (ctaEl) {
-        ctaEl.textContent = activeSlide.dataset.reelCta || 'Explore Estimate →';
-        ctaEl.dataset.quickService = activeSlide.dataset.reelService || 'residential';
-        ctaEl.dataset.quickLevel = activeSlide.dataset.reelLevel || '';
-      }
-      syncVideoPlayback(activeSlide);
-    }
-
-    function scheduleNext() {
-      if (timerId) clearInterval(timerId);
-      if (!paused) {
-        timerId = setInterval(() => {
-          selectSlide(currentIndex + 1);
-        }, intervalMs);
-      }
-    }
-
-    function togglePause(forceState) {
-      paused = typeof forceState === 'boolean' ? forceState : !paused;
-      reel.classList.toggle('reel-paused', paused);
-      if (toggleBtn) {
-        toggleBtn.textContent = paused ? 'Play' : 'Pause';
-        toggleBtn.setAttribute('aria-pressed', String(paused));
-        toggleBtn.setAttribute('aria-label', paused ? 'Play cleaning reel' : 'Pause cleaning reel');
-      }
-      syncVideoPlayback(slides[currentIndex]);
-      scheduleNext();
-    }
-
-    tabs.forEach(tab => {
-      tab.addEventListener('click', () => {
-        selectSlide(Number(tab.dataset.slide) || 0);
-        scheduleNext();
-      });
     });
 
-    toggleBtn?.addEventListener('click', () => togglePause());
+    if (prevBtn) {
+      prevBtn.addEventListener('click', () => {
+        setHeroSlide(activeSlide - 1);
+        startSlideTimer();
+      });
+    }
 
-    selectSlide(0);
-    if (paused) togglePause(true);
-    else scheduleNext();
+    if (nextBtn) {
+      nextBtn.addEventListener('click', () => {
+        setHeroSlide(activeSlide + 1);
+        startSlideTimer();
+      });
+    }
 
-    window.SmartsProReel = Object.freeze({
-      selectSlide,
-      togglePause,
-      getCurrentIndex: () => currentIndex
-    });
+    startSlideTimer();
   }
-
-  updateScrollUI();
 })();

@@ -9,31 +9,36 @@
     const modal = getEl('booking-modal-overlay');
     const quote = window.SmartsProCurrentQuote;
     if (!modal || !quote) return;
-    const { summary } = quote;
-    // All surfaces use the same summary and render dynamic content as text.
-    const rows = getEl('modal-recap-rows');
-    rows.replaceChildren();
-    for (const [label, value] of summary.rows) {
-      const row = document.createElement('div');
-      row.className = 'recap-row';
-      const name = document.createElement('span');
-      name.textContent = label;
-      const detail = document.createElement('strong');
-      detail.textContent = value;
-      row.append(name, detail);
-      rows.append(row);
-    }
-    const extras = getEl('modal-recap-addons');
-    extras.replaceChildren();
-    for (const line of summary.addonLines.length ? summary.addonLines : ['None selected']) {
-      const item = document.createElement('li');
-      item.textContent = line;
-      extras.append(item);
-    }
-    getEl('modal-recap-total').textContent = summary.price;
-    getEl('modal-recap-explanation').textContent = summary.explanation;
-    const status = getEl('modal-copy-status');
-    if (status) status.textContent = '';
+    const { state, calculation } = quote;
+    const services = {
+      standard: 'Standard Clean',
+      deep: 'Deep Restoration Clean',
+      moveinout: 'Move In / Move Out Clean',
+      airbnb: 'Airbnb / Vacation Rental Turnover'
+    };
+    const frequencies = {
+      weekly: 'Weekly (20% OFF)',
+      biweekly: 'Every 2 Weeks (15% OFF)',
+      turnover: 'Per Guest Turnover (15% OFF)',
+      monthly: 'Every 4 Weeks (10% OFF)',
+      onetime: 'One-Time Service'
+    };
+    const addonLabels = {
+      fridgeSingle: 'Single Fridge',
+      fridgeDouble: 'Double Fridge',
+      oven: 'Inside Oven',
+      pets: 'Pet Detailing'
+    };
+    const addons = Object.entries(addonLabels)
+      .filter(([key]) => state.addons[key] > 0)
+      .map(([key, label]) => `${state.addons[key]}x ${label}`);
+
+    // All dynamic content is text, never parsed as HTML.
+    getEl('modal-recap-service').textContent = services[state.serviceType] || 'Standard Clean';
+    getEl('modal-recap-specs').textContent = `${state.bedrooms} Bed, ${state.fullBaths} Full, ${state.halfBaths} Half / ${state.sqft.toLocaleString()} sq ft`;
+    getEl('modal-recap-freq').textContent = frequencies[state.frequency] || 'One-Time Service';
+    getEl('modal-recap-addons').textContent = addons.join(', ') || 'None selected';
+    getEl('modal-recap-total').textContent = `$${calculation.grandTotal.toFixed(2)}`;
 
     previousFocus = document.activeElement;
     modal.classList.add('open');
@@ -54,16 +59,6 @@
   document.addEventListener('DOMContentLoaded', () => {
     const modal = getEl('booking-modal-overlay');
     getEl('modal-close-btn')?.addEventListener('click', closeBookingModal);
-    getEl('btn-modal-copy-quote')?.addEventListener('click', async () => {
-      const status = getEl('modal-copy-status');
-      if (!status) return;
-      try {
-        await navigator.clipboard.writeText(window.SmartsProCurrentQuote.summary.text);
-        status.textContent = 'Scope and estimate copied. Ready to paste or reference on your call.';
-      } catch {
-        status.textContent = 'Copy is unavailable here. Use Print Estimate to keep your summary.';
-      }
-    });
     modal?.addEventListener('click', (event) => {
       if (event.target === modal) closeBookingModal();
     });

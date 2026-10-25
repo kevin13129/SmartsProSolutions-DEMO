@@ -2,15 +2,15 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; media-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Smarts Pro Solutions | Cleaning in Shreveport LA | Scope & Estimate</title>
-  <meta name="description" content="Explore residential, commercial, and Airbnb cleaning with Smarts Pro Solutions in Shreveport and Bossier City. Prepare a scope summary and discuss pricing with the owners.">
+  <title>Smarts Pro Solutions | Residential & Commercial Cleaning Shreveport LA | Instant Price Calculator</title>
+  <meta name="description" content="Smarts Pro Solutions provides premium residential home cleaning, commercial janitorial, deep cleaning, and move-in/out services in Shreveport & Bossier City, LA. Calculate an estimated cleaning price online in 60 seconds!">
   <meta name="keywords" content="cleaning services Shreveport, house cleaning Bossier City, commercial cleaning, deep cleaning, move out clean, office cleaning Shreveport LA">
   
   <!-- Favicon -->
-  <link rel="icon" type="image/svg+xml" href="assets/images/brand-mark.svg">
+  <link rel="icon" type="image/png" href="assets/images/logo-mark.png">
   
   <!-- CSS Stylesheet -->
   <link rel="stylesheet" href="assets/css/styles.css">
@@ -23,7 +23,7 @@
     <div class="container top-bar-inner">
       <div class="top-bar-notice">
         <span class="badge-shreveport">Local Shreveport, LA</span>
-        <span>Clean spaces. A fresh start.</span>
+        <span>✨ Clean Spaces. Happier & Healthier Lives.</span>
       </div>
       <div class="top-bar-contacts">
         <a href="tel:3185644360" class="top-bar-link">
@@ -46,13 +46,13 @@
   <header class="site-header">
     <div class="container nav-container">
       <a href="#" class="brand-logo-wrap" aria-label="Smarts Pro Solutions Home">
-        <span class="brand-title">SMARTS <span class="pro-accent">PRO</span><br><span class="brand-subtitle">SOLUTIONS</span></span>
+        <img src="assets/images/logo-transparent.png" alt="Smarts Pro Solutions Logo" class="brand-logo-img">
       </a>
 
       <nav>
-        <ul class="nav-links" id="main-navigation">
+        <ul class="nav-links">
           <li><a href="#services" class="nav-link">Our Services</a></li>
-          <li><a href="#commercial" class="nav-link">Commercial</a></li>
+          <li><a href="#commercial" class="nav-link">Commercial & Industrial</a></li>
           <li><a href="#checklist" class="nav-link">What's Included</a></li>
           <li><a href="#why-us" class="nav-link">Why Smarts Pro</a></li>
           <li><a href="#contact" class="nav-link">Contact</a></li>
@@ -64,183 +64,193 @@
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           (318) 564-4360
         </a>
-        <a href="#calculator" class="btn btn-primary btn-sm">Calculate Estimate</a>
-        <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle Navigation Menu" aria-expanded="false" aria-controls="main-navigation">
+        <a href="#calculator" class="btn btn-primary btn-sm">Calculate Price ⚡</a>
+        <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle Navigation Menu">
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
         </button>
       </div>
     </div>
   </header>
 
-  <!-- Hero Section -->
-  <section class="hero-section">
-    <div class="container hero-grid">
-      <div class="hero-content">
-        <div class="hero-badge-pill">
-          <span class="hero-badge-dot"></span>
-          <span>Residential, Commercial &amp; Turnover Cleaning · Shreveport, LA</span>
-        </div>
-        <h1 class="hero-title">
-          Clean Spaces. <br>
-          <span class="hero-title-accent">A Fresh Start.</span>
-        </h1>
-        <p class="hero-subtitle">
-          Plan the cleaning your space needs. Choose your service, outline the details, and talk with our crew about scope, price, and availability.
-        </p>
+  <!-- Hero Section (Full-Bleed Widescreen with Transitioning Backdrop & Translucent Overlay) -->
+  <section class="hero-section" aria-label="Featured Cleaning Services Showcase">
+    <!-- Full-Bleed Background Slideshow -->
+    <div class="hero-slideshow" aria-hidden="true">
+      <div class="hero-slide is-active" data-slide-index="0">
+        <img src="assets/images/hero-home.jpg" alt="Spotless Luxury Home by Smarts Pro Solutions" class="hero-slide-img">
+      </div>
+      <div class="hero-slide" data-slide-index="1">
+        <img src="assets/images/sparkle-kitchen.jpg" alt="Deep Cleaned Marble Kitchen and Fixtures" class="hero-slide-img">
+      </div>
+      <div class="hero-slide" data-slide-index="2">
+        <img src="assets/images/commercial-office.jpg" alt="Executive Commercial Office Suite Cleaning" class="hero-slide-img">
+      </div>
+      <!-- Semi-Translucent Multi-Layered Architectural Overlay -->
+      <div class="hero-overlay"></div>
+    </div>
 
-        <div class="hero-cta-group">
-          <a href="#calculator" class="btn btn-green btn-lg">
-            <span>Calculate Your Estimate</span>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+    <div class="container hero-widescreen-inner">
+      <div class="hero-grid">
+        <div class="hero-content">
+          <div class="hero-kicker">
+            <span>Founded in 2012</span>
+            <span class="hero-kicker-sep" aria-hidden="true">·</span>
+            <span>Shreveport &amp; Bossier City, LA</span>
+            <span class="hero-kicker-sep" aria-hidden="true">·</span>
+            <span>Residential &amp; Commercial</span>
+          </div>
+
+          <h1 class="hero-title">
+            Clean Spaces. <br>
+            <span class="gradient-text-blue">Happier &amp; Healthier</span> <br>
+            <span class="gradient-text-green">Lives.</span>
+          </h1>
+
+          <p class="hero-subtitle">
+            Experience Northwest Louisiana's most detail-oriented cleaning team. From sparkling residential estates and intensive deep restorations to executive commercial facilities and inspection-ready move turnovers—tailored to your exact schedule.
+          </p>
+
+          <div class="hero-cta-group">
+            <a href="#calculator" class="btn btn-green btn-lg">
+              <span>Calculate Instant Quote</span>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </a>
+            <a href="#services" class="btn btn-hero-glass btn-lg">Explore Services</a>
+          </div>
+
+          <div class="hero-trust-row">
+            <div class="hero-trust-item">
+              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <span>Locally Owned Since 2012</span>
+            </div>
+            <div class="hero-trust-item">
+              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
+              <span>Fast, Reliable Scheduling</span>
+            </div>
+            <div class="hero-trust-item">
+              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>
+              <span>Eco &amp; Pet-Safe Supplies</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Right: Translucent Architectural Spotlight Panel -->
+        <aside class="hero-spotlight-card" aria-label="Active Scene and Instant Quote Highlights">
+          <div class="hero-spotlight-header">
+            <span class="hero-spotlight-step" id="hero-active-step">01 / 03</span>
+            <span class="hero-spotlight-category" id="hero-active-category">Luxury Residential Homes</span>
+          </div>
+
+          <h2 class="hero-spotlight-title" id="hero-active-title">
+            Precision Recurring &amp; One-Time Home Care
+          </h2>
+          <p class="hero-spotlight-desc" id="hero-active-desc">
+            Meticulous sanitization of living spaces, hardwood and stone floors, bedrooms, and high-touch surfaces using non-toxic, family-safe formulas.
+          </p>
+
+          <div class="hero-spotlight-metrics">
+            <div class="hero-metric-item">
+              <span class="hero-metric-val">60 Sec</span>
+              <span class="hero-metric-label">Live Online Estimate</span>
+            </div>
+            <div class="hero-metric-item">
+              <span class="hero-metric-val">Up to 20%</span>
+              <span class="hero-metric-label">Recurring Savings</span>
+            </div>
+            <div class="hero-metric-item">
+              <span class="hero-metric-val">100%</span>
+              <span class="hero-metric-label">Satisfaction Focus</span>
+            </div>
+          </div>
+
+          <a href="#calculator" class="hero-calc-teaser">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A3E635" stroke-width="2.2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
+            <span>Get Instant Online Estimate in 60s →</span>
           </a>
-          <a href="#services" class="btn btn-outline btn-lg">Explore Services</a>
-        </div>
-
-        <!-- 1-Tap Quick-Start Service Funnel -->
-        <div class="hero-quick-funnel" id="hero-quick-start" aria-label="Quick-start your estimate by service">
-          <span class="quick-funnel-label">Quick start by service:</span>
-          <div class="quick-funnel-chips">
-            <button type="button" class="quick-funnel-chip" data-quick-service="residential" data-quick-level="standard">Standard Home</button>
-            <button type="button" class="quick-funnel-chip" data-quick-service="residential" data-quick-level="deep">Deep Clean</button>
-            <button type="button" class="quick-funnel-chip" data-quick-service="residential" data-quick-level="moveinout">Move-In / Out</button>
-            <button type="button" class="quick-funnel-chip" data-quick-service="airbnb">Airbnb Turnover</button>
-            <button type="button" class="quick-funnel-chip" data-quick-service="commercial">Commercial</button>
-          </div>
-        </div>
-
-        <div class="hero-trust-row">
-          <div class="hero-trust-item">
-            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
-            <span>Choose your service</span>
-          </div>
-          <div class="hero-trust-item">
-            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
-            <span>Discuss your schedule</span>
-          </div>
-          <div class="hero-trust-item">
-            <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="8"></circle><path d="M8 12h8M12 8v8"></path></svg>
-            <span>Review your scope</span>
-          </div>
-        </div>
+        </aside>
       </div>
 
-      <!-- Hero Slow-Motion Cleaning Reel with Crossfading Video Scenes -->
-      <div class="hero-visual-card">
-        <div class="hero-image-frame hero-reel-frame" id="hero-reel" aria-label="Slow-motion cleaning showcase">
-          <div class="hero-reel-stage">
-            <div class="hero-reel-slide active" data-slide-index="0" data-reel-service="residential" data-reel-level="standard" data-reel-tag="01 · Residential Standard" data-reel-title="Kitchen &amp; Counter Detail" data-reel-sub="Countertops, sinks, faucets &amp; appliance exteriors" data-reel-cta="Price Residential Clean →">
-              <video class="hero-reel-video" src="assets/videos/slomo-kitchen.webm" poster="assets/images/reel-kitchen-clean.jpg" autoplay muted loop playsinline preload="metadata"></video>
-              <img class="hero-reel-fallback" src="assets/images/reel-kitchen-clean.jpg" alt="Slow-motion kitchen countertop wipe">
-            </div>
-            <div class="hero-reel-slide" data-slide-index="1" data-reel-service="residential" data-reel-level="deep" data-reel-tag="02 · Deep Cleaning" data-reel-title="Bathrooms, Glass &amp; Trim" data-reel-sub="Detailed tub/shower scrub, baseboards &amp; fixtures" data-reel-cta="Price Deep Clean →">
-              <video class="hero-reel-video" src="assets/videos/slomo-bath.webm" poster="assets/images/reel-bath-detail.jpg" muted loop playsinline preload="metadata"></video>
-              <img class="hero-reel-fallback" src="assets/images/reel-bath-detail.jpg" alt="Slow-motion glass shower squeegee detail">
-            </div>
-            <div class="hero-reel-slide" data-slide-index="2" data-reel-service="airbnb" data-reel-level="" data-reel-tag="03 · Turnover &amp; Move Clean" data-reel-title="Fresh Floors &amp; Living Spaces" data-reel-sub="Short-term rental turnovers &amp; move-in/out prep" data-reel-cta="Plan Turnover Scope →">
-              <video class="hero-reel-video" src="assets/videos/slomo-turnover.webm" poster="assets/images/reel-turnover-living.jpg" muted loop playsinline preload="metadata"></video>
-              <img class="hero-reel-fallback" src="assets/images/reel-turnover-living.jpg" alt="Sunlit living room hardwood floor turnover">
-            </div>
-            <div class="hero-reel-slide" data-slide-index="3" data-reel-service="commercial" data-reel-level="" data-reel-tag="04 · Commercial &amp; Office" data-reel-title="Workplaces &amp; Suites" data-reel-sub="Walkthrough-based scope for offices &amp; retail" data-reel-cta="Plan Commercial Walkthrough →">
-              <video class="hero-reel-video" src="assets/videos/slomo-office.webm" poster="assets/images/commercial-office.jpg" muted loop playsinline preload="metadata"></video>
-              <img class="hero-reel-fallback" src="assets/images/commercial-office.jpg" alt="Commercial office suite in Shreveport">
-            </div>
-          </div>
+      <!-- Bottom Widescreen Slide Navigation Bar -->
+      <div class="hero-slide-Footer">
+        <div class="hero-slide-tabs" role="tablist" aria-label="Hero Background Scenes">
+          <button type="button" class="hero-slide-tab is-active" data-slide-target="0" role="tab" aria-selected="true">
+            <span class="hero-tab-num">01</span>
+            <span class="hero-tab-label">Residential Estates</span>
+          </button>
+          <button type="button" class="hero-slide-tab" data-slide-target="1" role="tab" aria-selected="false">
+            <span class="hero-tab-num">02</span>
+            <span class="hero-tab-label">Kitchen &amp; Deep Clean</span>
+          </button>
+          <button type="button" class="hero-slide-tab" data-slide-target="2" role="tab" aria-selected="false">
+            <span class="hero-tab-num">03</span>
+            <span class="hero-tab-label">Commercial &amp; Office</span>
+          </button>
+        </div>
 
-          <!-- Top HUD Bar on Video Reel -->
-          <div class="hero-reel-topbar">
-            <span class="hero-slomo-pill">
-              <span class="slomo-dot"></span>
-              <span>SLOW-MO CLEANING REEL</span>
-            </span>
-            <button type="button" class="hero-reel-pause" id="hero-reel-toggle" aria-label="Pause cleaning reel" aria-pressed="false">Pause</button>
-          </div>
-
-          <!-- Bottom Glassmorphic Scene Bar & Switcher -->
-          <div class="hero-reel-bottom">
-            <div class="hero-reel-caption-row">
-              <div class="hero-reel-caption-text">
-                <span class="hero-reel-tag" id="hero-reel-badge">01 · Residential Standard</span>
-                <strong class="hero-reel-heading" id="hero-reel-title">Kitchen &amp; Counter Detail</strong>
-                <span class="hero-reel-desc" id="hero-reel-sub">Countertops, sinks, faucets &amp; appliance exteriors</span>
-              </div>
-              <button type="button" class="btn btn-green btn-sm hero-reel-action" id="hero-reel-cta" data-quick-service="residential" data-quick-level="standard">Price Residential Clean →</button>
-            </div>
-            <div class="hero-reel-tabs" role="tablist" aria-label="Choose cleaning video scene">
-              <button type="button" class="hero-reel-tab active" role="tab" aria-selected="true" data-slide="0">
-                <span class="reel-tab-label">Kitchen</span>
-                <span class="reel-tab-bar"><span class="reel-tab-fill"></span></span>
-              </button>
-              <button type="button" class="hero-reel-tab" role="tab" aria-selected="false" data-slide="1">
-                <span class="reel-tab-label">Bath &amp; Glass</span>
-                <span class="reel-tab-bar"><span class="reel-tab-fill"></span></span>
-              </button>
-              <button type="button" class="hero-reel-tab" role="tab" aria-selected="false" data-slide="2">
-                <span class="reel-tab-label">Turnover</span>
-                <span class="reel-tab-bar"><span class="reel-tab-fill"></span></span>
-              </button>
-              <button type="button" class="hero-reel-tab" role="tab" aria-selected="false" data-slide="3">
-                <span class="reel-tab-label">Office</span>
-                <span class="reel-tab-bar"><span class="reel-tab-fill"></span></span>
-              </button>
-            </div>
-          </div>
+        <div class="hero-slide-arrows">
+          <button type="button" class="hero-arrow-btn" id="hero-slide-prev" aria-label="Previous Scene">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <button type="button" class="hero-arrow-btn" id="hero-slide-next" aria-label="Next Scene">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+          </button>
         </div>
       </div>
     </div>
   </section>
 
-  <!-- Brand Highlights Strip (Interactive 1-Tap Funnel Cards) -->
+  <!-- Brand Highlights Strip (Matching the business card services) -->
   <section class="brand-strip">
     <div class="container brand-strip-grid">
-      <button type="button" class="brand-strip-item" data-quick-service="residential" data-quick-level="standard">
+      <div class="brand-strip-item">
         <div class="brand-strip-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
         </div>
         <div class="brand-strip-text">
           <h4>Residential Cleaning</h4>
-          <p>Homes, condos &amp; apartments →</p>
+          <p>Homes, condos & apartments</p>
         </div>
-      </button>
+      </div>
 
-      <button type="button" class="brand-strip-item" data-quick-service="commercial">
+      <div class="brand-strip-item">
         <div class="brand-strip-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="22.01"></line><line x1="15" y1="22" x2="15" y2="22.01"></line><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="15" y1="6" x2="15" y2="6.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="15" y1="10" x2="15" y2="10.01"></line><line x1="9" y1="14" x2="9" y2="14.01"></line><line x1="15" y1="14" x2="15" y2="14.01"></line><line x1="9" y1="18" x2="9" y2="18.01"></line><line x1="15" y1="18" x2="15" y2="18.01"></line></svg>
         </div>
         <div class="brand-strip-text">
-          <h4>Office &amp; Commercial</h4>
-          <p>Corporate suites &amp; facilities →</p>
+          <h4>Office & Commercial</h4>
+          <p>Corporate suites & facilities</p>
         </div>
-      </button>
+      </div>
 
-      <button type="button" class="brand-strip-item" data-quick-service="residential" data-quick-level="deep">
+      <div class="brand-strip-item">
         <div class="brand-strip-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
         </div>
         <div class="brand-strip-text">
           <h4>Deep Cleaning</h4>
-          <p>Intensive scrub &amp; detail →</p>
+          <p>Intensive scrub & detail</p>
         </div>
-      </button>
+      </div>
 
-      <button type="button" class="brand-strip-item" data-quick-service="residential" data-quick-level="moveinout">
+      <div class="brand-strip-item">
         <div class="brand-strip-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
         <div class="brand-strip-text">
-          <h4>Move In &amp; Out</h4>
-          <p>Empty-property cleaning →</p>
+          <h4>Move In & Out</h4>
+          <p>100% inspection ready</p>
         </div>
-      </button>
+      </div>
 
-      <button type="button" class="brand-strip-item" data-quick-service="airbnb">
+      <div class="brand-strip-item">
         <div class="brand-strip-icon-box">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         </div>
         <div class="brand-strip-text">
-          <h4>Airbnb &amp; Add-Ons</h4>
-          <p>Turnovers, fridges &amp; ovens →</p>
+          <h4>Custom Add-Ons</h4>
+          <p>Refrigerators, ovens, pet care</p>
         </div>
-      </button>
+      </div>
     </div>
   </section>
 
@@ -250,34 +260,14 @@
   <section class="calculator-section" id="calculator">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Estimate Calculator</div>
-        <h2 class="section-title">Property Details &amp; Price Calculator</h2>
-        <p class="section-desc">
-          Choose a service and frequency to begin. Residential estimates use your scope; commercial and Airbnb pricing follows an assessment. Selections stay on this page and are not submitted.
-        </p>
-      </div>
-
-      <!-- Guided Funnel Progress Bar -->
-      <div class="calc-funnel-bar" id="calc-funnel-bar" aria-label="Estimate calculator progress">
-        <div class="calc-funnel-steps">
-          <button type="button" class="funnel-step-pill" data-scroll-target="calc-step-1" id="funnel-pill-1">
-            <span class="funnel-step-badge">1</span>
-            <span class="funnel-step-label">Space Size</span>
-          </button>
-          <button type="button" class="funnel-step-pill" data-scroll-target="calc-step-2" id="funnel-pill-2">
-            <span class="funnel-step-badge">2</span>
-            <span class="funnel-step-label">Service &amp; Scope</span>
-          </button>
-          <button type="button" class="funnel-step-pill" data-scroll-target="calc-step-3" id="funnel-pill-3">
-            <span class="funnel-step-badge">3</span>
-            <span class="funnel-step-label">Frequency</span>
-          </button>
-          <button type="button" class="funnel-step-pill" data-scroll-target="calc-step-4" id="funnel-pill-4">
-            <span class="funnel-step-badge">4</span>
-            <span class="funnel-step-label">Extras</span>
-          </button>
+        <div class="section-tag">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          Instant Transparent Pricing
         </div>
-        <button type="button" class="funnel-next-chip" id="calc-next-action">Next: Choose a service in Step 2 ↓</button>
+        <h2 class="section-title">Property Details & Price Calculator</h2>
+        <p class="section-desc">
+          Select your room counts, square footage, cleaning tier, and optional add-ons below. Your estimated quote updates live in real-time with recurring frequency discounts automatically applied.
+        </p>
       </div>
 
       <div class="calc-grid">
@@ -285,24 +275,16 @@
         <div class="calc-inputs-wrapper">
 
           <!-- Step 1: Property Specifications -->
-          <div class="calc-step-card" id="calc-step-1">
+          <div class="calc-step-card">
             <div class="step-header">
               <div class="step-num">1</div>
               <div class="step-info">
                 <h3>Property Details</h3>
-                <p>Use a 1-tap size preset below or adjust the exact square footage and room counts.</p>
+                <p>Input your bedrooms, full baths, half baths, and total square footage</p>
               </div>
             </div>
 
-            <!-- 1-Tap Space Presets for Zero-Friction Sizing -->
-            <div class="space-presets-row" id="property-presets" role="group" aria-label="Quick property size presets">
-              <button type="button" class="space-preset-btn" data-preset-sqft="850" data-preset-beds="1" data-preset-full="1" data-preset-half="0">1 Bed · 1 Bath · 850 sq ft</button>
-              <button type="button" class="space-preset-btn" data-preset-sqft="1300" data-preset-beds="2" data-preset-full="2" data-preset-half="0">2 Bed · 2 Bath · 1,300 sq ft</button>
-              <button type="button" class="space-preset-btn active" data-preset-sqft="1800" data-preset-beds="3" data-preset-full="2" data-preset-half="1">3 Bed · 2.5 Bath · 1,800 sq ft</button>
-              <button type="button" class="space-preset-btn" data-preset-sqft="2800" data-preset-beds="4" data-preset-full="3" data-preset-half="1">4 Bed · 3.5 Bath · 2,800 sq ft</button>
-            </div>
-
-            <div class="property-specs-grid" id="home-room-controls" hidden>
+            <div class="property-specs-grid">
               <!-- Bedrooms -->
               <div class="spec-control-item">
                 <div class="spec-icon-label">
@@ -366,242 +348,326 @@
                 <span>400 sq ft</span>
                 <span>2,000 sq ft</span>
                 <span>4,000 sq ft</span>
-                <span>6,000 sq ft</span>
+                <span>6,000+ sq ft</span>
               </div>
-              <p class="scope-help">Size and room counts determine estimated cleaning time. For spaces outside 400–6,000 sq ft, call the crew for an assessment.</p>
             </div>
           </div>
 
-          <div class="calc-step-card" id="calc-step-2">
+          <!-- Step 2: Type of Service -->
+          <div class="calc-step-card">
             <div class="step-header">
               <div class="step-num">2</div>
               <div class="step-info">
-                <h3 id="step-2-title">Type of Service</h3>
-                <p>Select an answer in each group. Red outlines show what is still needed for your estimate.</p>
+                <h3>Type of Service</h3>
+                <p>Choose the level of cleaning intensity required for your home or space</p>
               </div>
             </div>
-            <div class="step2-room-pill" id="step2-room-pill" hidden>
-              <span id="step2-room-summary">1,800 sq ft · 3 beds · 2 full baths · 1 half bath</span>
-              <button type="button" class="step2-room-edit" id="btn-edit-rooms">Adjust size &amp; rooms ↑</button>
-            </div>
-            <div class="service-cards-grid" data-required="serviceType" role="group" aria-describedby="serviceType-prompt" aria-labelledby="step-2-title">
-              <label class="service-card-option">
-                <input type="radio" name="service_type" value="residential">
+
+            <div class="service-cards-grid">
+              <!-- Standard Clean -->
+              <label class="service-card-option active" data-type="standard">
+                <input type="radio" name="service_type" value="standard" checked>
                 <div class="service-card-top">
-                  <span class="service-radio-custom">
-                </span>
+                  <div class="service-icon-wrap">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                  </div>
+                  <div class="service-radio-custom"></div>
                 </div>
-                <span class="service-card-name">Residential</span>
-                <span class="service-card-desc">Online estimate by size, level, condition, and extras.</span>
+                <div class="service-card-name">Standard Clean</div>
+                <p class="service-card-desc">Recurring upkeep: kitchens sanitized, bathrooms scrubbed, dusting, mopping, vacuuming, and trash emptying.</p>
+                <span class="service-multiplier-tag">Regular Maintenance</span>
               </label>
-              <label class="service-card-option">
-                <input type="radio" name="service_type" value="commercial">
+
+              <!-- Deep Clean -->
+              <label class="service-card-option" data-type="deep">
+                <input type="radio" name="service_type" value="deep">
                 <div class="service-card-top">
-                  <span class="service-radio-custom">
-                </span>
+                  <div class="service-icon-wrap">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                  </div>
+                  <div class="service-radio-custom"></div>
                 </div>
-                <span class="service-card-name">Commercial</span>
-                <span class="service-card-desc">Walkthrough first, then a per-visit rate or monthly agreement.</span>
+                <div class="service-card-name">Deep Clean</div>
+                <p class="service-card-desc">Thorough restorative scrub: baseboards, door frames, switch plates, heavy tile soap scum, detailed grout, and vents.</p>
+                <span class="service-multiplier-tag">Detailed Scrub</span>
               </label>
-              <label class="service-card-option">
+
+              <!-- Move-in / Move-out -->
+              <label class="service-card-option" data-type="moveinout">
+                <input type="radio" name="service_type" value="moveinout">
+                <div class="service-card-top">
+                  <div class="service-icon-wrap">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                  </div>
+                  <div class="service-radio-custom"></div>
+                </div>
+                <div class="service-card-name">Move-In / Out</div>
+                <p class="service-card-desc">Complete empty-property turnover: inside empty cabinets & closets wiped, detailed baseboards, ready for inspection.</p>
+                <span class="service-multiplier-tag">100% Turnover Ready</span>
+              </label>
+
+              <!-- Airbnb / Vacation Rental Turnover -->
+              <label class="service-card-option" data-type="airbnb">
                 <input type="radio" name="service_type" value="airbnb">
                 <div class="service-card-top">
-                  <span class="service-radio-custom">
-                </span>
+                  <div class="service-icon-wrap">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline><path d="M12 2v4"></path></svg>
+                  </div>
+                  <div class="service-radio-custom"></div>
                 </div>
-                <span class="service-card-name">Airbnb / STR</span>
-                <span class="service-card-desc">Flat turnover rate after assessing and timing the property.</span>
+                <div class="service-card-name">Airbnb / STR Turnover</div>
+                <p class="service-card-desc">Fast guest turnover: fresh bed linens, sanitized bathrooms, kitchen restocked, trash cleared, and guest-ready staging.</p>
+                <span class="service-multiplier-tag">Guest-Ready Staged</span>
               </label>
             </div>
-            <p class="required-answer-note" id="serviceType-prompt">Select a type of service.</p>
-            <div id="residential-requirements" class="scope-fields" hidden>
-              <fieldset class="scope-choice-group" id="cleaningLevel" data-required="cleaningLevel" aria-describedby="cleaningLevel-prompt">
-                <legend>Cleaning level</legend>
-                <div class="scope-answer-options">
-                  <label class="scope-answer"><input type="radio" name="cleaningLevel" data-field="cleaningLevel" value="standard"><span>Standard</span></label>
-                  <label class="scope-answer"><input type="radio" name="cleaningLevel" data-field="cleaningLevel" value="deep"><span>Deep</span></label>
-                  <label class="scope-answer"><input type="radio" name="cleaningLevel" data-field="cleaningLevel" value="moveinout"><span>Move-in / out</span></label>
-                </div>
-                <p class="required-answer-note" id="cleaningLevel-prompt">Select an answer.</p>
-              </fieldset>
-              <fieldset class="scope-choice-group" id="condition" data-required="condition" aria-describedby="condition-prompt">
-                <legend>Condition</legend>
-                <div class="scope-answer-options">
-                  <label class="scope-answer"><input type="radio" name="condition" data-field="condition" value="routine"><span>Routine upkeep</span></label>
-                  <label class="scope-answer"><input type="radio" name="condition" data-field="condition" value="buildup"><span>Visible buildup — assessment needed</span></label>
-                  <label class="scope-answer"><input type="radio" name="condition" data-field="condition" value="heavy"><span>Heavy cleaning — assessment needed</span></label>
-                </div>
-                <p class="required-answer-note" id="condition-prompt">Select an answer.</p>
-              </fieldset>
-              <fieldset class="scope-choice-group" id="pets" data-required="pets" aria-describedby="pets-prompt">
-                <legend>Are there pets in the home?</legend>
-                <div class="scope-answer-options">
-                  <label class="scope-answer"><input type="radio" name="pets" data-field="pets" value="none"><span>No</span></label>
-                  <label class="scope-answer"><input type="radio" name="pets" data-field="pets" value="present"><span>Yes</span></label>
-                </div>
-                <p class="required-answer-note" id="pets-prompt">Select an answer.</p>
-              </fieldset>
-            </div>
-            <div id="commercial-requirements" class="scope-fields" hidden>
-              <fieldset class="scope-choice-group" id="buildingUse" data-required="buildingUse" aria-describedby="buildingUse-prompt">
-                <legend>Building use</legend>
-                <div class="scope-answer-options">
-                  <label class="scope-answer"><input type="radio" name="buildingUse" data-field="buildingUse" value="office"><span>Office</span></label>
-                  <label class="scope-answer"><input type="radio" name="buildingUse" data-field="buildingUse" value="retail"><span>Retail</span></label>
-                  <label class="scope-answer"><input type="radio" name="buildingUse" data-field="buildingUse" value="shared"><span>Shared building areas</span></label>
-                  <label class="scope-answer"><input type="radio" name="buildingUse" data-field="buildingUse" value="other"><span>Other — discuss at walkthrough</span></label>
-                </div>
-                <p class="required-answer-note" id="buildingUse-prompt">Select an answer.</p>
-              </fieldset>
-              <label class="scope-field" for="restrooms">
-                <span>Restrooms</span>
-                <input id="restrooms" data-field="restrooms" type="number" min="0" max="50" step="1" value="1">
-              </label>
-              <fieldset class="scope-choice-group" id="walkthrough" data-required="walkthrough" aria-describedby="walkthrough-prompt">
-                <legend>Preferred walkthrough time</legend>
-                <div class="scope-answer-options">
-                  <label class="scope-answer"><input type="radio" name="walkthrough" data-field="walkthrough" value="morning"><span>Morning</span></label>
-                  <label class="scope-answer"><input type="radio" name="walkthrough" data-field="walkthrough" value="afternoon"><span>Afternoon</span></label>
-                  <label class="scope-answer"><input type="radio" name="walkthrough" data-field="walkthrough" value="evening"><span>Evening</span></label>
-                  <label class="scope-answer"><input type="radio" name="walkthrough" data-field="walkthrough" value="discuss"><span>Discuss a time</span></label>
-                </div>
-                <p class="required-answer-note" id="walkthrough-prompt">Select an answer.</p>
-              </fieldset>
-              <fieldset class="floor-options" data-required="floors" aria-describedby="floors-prompt">
-                <legend>Floor types (choose all that apply)</legend>
-                <label>
-                  <input type="checkbox" name="floor_type" value="carpet"> Carpet</label>
-                  <label>
-                    <input type="checkbox" name="floor_type" value="tile"> Tile</label>
-                    <label>
-                      <input type="checkbox" name="floor_type" value="wood"> Wood</label>
-                      <label>
-                        <input type="checkbox" name="floor_type" value="vinyl"> Vinyl</label>
-                        <label>
-                          <input type="checkbox" name="floor_type" value="concrete"> Concrete</label>
-                          <label>
-                            <input type="checkbox" name="floor_type" value="other"> Other</label>
-                <p class="required-answer-note" id="floors-prompt">Select at least one floor type.</p>
-              </fieldset>
-                          <p class="scope-help">These are preferences for a walkthrough, not a reserved appointment.</p>
-                        </div>
-                        <div id="airbnb-requirements" class="scope-fields" hidden>
-                          <label class="scope-field" for="beds">
-                            <span>Beds to remake</span>
-                            <input id="beds" data-field="beds" type="number" min="0" max="20" step="1" value="0">
-                          </label>
-                          <fieldset class="scope-choice-group" id="laundry" data-required="laundry" aria-describedby="laundry-prompt">
-                <legend>Laundry</legend>
-                <div class="scope-answer-options">
-                  <label class="scope-answer"><input type="radio" name="laundry" data-field="laundry" value="none"><span>No laundry needed</span></label>
-                  <label class="scope-answer"><input type="radio" name="laundry" data-field="laundry" value="onsite"><span>Wash and dry on site</span></label>
-                  <label class="scope-answer"><input type="radio" name="laundry" data-field="laundry" value="offsite"><span>Off-site laundry requested</span></label>
-                  <label class="scope-answer"><input type="radio" name="laundry" data-field="laundry" value="supplied"><span>Clean linens supplied</span></label>
-                </div>
-                <p class="required-answer-note" id="laundry-prompt">Select an answer.</p>
-              </fieldset>
-                          <fieldset class="scope-choice-group" id="restocking" data-required="restocking" aria-describedby="restocking-prompt">
-                <legend>Restocking</legend>
-                <div class="scope-answer-options">
-                  <label class="scope-answer"><input type="radio" name="restocking" data-field="restocking" value="none"><span>No restocking</span></label>
-                  <label class="scope-answer"><input type="radio" name="restocking" data-field="restocking" value="supplied"><span>Use owner-supplied stock</span></label>
-                  <label class="scope-answer"><input type="radio" name="restocking" data-field="restocking" value="purchase"><span>Purchasing requested — agree allowance</span></label>
-                </div>
-                <p class="required-answer-note" id="restocking-prompt">Select an answer.</p>
-              </fieldset>
-                          <label class="scope-field scope-time-field" for="checkout" data-required="checkout">
-                            <span>Checkout time</span>
-                            <input type="time" id="checkout" data-field="checkout" aria-describedby="checkout-prompt"><span class="required-answer-note" id="checkout-prompt">Enter a time.</span>
-                          </label>
-                          <label class="scope-field scope-time-field" for="checkin" data-required="checkin">
-                            <span>Check-in time</span>
-                            <input type="time" id="checkin" data-field="checkin" aria-describedby="checkin-prompt"><span class="required-answer-note" id="checkin-prompt">Enter a time.</span>
-                          </label>
-                          <p class="scope-help">Property-local times only. The owners must confirm the turnover window and flat rate after assessing and timing the work.</p>
-                        </div>
-                      </div>
-          <div class="calc-step-card" id="calc-step-3">
+          </div>
+
+          <!-- Step 3: Recurring Frequency & Discounts -->
+          <div class="calc-step-card">
             <div class="step-header">
               <div class="step-num">3</div>
               <div class="step-info">
-                <h3 id="step-3-title">Cleaning Frequency</h3>
-                <p>Choose your preferred frequency. Availability is reviewed by the owners.</p>
+                <h3>Cleaning Frequency</h3>
+                <p>Unlock automatic recurring discounts on every clean (excluding one-time)</p>
               </div>
             </div>
-            <p id="frequency-prompt" class="scope-help">Choose a service in step 2 first.</p>
-            <div class="frequency-options-grid" data-required="frequency" role="group" aria-describedby="frequency-prompt" aria-labelledby="step-3-title">
-              <label class="freq-card-option" hidden>
-                <input type="radio" name="frequency_choice" value="weekly" disabled>
-                <span class="freq-name">Weekly</span>
+
+            <div class="frequency-options-grid">
+              <!-- Weekly: 20% Discount -->
+              <label class="freq-card-option" data-freq="weekly">
+                <span class="freq-discount-badge">Save 20%</span>
+                <input type="radio" name="frequency_choice" value="weekly">
+                <div class="freq-name">Weekly</div>
+                <div class="freq-sub">Every 7 Days</div>
               </label>
-              <label class="freq-card-option" hidden>
-                <input type="radio" name="frequency_choice" value="biweekly" disabled>
-                <span class="freq-name">Every 2 weeks</span>
+
+              <!-- Every 2 Weeks: 15% Discount -->
+              <label class="freq-card-option active" data-freq="biweekly">
+                <span class="freq-discount-badge">Save 15%</span>
+                <input type="radio" name="frequency_choice" value="biweekly" checked>
+                <div class="freq-name">Every 2 Wks</div>
+                <div class="freq-sub">Most Popular</div>
               </label>
-              <label class="freq-card-option" hidden>
-                <input type="radio" name="frequency_choice" value="monthly" disabled>
-                <span class="freq-name">Monthly</span>
+
+              <!-- Every 4 Weeks: 10% Discount -->
+              <label class="freq-card-option" data-freq="monthly">
+                <span class="freq-discount-badge">Save 10%</span>
+                <input type="radio" name="frequency_choice" value="monthly">
+                <div class="freq-name">Every 4 Wks</div>
+                <div class="freq-sub">Monthly Refresh</div>
               </label>
-              <label class="freq-card-option" hidden>
-                <input type="radio" name="frequency_choice" value="turnover" disabled>
-                <span class="freq-name">Per turnover</span>
+
+              <!-- Per Turnover: 15% Discount -->
+              <label class="freq-card-option" data-freq="turnover">
+                <span class="freq-discount-badge">Save 15%</span>
+                <input type="radio" name="frequency_choice" value="turnover">
+                <div class="freq-name">Per Turnover</div>
+                <div class="freq-sub">Airbnb / Host Partner</div>
               </label>
-              <label class="freq-card-option" hidden>
-                <input type="radio" name="frequency_choice" value="onetime" disabled>
-                <span class="freq-name">One time</span>
+
+              <!-- One Time: No Discount -->
+              <label class="freq-card-option" data-freq="onetime">
+                <input type="radio" name="frequency_choice" value="onetime">
+                <div class="freq-name">One Time</div>
+                <div class="freq-sub">Standard Rate</div>
               </label>
             </div>
           </div>
-          <div class="calc-step-card" id="calc-step-4">
+
+          <!-- Step 4: Custom Add-Ons -->
+          <div class="calc-step-card">
             <div class="step-header">
               <div class="step-num">4</div>
               <div class="step-info">
-                <h3 id="step-4-title">Custom Add-Ons</h3>
-                <p>Extras change to match the service selected in step 2.</p>
+                <h3>Custom Add-Ons</h3>
+                <p>Include specialty extras to tailor your clean to perfection</p>
               </div>
             </div>
-            <p id="addon-prompt" class="scope-help">Choose a service in step 2 to see its extras.</p>
-            <div id="addon-options" class="addons-grid">
+
+            <div class="addons-grid">
+              <!-- Single Refrigerator: $65 each -->
+              <div class="addon-card-item" id="addon-item-fridge">
+                <div class="addon-info-block">
+                  <div class="addon-icon-circle">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="5" y1="10" x2="19" y2="10"></line><line x1="10" y1="6" x2="10" y2="7"></line><line x1="10" y1="14" x2="10" y2="16"></line></svg>
+                  </div>
+                  <div class="addon-text-wrap">
+                    <h4>Single Refrigerator</h4>
+                    <span class="addon-rate-badge">$65 each</span>
+                  </div>
+                </div>
+                <div class="stepper-auto stepper-control">
+                  <button type="button" class="stepper-btn" id="btn-fridge-minus" aria-label="Decrease Single Refrigerator">−</button>
+                  <span class="stepper-value" id="val-addon-fridge">0</span>
+                  <button type="button" class="stepper-btn" id="btn-fridge-plus" aria-label="Increase Single Refrigerator">+</button>
+                </div>
+              </div>
+
+              <!-- Double Refrigerator: $75 each -->
+              <div class="addon-card-item" id="addon-item-fridge-double">
+                <div class="addon-info-block">
+                  <div class="addon-icon-circle">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="12" y1="2" x2="12" y2="22"></line><line x1="4" y1="11" x2="20" y2="11"></line><line x1="10" y1="6" x2="10" y2="8"></line><line x1="14" y1="6" x2="14" y2="8"></line></svg>
+                  </div>
+                  <div class="addon-text-wrap">
+                    <h4>Double / French Door Fridge</h4>
+                    <span class="addon-rate-badge">$75 each</span>
+                  </div>
+                </div>
+                <div class="stepper-auto stepper-control">
+                  <button type="button" class="stepper-btn" id="btn-fridge-double-minus" aria-label="Decrease Double Refrigerator">−</button>
+                  <span class="stepper-value" id="val-addon-fridge-double">0</span>
+                  <button type="button" class="stepper-btn" id="btn-fridge-double-plus" aria-label="Increase Double Refrigerator">+</button>
+                </div>
+              </div>
+
+              <!-- Inside Oven: $80 each -->
+              <div class="addon-card-item" id="addon-item-oven">
+                <div class="addon-info-block">
+                  <div class="addon-icon-circle">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"></rect><line x1="4" y1="8" x2="20" y2="8"></line><circle cx="8" cy="5.5" r="1"></circle><circle cx="12" cy="5.5" r="1"></circle><circle cx="16" cy="5.5" r="1"></circle><rect x="7" y="11" width="10" height="7" rx="1"></rect></svg>
+                  </div>
+                  <div class="addon-text-wrap">
+                    <h4>Inside Oven</h4>
+                    <span class="addon-rate-badge">$80 (subject to condition)</span>
+                  </div>
+                </div>
+                <div class="stepper-auto stepper-control">
+                  <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Oven">−</button>
+                  <span class="stepper-value" id="val-addon-oven">0</span>
+                  <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Oven">+</button>
+                </div>
+              </div>
+
+              <!-- Pet Hair & Detailing: $35 extra -->
+              <div class="addon-card-item" id="addon-item-pets">
+                <div class="addon-info-block">
+                  <div class="addon-icon-circle">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="8" r="2.5"></circle><circle cx="17" cy="8" r="2.5"></circle><circle cx="12" cy="4.5" r="2.5"></circle><path d="M12 11c-3 0-5.5 2-5.5 5 0 2 2.5 4 5.5 4s5.5-2 5.5-4c0-3-2.5-5-5.5-5z"></path></svg>
+                  </div>
+                  <div class="addon-text-wrap">
+                    <h4>Pet Hair & Detailing</h4>
+                    <span class="addon-rate-badge">$35 extra</span>
+                  </div>
+                </div>
+                <div class="stepper-auto stepper-control">
+                  <button type="button" class="stepper-btn" id="btn-pets-minus" aria-label="Decrease Pet Detailing">−</button>
+                  <span class="stepper-value" id="val-addon-pets">0</span>
+                  <button type="button" class="stepper-btn" id="btn-pets-plus" aria-label="Increase Pet Detailing">+</button>
+                </div>
+              </div>
             </div>
           </div>
-</div>
+
+        </div>
+
+        <!-- Right: Sticky Live Quote Summary Card -->
         <div class="calc-summary-wrapper">
           <div class="quote-summary-card">
-            <div class="quote-card-header"><div class="quote-header-flex"><span class="quote-header-title">Estimated Quote</span><span class="quote-live-pill">Scope preview</span></div></div>
+            <div class="quote-card-header">
+              <div class="quote-header-flex">
+                <span class="quote-header-title">Estimated Quote</span>
+                <span class="quote-live-pill">
+                  <span class="live-dot"></span>
+                  Live Calculator
+                </span>
+              </div>
+            </div>
+
             <div class="quote-card-body">
-              <div class="quote-price-banner" role="status" aria-live="polite" aria-atomic="true">
-                <div class="quote-price-label">Estimate per visit</div>
-                <div class="quote-price-amount"><span id="quote-total-amount" class="quote-text-status">Complete highlighted choices</span></div>
-                <div class="price-billing-freq" id="quote-billing-freq">No frequency selected</div>
-                <p id="quote-explanation" class="scope-help">Choose a service and frequency. Nothing is submitted.</p>
+              <!-- Big Price Display -->
+              <div class="quote-price-banner">
+                <div class="quote-price-label">Estimated Investment</div>
+                <div class="quote-price-amount">
+                  <span class="price-currency">$</span>
+                  <span id="quote-total-amount">0.00</span>
+                </div>
+                <div class="price-billing-freq" id="quote-billing-freq">Billed Bi-Weekly (Every 2 Weeks)</div>
+                <div class="quote-savings-alert" id="quote-savings-alert">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                  <span>You're saving <strong id="quote-savings-amount">$0.00</strong> per clean!</span>
+                </div>
+                <div class="quote-minimum-note">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <span>$110 minimum service floor applies</span>
+                </div>
               </div>
-              <div id="summary-rows" class="quote-breakdown-list"></div>
-              <details id="summary-addons" class="summary-addons" hidden><summary id="summary-addons-heading">Selected extras</summary><ul id="summary-addon-list"></ul></details>
+
+              <!-- Itemized Breakdown -->
+              <div class="quote-breakdown-list">
+                <div class="breakdown-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
+                    Property Size
+                  </span>
+                  <span class="breakdown-value" id="summary-base-rate">3 Bed, 2 Bath • 1,800 sq ft</span>
+                </div>
+
+                <div class="breakdown-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                    Service Tier (<span id="summary-service-type">Standard</span>)
+                  </span>
+                  <span class="breakdown-value" id="summary-service-rate">$0.00</span>
+                </div>
+
+                <div class="breakdown-row breakdown-discount-row" id="summary-discount-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    <span id="summary-discount-label">Recurring Discount (15% OFF)</span>
+                  </span>
+                  <span class="breakdown-value" id="summary-discount-val">-$0.00</span>
+                </div>
+
+                <div class="addons-hidden breakdown-row" id="summary-addons-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+                    Custom Add-Ons
+                  </span>
+                  <span class="breakdown-value" id="summary-addons-val">+$0.00</span>
+                </div>
+              </div>
+
+              <!-- Action Buttons -->
               <div class="quote-cta-actions">
-                <button type="button" class="btn btn-green btn-book-now" id="btn-book-quote-now">Review Scope &amp; Estimate</button>
-                <div class="quote-secondary-actions"><button type="button" class="btn btn-outline" id="btn-print-quote">Print Estimate</button><button type="button" class="btn btn-outline" id="btn-share-quote">Copy Summary</button></div>
-                <p id="copy-status" role="status" class="scope-help"></p>
+                <button type="button" class="btn btn-green btn-book-now" id="btn-book-quote-now">
+                  <span>Review Estimate & Call to Book</span>
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+
+                <div class="quote-secondary-actions">
+                  <button type="button" class="btn btn-outline btn-print-quote" id="btn-print-quote" title="Print formal estimate">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"></polyline><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path><rect x="6" y="14" width="12" height="8"></rect></svg>
+                    Print Quote
+                  </button>
+                  <button type="button" class="btn btn-outline btn-share-quote" id="btn-share-quote" title="Copy estimate summary to clipboard">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+                    Share / Copy
+                  </button>
+                </div>
               </div>
-              <p class="scope-help">Preview only. No request or appointment has been created. Rates and service options await owner approval.</p>
+
+              <div class="quote-guarantee-note">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                <span>Transparent Pricing • No Card Required Today</span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <pre id="estimate-print-summary" class="estimate-print-summary"></pre>
-      <noscript><p class="intake-notice">JavaScript is needed for the scope preview. Online requests are unavailable. Call (318) 564-4360 to discuss your needs.</p></noscript>
     </div>
   </section>
 
   <!-- ==========================================================================
-       SERVICES SHOWCASE SECTION (RESIDENTIAL & COMMERCIAL)
+       SERVICES SHOWCASE SECTION (RESIDENTIAL & COMMERCIAL / INDUSTRIAL)
        ========================================================================== -->
   <section class="services-section" id="services">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Services &amp; Scope</div>
+        <div class="section-tag">Comprehensive Solutions</div>
         <h2 class="section-title">Professional Cleaning Services</h2>
         <p class="section-desc">
-          Explore possible cleaning tasks, then agree the final scope with the owners. Availability and service requirements are reviewed before an appointment is confirmed.
+          Whether you need recurring residential care, commercial office upkeep, or heavy-duty restorative deep cleaning, Smarts Pro Solutions brings commercial-grade equipment and meticulous attention to detail.
         </p>
       </div>
 
@@ -617,20 +683,20 @@
         <!-- 1. Residential Cleaning -->
         <div class="service-feature-card" data-category="residential">
           <div class="service-img-wrapper">
-            <img src="assets/images/reel-kitchen-clean.jpg" alt="Residential Cleaning by Smarts Pro Solutions">
+            <img src="assets/images/hero-home.jpg" alt="Residential Cleaning by Smarts Pro Solutions">
             <span class="service-category-badge">Residential</span>
           </div>
           <div class="service-card-content">
             <h3 class="service-card-title">Residential Home Cleaning</h3>
             <p class="service-card-description">
-              Start with your home size, cleaning level, condition, pets, and preferred frequency. Optional extras appear in your estimate.
+              Tailored recurring cleaning for houses, condos, and townhomes. We scrub, sanitize, dust, and polish so you can return to a peaceful, refreshing home.
             </p>
             <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Kitchen countertops, sinks &amp; appliance exteriors</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Bathroom and toilet cleaning</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Vacuuming and appropriate floor cleaning</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Kitchen countertops, sinks & appliance exteriors</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Complete bathroom scrubbing & toilet disinfection</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Floors vacuumed, hardwood washed & sanitized</li>
             </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm" data-quick-service="residential" data-quick-level="standard">Calculate House Quote →</a>
+            <a href="#calculator" class="btn btn-outline btn-sm">Calculate House Quote →</a>
           </div>
         </div>
 
@@ -641,56 +707,76 @@
             <span class="service-category-badge">Commercial</span>
           </div>
           <div class="service-card-content">
-            <h3 class="service-card-title">Office &amp; Commercial Cleaning</h3>
+            <h3 class="service-card-title">Office & Commercial Cleaning</h3>
             <p class="service-card-description">
-              Discuss your building use, size, restrooms, and floor types at a walkthrough. The owners can then propose a defined per-visit rate or monthly agreement.
+              Keep your team productive and your clients impressed. Comprehensive janitorial services for corporate offices, medical suites, law firms, and retail storefronts.
             </p>
             <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Conference rooms, workstations &amp; lobby presentation</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Breakroom and kitchen cleaning</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Frequently touched surfaces</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Conference rooms, workstations & lobby presentation</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Employee breakroom & kitchen sanitization</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>High-touch point surface disinfection</li>
             </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm" data-quick-service="commercial">Request Commercial Scope →</a>
+            <a href="#contact" class="btn btn-outline btn-sm">Request Commercial Scope →</a>
           </div>
         </div>
 
         <!-- 3. Deep Cleaning -->
         <div class="service-feature-card" data-category="specialty">
           <div class="service-img-wrapper">
-            <img src="assets/images/reel-bath-detail.jpg" alt="Deep Cleaning Bathroom &amp; Kitchen Detail">
+            <img src="assets/images/sparkle-kitchen.jpg" alt="Deep Cleaning Kitchen Detail">
             <span class="service-category-badge">Specialty</span>
           </div>
           <div class="service-card-content">
-            <h3 class="service-card-title">Deep Cleaning</h3>
+            <h3 class="service-card-title">Deep Restoration Cleaning</h3>
             <p class="service-card-description">
-              Discuss areas that need more attention, including kitchen buildup, bathroom surfaces, baseboards, and dust. Condition may require an assessment before pricing.
+              An exhaustive top-to-bottom scrub designed to eliminate built-up grease, stubborn bathroom tile scale, grime along baseboards, and accumulated dust.
             </p>
             <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Hand-wiped baseboards, door moldings &amp; trim</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Tile and grout cleaning needs</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Reachable fixtures and vents, as agreed</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Hand-wiped baseboards, door moldings & trim</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Tile grout scrub & hard water stain removal</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Ceiling fans, vents & light fixture detailing</li>
             </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm" data-quick-service="residential" data-quick-level="deep">Calculate Deep Clean →</a>
+            <a href="#calculator" class="btn btn-outline btn-sm">Calculate Deep Clean →</a>
           </div>
         </div>
 
         <!-- 4. Move In / Move Out -->
         <div class="service-feature-card" data-category="specialty">
           <div class="service-img-wrapper">
-            <img src="assets/images/reel-turnover-living.jpg" alt="Move In Move Out Cleaning">
+            <img src="assets/images/hero-home.jpg" alt="Move In Move Out Cleaning">
             <span class="service-category-badge">Turnover</span>
           </div>
           <div class="service-card-content">
-            <h3 class="service-card-title">Move-In &amp; Move-Out Turnover</h3>
+            <h3 class="service-card-title">Move-In & Move-Out Turnover</h3>
             <p class="service-card-description">
-              Plan cleaning for an empty property. Confirm cabinet interiors, closets, appliances, and other requested areas with the owners.
+              High-standard turnover cleaning for renters and pristine conditions for homebuyers. We leave empty properties immaculate and ready for keys.
             </p>
             <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Wipe-down inside cabinets, drawers &amp; pantries</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Closet shelving and interior door frames</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>An agreed checklist for the property</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Wipe-down inside cabinets, drawers & pantries</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Closet shelving & interior door frame sanitizing</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Detailed turnover checklist for inspection walkthroughs</li>
             </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm" data-quick-service="residential" data-quick-level="moveinout">Calculate Move Clean →</a>
+            <a href="#calculator" class="btn btn-outline btn-sm">Calculate Move Clean →</a>
+          </div>
+        </div>
+
+        <!-- 5. Industrial & Post Construction -->
+        <div class="service-feature-card" data-category="commercial">
+          <div class="service-img-wrapper">
+            <img src="assets/images/commercial-office.jpg" alt="Industrial and Post Construction Cleaning">
+            <span class="service-category-badge">Industrial</span>
+          </div>
+          <div class="service-card-content">
+            <h3 class="service-card-title">Industrial & Post-Construction</h3>
+            <p class="service-card-description">
+              Dust containment, drywall dust extraction, heavy debris cleanup, and scrubbed hard floors for new builds, commercial remodels, and industrial shops.
+            </p>
+            <ul class="service-bullet-list">
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>HEPA air & fine drywall dust vacuuming</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Adhesive, paint overspray & sticker removal</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Commercial certificate of occupancy readiness</li>
+            </ul>
+            <a href="#contact" class="btn btn-outline btn-sm">Get Industrial Quote →</a>
           </div>
         </div>
 
@@ -703,14 +789,14 @@
           <div class="service-card-content">
             <h3 class="service-card-title">Recurring Maintenance Plans</h3>
             <p class="service-card-description">
-              Choose weekly, every 2 weeks, or monthly when planning residential visits. The owners review pricing and availability before confirming an arrangement.
+              Set it and forget it. Enjoy steady peace of mind with recurring weekly, bi-weekly (every 2 weeks), or monthly visits with priority scheduling and locked-in rates.
             </p>
             <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Recurring adjustments shown in the provisional estimate</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Discuss your preferences with the crew</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Agree rescheduling and cancellation terms before booking</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Up to 20% discount on every recurring visit</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Dedicated cleaning team familiar with your home</li>
+              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Flexible reschedule with 24hr advance notice</li>
             </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm" data-quick-service="residential" data-quick-level="standard">View Recurring Discounts →</a>
+            <a href="#calculator" class="btn btn-outline btn-sm">View Recurring Discounts →</a>
           </div>
         </div>
       </div>
@@ -718,32 +804,32 @@
   </section>
 
   <!-- ==========================================================================
-       COMMERCIAL SPOTLIGHT BANNER
+       COMMERCIAL & INDUSTRIAL SPOTLIGHT BANNER
        ========================================================================== -->
   <section class="commercial-banner-section" id="commercial">
     <div class="container commercial-grid">
       <div class="commercial-content-wrap">
-        <span class="commercial-badge badge-shreveport">Commercial Cleaning</span>
-        <h2>Start With a Commercial Walkthrough</h2>
+        <span class="commercial-badge badge-shreveport">Commercial & Industrial Facilities</span>
+        <h2>Shreveport's Trusted Partner for Commercial Janitorial</h2>
         <p>
-          Share your building use, size, restrooms, floor types, and preferred frequency. The owners review the work during a walkthrough before proposing a scope and price.
+          Smarts Pro Solutions delivers enterprise-grade facility cleaning tailored to Shreveport and Bossier City businesses. Whether you run a bustling medical clinic, law practice, corporate headquarters, or industrial warehouse, we protect your workplace health and professional brand image.
         </p>
 
         <div class="commercial-features-grid">
           <div class="comm-feature-box">
             <h4>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg>
-              Preferred Timing
+              Flexible After-Hours
             </h4>
-            <p>Discuss a preferred walkthrough time and service schedule with the crew.</p>
+            <p>Evening and weekend shifts so your staff and clients operate without interruption.</p>
           </div>
 
           <div class="comm-feature-box">
             <h4>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"></path></svg>
-              Surface Requirements
+              Commercial Equipment
             </h4>
-            <p>Review floor types and surface needs before agreeing methods and equipment.</p>
+            <p>Heavy-duty sanitizing equipment and professional-grade solutions for commercial facilities.</p>
           </div>
 
           <div class="comm-feature-box">
@@ -751,19 +837,19 @@
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><path d="M9 12l2 2 4-4"></path></svg>
               Custom Scopes of Work
             </h4>
-            <p>Agree tasks, exclusions, and visit frequency for your building.</p>
+            <p>Tailored frequency checklists matching your exact building square footage and foot traffic.</p>
           </div>
 
           <div class="comm-feature-box">
             <h4>
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-              Defined Pricing
+              Detailed Invoicing
             </h4>
-            <p>Review a per-visit rate or monthly agreement after the walkthrough.</p>
+            <p>Itemized monthly billing with net terms available for qualified commercial accounts.</p>
           </div>
         </div>
 
-        <a href="#calculator" class="btn btn-green btn-lg" data-quick-service="commercial">Request Commercial Walkthrough &amp; Bid</a>
+        <a href="#contact" class="btn btn-green btn-lg">Request Commercial Walkthrough & Bid</a>
       </div>
 
       <div class="commercial-visual-box">
@@ -780,10 +866,10 @@
   <section class="checklist-section" id="checklist">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">Service Checklist</div>
-        <h2 class="section-title">Residential Cleaning Scope Comparison</h2>
+        <div class="section-tag">Clarity & Transparency</div>
+        <h2 class="section-title">What's Included in Each Clean?</h2>
         <p class="section-desc">
-          Use this draft comparison to discuss the work. The owners must approve the service checklist; your final quote defines included tasks and exclusions.
+          Compare our service tiers side-by-side. Every clean is performed by trained, background-checked professionals using top-grade equipment.
         </p>
       </div>
 
@@ -805,7 +891,7 @@
               <td><span class="check-icon-yes">✔ Included</span></td>
             </tr>
             <tr>
-              <td>Toilets, Showers & Tubs Cleaned</td>
+              <td>Toilets, Showers & Tubs Sanitized</td>
               <td><span class="check-icon-yes">✔ Included</span></td>
               <td><span class="check-icon-yes">✔ Detailed Scrub</span></td>
               <td><span class="check-icon-yes">✔ Detailed Scrub</span></td>
@@ -829,10 +915,10 @@
               <td><span class="check-icon-yes">✔ Hand-Wiped</span></td>
             </tr>
             <tr>
-              <td>Door Frames, Light Switches & Knobs Wiped</td>
+              <td>Door Frames, Light Switches & Knobs Disinfected</td>
               <td><span class="check-icon-no">— Spot Check</span></td>
-              <td><span class="check-icon-yes">✔ Agreed Surfaces</span></td>
-              <td><span class="check-icon-yes">✔ Agreed Surfaces</span></td>
+              <td><span class="check-icon-yes">✔ All Surfaces</span></td>
+              <td><span class="check-icon-yes">✔ All Surfaces</span></td>
             </tr>
             <tr>
               <td>Inside Empty Cabinets, Drawers & Pantries</td>
@@ -847,26 +933,18 @@
               <td><span class="check-icon-yes">✔ Wall to Wall</span></td>
             </tr>
             <tr>
-              <td>Inside Refrigerator (see estimator extras)</td>
+              <td>Inside Refrigerator ($50 add-on)</td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
             </tr>
             <tr>
-              <td>Inside Oven (see estimator extras)</td>
+              <td>Inside Oven ($60 add-on)</td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
             </tr>
           </tbody>
-          <tfoot>
-            <tr class="checklist-cta-row">
-              <td><strong>Choose this level in the estimator:</strong></td>
-              <td><button type="button" class="btn btn-outline btn-sm" data-quick-service="residential" data-quick-level="standard">Select Standard →</button></td>
-              <td><button type="button" class="btn btn-outline btn-sm" data-quick-service="residential" data-quick-level="deep">Select Deep Clean →</button></td>
-              <td><button type="button" class="btn btn-outline btn-sm" data-quick-service="residential" data-quick-level="moveinout">Select Move-In/Out →</button></td>
-            </tr>
-          </tfoot>
         </table>
       </div>
     </div>
@@ -878,44 +956,44 @@
   <section class="why-us-section" id="why-us">
     <div class="container">
       <div class="section-header">
-        <div class="section-tag">How We Work</div>
-        <h2 class="section-title">Why Shreveport &amp; Bossier City Trust Smarts Pro</h2>
+        <div class="section-tag">The Smarts Pro Difference</div>
+        <h2 class="section-title">Why Shreveport Chooses Smarts Pro</h2>
         <p class="section-desc">
-          Clear communication, customized cleaning scopes, and owner-operated attention to detail.
+          We combine old-fashioned Southern hospitality and dependable work ethic with modern, non-toxic cleaning techniques.
         </p>
       </div>
 
       <div class="why-grid">
         <div class="why-card">
           <div class="why-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
           </div>
-          <h3>Discuss Your Schedule</h3>
-          <p>Share your preferred frequency. A requested time becomes an appointment only after confirmation.</p>
+          <h3>Reliable & Dependable</h3>
+          <p>We arrive on time, fully equipped, and treat your property with absolute care and respect.</p>
         </div>
 
         <div class="why-card">
           <div class="why-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
           </div>
-          <h3>Choose Your Priorities</h3>
-          <p>Use the service details and extras to identify the areas you want to discuss.</p>
+          <h3>Detail-Oriented Focus</h3>
+          <p>We don't cut corners—we clean them. From baseboards to sink fixtures, we ensure every inch sparkles.</p>
         </div>
 
         <div class="why-card">
           <div class="why-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><path d="M8 12h8M12 8v8"></path></svg>
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>
           </div>
-          <h3>Discuss Product Preferences</h3>
-          <p>Ask the crew about products and surface requirements before agreeing the work.</p>
+          <h3>Safe for Family & Pets</h3>
+          <p>Non-toxic, eco-conscious cleaning supplies that protect your indoor air quality and loved ones.</p>
         </div>
 
         <div class="why-card">
           <div class="why-icon-wrap">
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
           </div>
-          <h3>Review Before Booking</h3>
-          <p>The owners review scope, price, and availability with you before confirming service.</p>
+          <h3>Dedicated Local Service</h3>
+          <p>Proudly serving Shreveport and Bossier City with personalized attention to detail on every visit.</p>
         </div>
       </div>
     </div>
@@ -927,7 +1005,7 @@
       <span class="badge-shreveport">Service Coverage</span>
       <h3 class="service-area-title">Proudly Serving Northwest Louisiana</h3>
       <p class="service-area-copy">
-        Contact our crew to check availability for your area in Caddo or Bossier parish.
+        We bring our cleaning professionals directly to homes and commercial facilities across Caddo and Bossier parishes.
       </p>
       <div class="area-pills-row">
         <span class="area-pill"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg> Shreveport</span>
@@ -953,7 +1031,7 @@
         <div class="contact-info-panel">
           <div>
             <h2>Let's Get In Touch!</h2>
-            <span class="contact-sub-script">Clean spaces. A fresh start.</span>
+            <span class="contact-sub-script">Clean Spaces. Happier & Healthier Lives.</span>
 
             <div class="contact-details-list">
               <div class="contact-item">
@@ -1005,8 +1083,8 @@
 
         <!-- Contact Form Side -->
         <div class="contact-form-panel">
-          <h3>Talk With Our Crew</h3>
-          <p>Have questions about commercial quotes, special scheduling, or customized cleanings? Call our crew to discuss your needs.</p>
+          <h3>Talk With Our Team</h3>
+          <p>Have questions about commercial quotes, special scheduling, or customized cleanings? Call our team to discuss your needs.</p>
 
           <div class="intake-notice" id="contact-intake-notice">
             <p>Online requests are not available yet. This preview does not collect your contact details or send booking requests.</p>
@@ -1029,10 +1107,10 @@
             SMARTS <span class="pro-accent">PRO</span>SOLUTIONS
           </div>
           <p>
-            Plan residential, commercial, and short-term rental cleaning in Shreveport and Bossier City. Contact the crew to discuss the scope and availability.
+            Shreveport and Bossier City's premier residential, commercial, deep cleaning, and turnover specialists. Committed to healthy, sparkling environments for families and businesses.
           </p>
           <div class="footer-brand-tagline script-font">
-            Clean spaces. A fresh start.
+            Clean Spaces. Happier & Healthier Lives.
           </div>
         </div>
 
@@ -1062,37 +1140,26 @@
 
         <div class="footer-col">
           <h4>Get In Touch</h4>
-          <ul class="footer-links-list footer-contact-list">
-            <li><a href="tel:3185644360"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> 318-564-4360</a></li>
-            <li><a href="tel:3182003782"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg> 318-200-3782</a></li>
-            <li><a href="mailto:smartsprosolutions@gmail.com"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg> smartsprosolutions@gmail.com</a></li>
-            <li class="footer-meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg> Shreveport, Louisiana</li>
-            <li class="footer-meta-item"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 14 14"></polyline></svg> Call to discuss availability</li>
+          <ul class="footer-links-list">
+            <li><a href="tel:3185644360">📞 318-564-4360</a></li>
+            <li><a href="tel:3182003782">📞 318-200-3782</a></li>
+            <li><a href="mailto:smartsprosolutions@gmail.com">✉️ smartsprosolutions@gmail.com</a></li>
+            <li>📍 Shreveport, Louisiana</li>
+            <li>🕒 Mon – Sat: 7:00 AM – 7:00 PM</li>
           </ul>
         </div>
       </div>
 
       <div class="footer-bottom">
         <div>
-          © <span id="footer-year">2026</span> Smarts Pro Solutions. All Rights Reserved.
+          © <span id="footer-year">2026</span> Smarts Pro Solutions. Founded in 2012. All Rights Reserved.
         </div>
         <div class="footer-actions">
-          <a href="#calculator" class="footer-calculator-link">Calculate Estimate</a>
+          <a href="#calculator" class="footer-calculator-link">Calculate Quote ⚡</a>
         </div>
       </div>
     </div>
   </footer>
-
-  <!-- Sticky Mobile & Tablet Live Quote Funnel Bar -->
-  <div class="mobile-quote-dock" id="mobile-quote-dock" role="region" aria-label="Live estimate quick bar">
-    <div class="mobile-dock-inner">
-      <div class="mobile-dock-info">
-        <span class="mobile-dock-label" id="mobile-dock-status">Start your estimate</span>
-        <strong class="mobile-dock-price" id="mobile-dock-price">Choose service ↓</strong>
-      </div>
-      <button type="button" class="btn btn-green btn-sm mobile-dock-btn" id="mobile-dock-btn">Next Step ↓</button>
-    </div>
-  </div>
 
   <!-- Scroll to Top Button -->
   <button type="button" class="scroll-to-top-btn" id="btn-scroll-top" aria-label="Scroll to top" title="Back to top">
@@ -1108,16 +1175,16 @@
       </div>
       <div class="modal-body">
         <div class="modal-quote-recap">
-<div id="modal-recap-rows"></div><div class="recap-row"><span>Extras:</span><ul id="modal-recap-addons"></ul></div><div class="recap-row recap-total"><span>Estimate:</span><span id="modal-recap-total">Choose your options</span></div><p id="modal-recap-explanation" class="scope-help"></p>
+          <div class="recap-row"><span>Service Selected:</span><strong id="modal-recap-service">Standard Clean</strong></div>
+          <div class="recap-row"><span>Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
+          <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks (15% OFF)</strong></div>
+          <div class="recap-row"><span>Custom Add-Ons:</span><span id="modal-recap-addons">None selected</span></div>
+          <div class="recap-row recap-total"><span>Estimated Quote:</span><span id="modal-recap-total">$246.50</span></div>
         </div>
         <div class="intake-notice" id="booking-intake-notice">
           <p>This is an estimate, subject to confirmation of the property and service scope. It does not reserve a time or lock in a price.</p>
-          <p>Online booking is not available yet. Copy your scope below and call our crew to discuss scope, price, and availability.</p>
-          <div class="modal-action-row">
-            <a class="btn btn-green btn-lg" href="tel:3185644360">Call (318) 564-4360 to Discuss</a>
-            <button type="button" class="btn btn-outline btn-lg" id="btn-modal-copy-quote">Copy Scope Summary</button>
-          </div>
-          <p id="modal-copy-status" role="status" class="scope-help"></p>
+          <p>Online booking is not available yet. Call our team to confirm your price and availability.</p>
+          <a class="btn btn-green btn-lg" href="tel:3185644360">Call (318) 564-4360 to Book</a>
         </div>
       </div>
     </div>
@@ -1125,7 +1192,6 @@
 
   <!-- JavaScript Modules -->
   <script src="assets/js/api.js"></script>
-  <script src="assets/js/estimate-model.js"></script>
   <script src="assets/js/calculator.js"></script>
   <script src="assets/js/booking-modal.js"></script>
   <script src="assets/js/main.js"></script>
