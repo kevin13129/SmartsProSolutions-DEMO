@@ -18,24 +18,27 @@
 </head>
 <body>
 
-  <!-- Top Announcement Bar -->
+  <!-- Top Announcement Bar (Desktop Utility Strip; moved into Slide-Out Drawer on Mobile) -->
   <div class="top-bar">
     <div class="container top-bar-inner">
       <div class="top-bar-notice">
-        <span class="badge-shreveport">Local Shreveport, LA</span>
-        <span>✨ Clean Spaces. Happier & Healthier Lives.</span>
+        <span class="top-bar-region">Shreveport &amp; Bossier City, LA</span>
+        <span class="top-bar-sep" aria-hidden="true">·</span>
+        <span>Founded in 2012</span>
+        <span class="top-bar-sep" aria-hidden="true">·</span>
+        <span>Clean Spaces. Happier &amp; Healthier Lives.</span>
       </div>
       <div class="top-bar-contacts">
         <a href="tel:3185644360" class="top-bar-link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           (318) 564-4360
         </a>
         <a href="tel:3182003782" class="top-bar-link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           (318) 200-3782
         </a>
         <a href="mailto:smartsprosolutions@gmail.com" class="top-bar-link">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
           smartsprosolutions@gmail.com
         </a>
       </div>
@@ -49,28 +52,165 @@
         <img src="assets/images/logo-transparent.png" alt="Smarts Pro Solutions Logo" class="brand-logo-img">
       </a>
 
-      <nav>
+      <nav aria-label="Primary Navigation">
         <ul class="nav-links">
-          <li><a href="#services" class="nav-link">Our Services</a></li>
-          <li><a href="#commercial" class="nav-link">Commercial & Industrial</a></li>
-          <li><a href="#checklist" class="nav-link">What's Included</a></li>
+          <li><a href="#services" class="nav-link">Services</a></li>
+          <li><a href="#commercial" class="nav-link">Commercial</a></li>
+          <li><a href="#checklist" class="nav-link">Checklist</a></li>
           <li><a href="#why-us" class="nav-link">Why Smarts Pro</a></li>
           <li><a href="#contact" class="nav-link">Contact</a></li>
         </ul>
       </nav>
 
       <div class="nav-actions">
-        <a href="tel:3185644360" class="btn btn-outline btn-sm">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+        <a href="tel:3185644360" class="btn btn-outline btn-sm nav-phone-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
           (318) 564-4360
         </a>
-        <a href="#calculator" class="btn btn-primary btn-sm">Calculate Price ⚡</a>
-        <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Toggle Navigation Menu">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+        <a href="#calculator" class="btn btn-primary btn-sm nav-calc-btn">Instant Estimate</a>
+        <button type="button" class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Open Navigation Menu" aria-expanded="false" aria-controls="mobile-drawer">
+          <span class="hamburger-box" aria-hidden="true">
+            <span class="hamburger-line line-1"></span>
+            <span class="hamburger-line line-2"></span>
+            <span class="hamburger-line line-3"></span>
+          </span>
+          <span class="mobile-menu-label">Menu</span>
         </button>
       </div>
     </div>
   </header>
+
+  <!-- Slide-Out Mobile & Quick-Access Navigation Drawer -->
+  <div class="mobile-drawer-overlay" id="mobile-drawer-overlay" aria-hidden="true">
+    <aside class="mobile-drawer" id="mobile-drawer" aria-label="Site Navigation and Dispatch Info">
+      <div class="mobile-drawer-header">
+        <a href="#" class="drawer-brand-wrap" id="drawer-brand-link">
+          <img src="assets/images/logo-transparent.png" alt="Smarts Pro Solutions" class="drawer-logo-img">
+        </a>
+        <button type="button" class="drawer-close-btn" id="mobile-drawer-close" aria-label="Close Navigation Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="mobile-drawer-body">
+        <!-- Primary Slide-Out Menu Links -->
+        <div class="drawer-section-label">Navigation</div>
+        <nav aria-label="Mobile Navigation">
+          <ul class="drawer-nav-list">
+            <li>
+              <a href="#calculator" class="drawer-nav-link">
+                <span class="drawer-nav-num">01</span>
+                <span class="drawer-nav-text">
+                  <strong>Instant Price Calculator</strong>
+                  <span>60-second property estimate</span>
+                </span>
+                <svg class="drawer-nav-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </a>
+            </li>
+            <li>
+              <a href="#services" class="drawer-nav-link">
+                <span class="drawer-nav-num">02</span>
+                <span class="drawer-nav-text">
+                  <strong>Our Cleaning Services</strong>
+                  <span>Residential, deep &amp; move-in/out</span>
+                </span>
+                <svg class="drawer-nav-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </a>
+            </li>
+            <li>
+              <a href="#commercial" class="drawer-nav-link">
+                <span class="drawer-nav-num">03</span>
+                <span class="drawer-nav-text">
+                  <strong>Commercial &amp; Industrial</strong>
+                  <span>Offices, medical &amp; post-construction</span>
+                </span>
+                <svg class="drawer-nav-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </a>
+            </li>
+            <li>
+              <a href="#checklist" class="drawer-nav-link">
+                <span class="drawer-nav-num">04</span>
+                <span class="drawer-nav-text">
+                  <strong>What's Included Checklist</strong>
+                  <span>Room-by-room tier comparison</span>
+                </span>
+                <svg class="drawer-nav-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </a>
+            </li>
+            <li>
+              <a href="#why-us" class="drawer-nav-link">
+                <span class="drawer-nav-num">05</span>
+                <span class="drawer-nav-text">
+                  <strong>Why Smarts Pro</strong>
+                  <span>Locally owned since 2012</span>
+                </span>
+                <svg class="drawer-nav-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </a>
+            </li>
+            <li>
+              <a href="#contact" class="drawer-nav-link">
+                <span class="drawer-nav-num">06</span>
+                <span class="drawer-nav-text">
+                  <strong>Contact &amp; Service Areas</strong>
+                  <span>Shreveport, Bossier City &amp; NW LA</span>
+                </span>
+                <svg class="drawer-nav-arrow" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </a>
+            </li>
+          </ul>
+        </nav>
+
+        <!-- Regional & Dispatch Info (Relocated from the bunched top bar on mobile) -->
+        <div class="drawer-info-card">
+          <div class="drawer-info-kicker">Shreveport &amp; Bossier City Dispatch</div>
+          <p class="drawer-info-tagline">Clean Spaces. Happier &amp; Healthier Lives.</p>
+
+          <div class="drawer-contact-links">
+            <a href="tel:3185644360" class="drawer-contact-row">
+              <span class="drawer-contact-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+              </span>
+              <span class="drawer-contact-meta">
+                <small>Primary Line</small>
+                <strong>(318) 564-4360</strong>
+              </span>
+            </a>
+
+            <a href="tel:3182003782" class="drawer-contact-row">
+              <span class="drawer-contact-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+              </span>
+              <span class="drawer-contact-meta">
+                <small>Secondary Line</small>
+                <strong>(318) 200-3782</strong>
+              </span>
+            </a>
+
+            <a href="mailto:smartsprosolutions@gmail.com" class="drawer-contact-row">
+              <span class="drawer-contact-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path><polyline points="22,6 12,13 2,6"></polyline></svg>
+              </span>
+              <span class="drawer-contact-meta">
+                <small>Direct Email</small>
+                <strong>smartsprosolutions@gmail.com</strong>
+              </span>
+            </a>
+          </div>
+
+          <div class="drawer-hours-row">
+            <span>Mon – Sat · 7:00 AM – 7:00 PM</span>
+            <span>·</span>
+            <span>Caddo &amp; Bossier Parishes</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="mobile-drawer-footer">
+        <a href="#calculator" class="btn btn-green drawer-cta-btn">Calculate Instant Estimate</a>
+        <a href="tel:3185644360" class="btn btn-outline drawer-call-btn">Call (318) 564-4360</a>
+      </div>
+    </aside>
+  </div>
 
   <!-- Hero Section (Full-Bleed Widescreen with Transitioning Backdrop & Translucent Overlay) -->
   <section class="hero-section" aria-label="Featured Cleaning Services Showcase">
@@ -93,7 +233,7 @@
       <div class="hero-grid">
         <div class="hero-content">
           <div class="hero-kicker">
-            <span>Founded in 2012</span>
+            <span>Established 2012</span>
             <span class="hero-kicker-sep" aria-hidden="true">·</span>
             <span>Shreveport &amp; Bossier City, LA</span>
             <span class="hero-kicker-sep" aria-hidden="true">·</span>
@@ -101,43 +241,42 @@
           </div>
 
           <h1 class="hero-title">
-            Clean Spaces. <br>
-            <span class="gradient-text-blue">Happier &amp; Healthier</span> <br>
-            <span class="gradient-text-green">Lives.</span>
+            Clean Spaces for <span class="hero-title-accent">Happier, Healthier</span> Living.
           </h1>
 
           <p class="hero-subtitle">
-            Experience Northwest Louisiana's most detail-oriented cleaning team. From sparkling residential estates and intensive deep restorations to executive commercial facilities and inspection-ready move turnovers—tailored to your exact schedule.
+            Northwest Louisiana's detail-focused residential and commercial cleaning specialists. From recurring home care and deep kitchen restorations to executive office suites and move turnovers—built around your schedule.
           </p>
 
           <div class="hero-cta-group">
             <a href="#calculator" class="btn btn-green btn-lg">
               <span>Calculate Instant Quote</span>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </a>
             <a href="#services" class="btn btn-hero-glass btn-lg">Explore Services</a>
           </div>
 
           <div class="hero-trust-row">
             <div class="hero-trust-item">
-              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
               <span>Locally Owned Since 2012</span>
             </div>
             <div class="hero-trust-item">
-              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
-              <span>Fast, Reliable Scheduling</span>
+              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><path d="M12 8v4l3 3"></path></svg>
+              <span>Reliable On-Time Arrival</span>
             </div>
             <div class="hero-trust-item">
-              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>
-              <span>Eco &amp; Pet-Safe Supplies</span>
+              <svg class="hero-trust-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>
+              <span>Non-Toxic &amp; Pet-Safe</span>
             </div>
           </div>
         </div>
 
         <!-- Right: Translucent Architectural Spotlight Panel -->
-        <aside class="hero-spotlight-card" aria-label="Active Scene and Instant Quote Highlights">
+        <aside class="hero-spotlight-card" id="hero-spotlight-card" aria-label="Active Scene and Instant Quote Highlights">
           <div class="hero-spotlight-header">
             <span class="hero-spotlight-step" id="hero-active-step">01 / 03</span>
+            <span class="hero-kicker-sep" aria-hidden="true">·</span>
             <span class="hero-spotlight-category" id="hero-active-category">Luxury Residential Homes</span>
           </div>
 
@@ -151,21 +290,21 @@
           <div class="hero-spotlight-metrics">
             <div class="hero-metric-item">
               <span class="hero-metric-val">60 Sec</span>
-              <span class="hero-metric-label">Live Online Estimate</span>
+              <span class="hero-metric-label">Online Estimate</span>
             </div>
             <div class="hero-metric-item">
               <span class="hero-metric-val">Up to 20%</span>
-              <span class="hero-metric-label">Recurring Savings</span>
+              <span class="hero-metric-label">Recurring Plan Off</span>
             </div>
             <div class="hero-metric-item">
-              <span class="hero-metric-val">100%</span>
-              <span class="hero-metric-label">Satisfaction Focus</span>
+              <span class="hero-metric-val">14+ Yrs</span>
+              <span class="hero-metric-label">Serving NW LA</span>
             </div>
           </div>
 
           <a href="#calculator" class="hero-calc-teaser">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A3E635" stroke-width="2.2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="8" y1="6" x2="16" y2="6"></line><line x1="16" y1="14" x2="16" y2="18"></line><path d="M16 10h.01"></path><path d="M12 10h.01"></path><path d="M8 10h.01"></path><path d="M12 14h.01"></path><path d="M8 14h.01"></path><path d="M12 18h.01"></path><path d="M8 18h.01"></path></svg>
-            <span>Get Instant Online Estimate in 60s →</span>
+            <span>Build Your Custom Estimate</span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
           </a>
         </aside>
       </div>
@@ -175,24 +314,27 @@
         <div class="hero-slide-tabs" role="tablist" aria-label="Hero Background Scenes">
           <button type="button" class="hero-slide-tab is-active" data-slide-target="0" role="tab" aria-selected="true">
             <span class="hero-tab-num">01</span>
-            <span class="hero-tab-label">Residential Estates</span>
+            <span class="hero-tab-label">Residential Care</span>
+            <span class="hero-tab-progress" aria-hidden="true"></span>
           </button>
           <button type="button" class="hero-slide-tab" data-slide-target="1" role="tab" aria-selected="false">
             <span class="hero-tab-num">02</span>
-            <span class="hero-tab-label">Kitchen &amp; Deep Clean</span>
+            <span class="hero-tab-label">Deep Restoration</span>
+            <span class="hero-tab-progress" aria-hidden="true"></span>
           </button>
           <button type="button" class="hero-slide-tab" data-slide-target="2" role="tab" aria-selected="false">
             <span class="hero-tab-num">03</span>
-            <span class="hero-tab-label">Commercial &amp; Office</span>
+            <span class="hero-tab-label">Commercial Suites</span>
+            <span class="hero-tab-progress" aria-hidden="true"></span>
           </button>
         </div>
 
         <div class="hero-slide-arrows">
           <button type="button" class="hero-arrow-btn" id="hero-slide-prev" aria-label="Previous Scene">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"></polyline></svg>
           </button>
           <button type="button" class="hero-arrow-btn" id="hero-slide-next" aria-label="Next Scene">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
           </button>
         </div>
       </div>
@@ -202,53 +344,53 @@
   <!-- Brand Highlights Strip (Matching the business card services) -->
   <section class="brand-strip">
     <div class="container brand-strip-grid">
-      <div class="brand-strip-item">
+      <div class="brand-strip-item reveal-on-scroll">
         <div class="brand-strip-icon-box">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
         </div>
         <div class="brand-strip-text">
           <h4>Residential Cleaning</h4>
-          <p>Homes, condos & apartments</p>
+          <p>Homes, condos &amp; estates</p>
         </div>
       </div>
 
-      <div class="brand-strip-item">
+      <div class="brand-strip-item reveal-on-scroll">
         <div class="brand-strip-icon-box">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="22.01"></line><line x1="15" y1="22" x2="15" y2="22.01"></line><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="15" y1="6" x2="15" y2="6.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="15" y1="10" x2="15" y2="10.01"></line><line x1="9" y1="14" x2="9" y2="14.01"></line><line x1="15" y1="14" x2="15" y2="14.01"></line><line x1="9" y1="18" x2="9" y2="18.01"></line><line x1="15" y1="18" x2="15" y2="18.01"></line></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="22" x2="9" y2="22.01"></line><line x1="15" y1="22" x2="15" y2="22.01"></line><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="15" y1="6" x2="15" y2="6.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="15" y1="10" x2="15" y2="10.01"></line><line x1="9" y1="14" x2="9" y2="14.01"></line><line x1="15" y1="14" x2="15" y2="14.01"></line><line x1="9" y1="18" x2="9" y2="18.01"></line><line x1="15" y1="18" x2="15" y2="18.01"></line></svg>
         </div>
         <div class="brand-strip-text">
-          <h4>Office & Commercial</h4>
-          <p>Corporate suites & facilities</p>
+          <h4>Office &amp; Commercial</h4>
+          <p>Corporate &amp; medical suites</p>
         </div>
       </div>
 
-      <div class="brand-strip-item">
+      <div class="brand-strip-item reveal-on-scroll">
         <div class="brand-strip-icon-box">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
         </div>
         <div class="brand-strip-text">
-          <h4>Deep Cleaning</h4>
-          <p>Intensive scrub & detail</p>
+          <h4>Deep Restoration</h4>
+          <p>Intensive scrub &amp; detail</p>
         </div>
       </div>
 
-      <div class="brand-strip-item">
+      <div class="brand-strip-item reveal-on-scroll">
         <div class="brand-strip-icon-box">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
         </div>
         <div class="brand-strip-text">
-          <h4>Move In & Out</h4>
-          <p>100% inspection ready</p>
+          <h4>Move In &amp; Out</h4>
+          <p>Walkthrough inspection ready</p>
         </div>
       </div>
 
-      <div class="brand-strip-item">
+      <div class="brand-strip-item reveal-on-scroll">
         <div class="brand-strip-icon-box">
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
         </div>
         <div class="brand-strip-text">
-          <h4>Custom Add-Ons</h4>
-          <p>Refrigerators, ovens, pet care</p>
+          <h4>Specialty Add-Ons</h4>
+          <p>Appliances, ovens &amp; pet care</p>
         </div>
       </div>
     </div>
@@ -259,12 +401,9 @@
        ========================================================================== -->
   <section class="calculator-section" id="calculator">
     <div class="container">
-      <div class="section-header">
-        <div class="section-tag">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          Instant Transparent Pricing
-        </div>
-        <h2 class="section-title">Property Details & Price Calculator</h2>
+      <div class="section-header reveal-on-scroll">
+        <div class="section-tag">01 · Instant Transparent Pricing</div>
+        <h2 class="section-title">Property Details &amp; Price Calculator</h2>
         <p class="section-desc">
           Select your room counts, square footage, cleaning tier, and optional add-ons below. Your estimated quote updates live in real-time with recurring frequency discounts automatically applied.
         </p>
@@ -567,10 +706,7 @@
             <div class="quote-card-header">
               <div class="quote-header-flex">
                 <span class="quote-header-title">Estimated Quote</span>
-                <span class="quote-live-pill">
-                  <span class="live-dot"></span>
-                  Live Calculator
-                </span>
+                <span class="quote-live-pill">Real-Time Estimate</span>
               </div>
             </div>
 
@@ -663,8 +799,8 @@
        ========================================================================== -->
   <section class="services-section" id="services">
     <div class="container">
-      <div class="section-header">
-        <div class="section-tag">Comprehensive Solutions</div>
+      <div class="section-header reveal-on-scroll">
+        <div class="section-tag">02 · Comprehensive Capabilities</div>
         <h2 class="section-title">Professional Cleaning Services</h2>
         <p class="section-desc">
           Whether you need recurring residential care, commercial office upkeep, or heavy-duty restorative deep cleaning, Smarts Pro Solutions brings commercial-grade equipment and meticulous attention to detail.
@@ -808,8 +944,8 @@
        ========================================================================== -->
   <section class="commercial-banner-section" id="commercial">
     <div class="container commercial-grid">
-      <div class="commercial-content-wrap">
-        <span class="commercial-badge badge-shreveport">Commercial & Industrial Facilities</span>
+      <div class="commercial-content-wrap reveal-on-scroll">
+        <span class="commercial-badge">03 · Commercial &amp; Industrial Facilities</span>
         <h2>Shreveport's Trusted Partner for Commercial Janitorial</h2>
         <p>
           Smarts Pro Solutions delivers enterprise-grade facility cleaning tailored to Shreveport and Bossier City businesses. Whether you run a bustling medical clinic, law practice, corporate headquarters, or industrial warehouse, we protect your workplace health and professional brand image.
@@ -865,8 +1001,8 @@
        ========================================================================== -->
   <section class="checklist-section" id="checklist">
     <div class="container">
-      <div class="section-header">
-        <div class="section-tag">Clarity & Transparency</div>
+      <div class="section-header reveal-on-scroll">
+        <div class="section-tag">04 · Scope Comparison</div>
         <h2 class="section-title">What's Included in Each Clean?</h2>
         <p class="section-desc">
           Compare our service tiers side-by-side. Every clean is performed by trained, background-checked professionals using top-grade equipment.
@@ -955,42 +1091,42 @@
        ========================================================================== -->
   <section class="why-us-section" id="why-us">
     <div class="container">
-      <div class="section-header">
-        <div class="section-tag">The Smarts Pro Difference</div>
+      <div class="section-header reveal-on-scroll">
+        <div class="section-tag">05 · The Smarts Pro Standard</div>
         <h2 class="section-title">Why Shreveport Chooses Smarts Pro</h2>
         <p class="section-desc">
-          We combine old-fashioned Southern hospitality and dependable work ethic with modern, non-toxic cleaning techniques.
+          We combine dependable Southern hospitality and strong work ethic with modern, non-toxic cleaning protocols.
         </p>
       </div>
 
       <div class="why-grid">
-        <div class="why-card">
+        <div class="why-card reveal-on-scroll">
           <div class="why-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
           </div>
-          <h3>Reliable & Dependable</h3>
+          <h3>Reliable &amp; Dependable</h3>
           <p>We arrive on time, fully equipped, and treat your property with absolute care and respect.</p>
         </div>
 
-        <div class="why-card">
+        <div class="why-card reveal-on-scroll">
           <div class="why-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
           </div>
           <h3>Detail-Oriented Focus</h3>
-          <p>We don't cut corners—we clean them. From baseboards to sink fixtures, we ensure every inch sparkles.</p>
+          <p>We don't cut corners—we clean them. From baseboards to sink fixtures, we ensure every surface is spotless.</p>
         </div>
 
-        <div class="why-card">
+        <div class="why-card reveal-on-scroll">
           <div class="why-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path></svg>
           </div>
-          <h3>Safe for Family & Pets</h3>
+          <h3>Safe for Family &amp; Pets</h3>
           <p>Non-toxic, eco-conscious cleaning supplies that protect your indoor air quality and loved ones.</p>
         </div>
 
-        <div class="why-card">
+        <div class="why-card reveal-on-scroll">
           <div class="why-icon-wrap">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
           </div>
           <h3>Dedicated Local Service</h3>
           <p>Proudly serving Shreveport and Bossier City with personalized attention to detail on every visit.</p>
@@ -1002,7 +1138,7 @@
   <!-- Service Area Section -->
   <section class="service-area-section">
     <div class="container">
-      <span class="badge-shreveport">Service Coverage</span>
+      <span class="commercial-badge">Regional Coverage</span>
       <h3 class="service-area-title">Proudly Serving Northwest Louisiana</h3>
       <p class="service-area-copy">
         We bring our cleaning professionals directly to homes and commercial facilities across Caddo and Bossier parishes.
@@ -1141,11 +1277,11 @@
         <div class="footer-col">
           <h4>Get In Touch</h4>
           <ul class="footer-links-list">
-            <li><a href="tel:3185644360">📞 318-564-4360</a></li>
-            <li><a href="tel:3182003782">📞 318-200-3782</a></li>
-            <li><a href="mailto:smartsprosolutions@gmail.com">✉️ smartsprosolutions@gmail.com</a></li>
-            <li>📍 Shreveport, Louisiana</li>
-            <li>🕒 Mon – Sat: 7:00 AM – 7:00 PM</li>
+            <li><a href="tel:3185644360">Direct: (318) 564-4360</a></li>
+            <li><a href="tel:3182003782">Alternate: (318) 200-3782</a></li>
+            <li><a href="mailto:smartsprosolutions@gmail.com">smartsprosolutions@gmail.com</a></li>
+            <li>Shreveport &amp; Bossier City, LA</li>
+            <li>Mon – Sat: 7:00 AM – 7:00 PM</li>
           </ul>
         </div>
       </div>
@@ -1155,7 +1291,7 @@
           © <span id="footer-year">2026</span> Smarts Pro Solutions. Founded in 2012. All Rights Reserved.
         </div>
         <div class="footer-actions">
-          <a href="#calculator" class="footer-calculator-link">Calculate Quote ⚡</a>
+          <a href="#calculator" class="footer-calculator-link">Calculate Instant Estimate →</a>
         </div>
       </div>
     </div>
