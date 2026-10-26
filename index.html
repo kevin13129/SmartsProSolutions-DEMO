@@ -803,7 +803,8 @@
   </section>
 
   <!-- ==========================================================================
-       SERVICES SHOWCASE SECTION (RESIDENTIAL & COMMERCIAL / INDUSTRIAL)
+       SERVICES SHOWCASE SECTION (02 · COMPREHENSIVE CAPABILITIES)
+       4 Full-Width Selector Sections + 3-Service Geometric Mosaic / Single Detail View
        ========================================================================== -->
   <section class="services-section" id="services">
     <div class="section-aura-backdrop" aria-hidden="true">
@@ -811,143 +812,321 @@
       <span class="aura-orb aura-orb-services-right"></span>
       <span class="aura-grid-mesh"></span>
     </div>
+
     <div class="container section-content-layer">
       <div class="section-header reveal-on-scroll">
         <div class="section-tag">02 · Comprehensive Capabilities</div>
         <h2 class="section-title">Professional Cleaning Services</h2>
         <p class="section-desc">
-          Whether you need recurring residential care, commercial office upkeep, or heavy-duty restorative deep cleaning, Smarts Pro Solutions brings commercial-grade equipment and meticulous attention to detail.
+          Explore all three core capabilities in our geometric overview below, or select any individual service section across the bar to inspect its complete scope and specifications.
         </p>
       </div>
+    </div>
 
-      <!-- Tab filter -->
-      <div class="services-filter-tabs">
-        <button class="tab-btn active" data-filter="all">All Services</button>
-        <button class="tab-btn" data-filter="residential">Residential Homes</button>
-        <button class="tab-btn" data-filter="commercial">Commercial & Offices</button>
-        <button class="tab-btn" data-filter="specialty">Deep & Move In/Out</button>
+    <!-- Full-Bleed Left-to-Right 4-Section Selector Bar -->
+    <div class="capabilities-fullbleed-wrap section-content-layer">
+      <div class="capabilities-selector-bar services-filter-tabs" role="tablist" aria-label="Service Capability Sections">
+        <button type="button" class="cap-selector-item tab-btn active" data-filter="all" role="tab" aria-selected="true">
+          <span class="cap-selector-top">
+            <span class="cap-selector-num">01</span>
+            <span class="cap-selector-kicker">Geometric Overview</span>
+          </span>
+          <strong class="cap-selector-title">All Services</strong>
+          <span class="cap-selector-sub">View all 3 core capabilities</span>
+        </button>
+
+        <button type="button" class="cap-selector-item tab-btn" data-filter="residential" role="tab" aria-selected="false">
+          <span class="cap-selector-top">
+            <span class="cap-selector-num">02</span>
+            <span class="cap-selector-kicker">Home &amp; Recurring</span>
+          </span>
+          <strong class="cap-selector-title">Residential Homes</strong>
+          <span class="cap-selector-sub">Houses, condos &amp; recurring plans</span>
+        </button>
+
+        <button type="button" class="cap-selector-item tab-btn" data-filter="commercial" role="tab" aria-selected="false">
+          <span class="cap-selector-top">
+            <span class="cap-selector-num">03</span>
+            <span class="cap-selector-kicker">Business &amp; Facility</span>
+          </span>
+          <strong class="cap-selector-title">Commercial &amp; Offices</strong>
+          <span class="cap-selector-sub">Suites, medical &amp; post-construction</span>
+        </button>
+
+        <button type="button" class="cap-selector-item tab-btn" data-filter="specialty" role="tab" aria-selected="false">
+          <span class="cap-selector-top">
+            <span class="cap-selector-num">04</span>
+            <span class="cap-selector-kicker">Intensive &amp; Turnover</span>
+          </span>
+          <strong class="cap-selector-title">Deep &amp; Move In/Out</strong>
+          <span class="cap-selector-sub">Restorative scrub &amp; empty turnovers</span>
+        </button>
       </div>
 
-      <div class="services-cards-grid">
-        <!-- 1. Residential Cleaning -->
-        <div class="service-feature-card" data-category="residential">
-          <div class="service-img-wrapper">
-            <img src="assets/images/hero-home.jpg" alt="Residential Cleaning by Smarts Pro Solutions">
-            <span class="service-category-badge">Residential</span>
-          </div>
-          <div class="service-card-content">
-            <h3 class="service-card-title">Residential Home Cleaning</h3>
-            <p class="service-card-description">
-              Tailored recurring cleaning for houses, condos, and townhomes. We scrub, sanitize, dust, and polish so you can return to a peaceful, refreshing home.
-            </p>
-            <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Kitchen countertops, sinks & appliance exteriors</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Complete bathroom scrubbing & toilet disinfection</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Floors vacuumed, hardwood washed & sanitized</li>
-            </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm">Calculate House Quote →</a>
-          </div>
-        </div>
+      <!-- Full-Bleed Left-to-Right Capabilities Stage (All 3 Geometric Mosaic OR Single Expanded Detail) -->
+      <div class="capabilities-stage is-all-view" id="capabilities-stage" data-active-view="all">
 
-        <!-- 2. Commercial & Office Cleaning -->
-        <div class="service-feature-card" data-category="commercial">
-          <div class="service-img-wrapper">
-            <img src="assets/images/commercial-office.jpg" alt="Commercial Office Janitorial Cleaning">
-            <span class="service-category-badge">Commercial</span>
-          </div>
-          <div class="service-card-content">
-            <h3 class="service-card-title">Office & Commercial Cleaning</h3>
-            <p class="service-card-description">
-              Keep your team productive and your clients impressed. Comprehensive janitorial services for corporate offices, medical suites, law firms, and retail storefronts.
-            </p>
-            <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Conference rooms, workstations & lobby presentation</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Employee breakroom & kitchen sanitization</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>High-touch point surface disinfection</li>
-            </ul>
-            <a href="#contact" class="btn btn-outline btn-sm">Request Commercial Scope →</a>
-          </div>
-        </div>
+        <!-- SERVICE 1: RESIDENTIAL HOMES -->
+        <article class="service-feature-card cap-geo-panel cap-panel-primary" data-category="residential">
+          <div class="cap-panel-overview">
+            <div class="cap-panel-media">
+              <img src="assets/images/hero-home.jpg" alt="Residential Home Cleaning by Smarts Pro Solutions">
+              <div class="cap-panel-scrim"></div>
+              <span class="cap-geo-badge">01 // RESIDENTIAL</span>
+            </div>
 
-        <!-- 3. Deep Cleaning -->
-        <div class="service-feature-card" data-category="specialty">
-          <div class="service-img-wrapper">
-            <img src="assets/images/sparkle-kitchen.jpg" alt="Deep Cleaning Kitchen Detail">
-            <span class="service-category-badge">Specialty</span>
-          </div>
-          <div class="service-card-content">
-            <h3 class="service-card-title">Deep Restoration Cleaning</h3>
-            <p class="service-card-description">
-              An exhaustive top-to-bottom scrub designed to eliminate built-up grease, stubborn bathroom tile scale, grime along baseboards, and accumulated dust.
-            </p>
-            <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Hand-wiped baseboards, door moldings & trim</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Tile grout scrub & hard water stain removal</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Ceiling fans, vents & light fixture detailing</li>
-            </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm">Calculate Deep Clean →</a>
-          </div>
-        </div>
+            <div class="cap-panel-body">
+              <div class="cap-panel-kicker">Recurring &amp; One-Time Home Care</div>
+              <h3 class="service-card-title">Residential Home Cleaning</h3>
+              <p class="service-card-description">
+                Tailored weekly, bi-weekly, monthly, or one-time cleaning for houses, condos, and estates across Shreveport and Bossier City—keeping every room fresh, sanitized, and pet friendly.
+              </p>
 
-        <!-- 4. Move In / Move Out -->
-        <div class="service-feature-card" data-category="specialty">
-          <div class="service-img-wrapper">
-            <img src="assets/images/hero-home.jpg" alt="Move In Move Out Cleaning">
-            <span class="service-category-badge">Turnover</span>
-          </div>
-          <div class="service-card-content">
-            <h3 class="service-card-title">Move-In & Move-Out Turnover</h3>
-            <p class="service-card-description">
-              High-standard turnover cleaning for renters and pristine conditions for homebuyers. We leave empty properties immaculate and ready for keys.
-            </p>
-            <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Wipe-down inside cabinets, drawers & pantries</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Closet shelving & interior door frame sanitizing</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Detailed turnover checklist for inspection walkthroughs</li>
-            </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm">Calculate Move Clean →</a>
-          </div>
-        </div>
+              <ul class="service-bullet-list">
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Kitchen countertops, sinks &amp; appliance exteriors</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Complete bathroom scrubbing &amp; fixture sanitization</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Up to 20% off with locked-in recurring schedules</li>
+              </ul>
 
-        <!-- 5. Industrial & Post Construction -->
-        <div class="service-feature-card" data-category="commercial">
-          <div class="service-img-wrapper">
-            <img src="assets/images/commercial-office.jpg" alt="Industrial and Post Construction Cleaning">
-            <span class="service-category-badge">Industrial</span>
+              <div class="cap-panel-actions">
+                <button type="button" class="btn btn-primary btn-sm cap-inspect-btn" data-select-filter="residential">
+                  <span>Inspect Full Residential Scope</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+                <a href="#calculator" class="btn btn-outline btn-sm">Calculate House Quote →</a>
+              </div>
+            </div>
           </div>
-          <div class="service-card-content">
-            <h3 class="service-card-title">Industrial & Post-Construction</h3>
-            <p class="service-card-description">
-              Dust containment, drywall dust extraction, heavy debris cleanup, and scrubbed hard floors for new builds, commercial remodels, and industrial shops.
-            </p>
-            <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>HEPA air & fine drywall dust vacuuming</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Adhesive, paint overspray & sticker removal</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Commercial certificate of occupancy readiness</li>
-            </ul>
-            <a href="#contact" class="btn btn-outline btn-sm">Get Industrial Quote →</a>
-          </div>
-        </div>
 
-        <!-- 6. Custom Recurring Programs -->
-        <div class="service-feature-card" data-category="residential">
-          <div class="service-img-wrapper">
-            <img src="assets/images/sparkle-kitchen.jpg" alt="Recurring Maintenance Cleaning">
-            <span class="service-category-badge">Recurring</span>
-          </div>
-          <div class="service-card-content">
-            <h3 class="service-card-title">Recurring Maintenance Plans</h3>
-            <p class="service-card-description">
-              Set it and forget it. Enjoy steady peace of mind with recurring weekly, bi-weekly (every 2 weeks), or monthly visits with priority scheduling and locked-in rates.
+          <!-- Expanded Detail Wing (Shown when Residential Homes is selected individually) -->
+          <div class="cap-detail-wing">
+            <div class="cap-detail-header">
+              <div>
+                <span class="cap-detail-eyebrow">Focused Capability Breakdown · 01 / 03</span>
+                <h4>Residential Home &amp; Recurring Maintenance</h4>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm cap-back-all-btn" data-select-filter="all">
+                ← Show All 3 Services
+              </button>
+            </div>
+
+            <p class="cap-detail-lead">
+              Designed for busy homeowners and families who want consistent, hotel-grade presentation without lifting a finger. Choose a one-time refresh or lock in automatic savings on a weekly (20% off), bi-weekly (15% off), or monthly (10% off) schedule.
             </p>
-            <ul class="service-bullet-list">
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Up to 20% discount on every recurring visit</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Dedicated cleaning team familiar with your home</li>
-              <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Flexible reschedule with 24hr advance notice</li>
-            </ul>
-            <a href="#calculator" class="btn btn-outline btn-sm">View Recurring Discounts →</a>
+
+            <div class="cap-scope-grid">
+              <div class="cap-scope-item">
+                <strong>Kitchen &amp; Dining Spaces</strong>
+                <p>Countertops, backsplashes, sink basins, chrome fixtures, stovetop surfaces, microwave interiors, and cabinet exteriors wiped clean.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Bathrooms &amp; Vanities</strong>
+                <p>Showers, tubs, glass doors, vanity mirrors, sinks, and toilets thoroughly scrubbed, sanitized, and polished streak-free.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Bedrooms &amp; Living Areas</strong>
+                <p>Furniture surfaces, windowsills, decor, picture frames, lamps, and bedside tables hand-dusted; beds neatly straightened.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Hardwood, Tile &amp; Carpet Care</strong>
+                <p>All carpets and area rugs vacuumed edge-to-edge; hardwood, luxury vinyl, stone, and tile floors washed and sanitized.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Pet-Friendly Household Care</strong>
+                <p>Detail-oriented pet hair pickup and pet-friendly cleaning routines tailored around households with dogs and cats.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Dedicated Recurring Teams</strong>
+                <p>Priority scheduling with up to 20% recurring discounts, trash liner replacement, and flexible 24-hour rescheduling.</p>
+              </div>
+            </div>
+
+            <div class="cap-detail-footer">
+              <div class="cap-tags-row">
+                <span class="cap-spec-tag">Single-Family Homes</span>
+                <span class="cap-spec-tag">Townhomes &amp; Condos</span>
+                <span class="cap-spec-tag">Weekly / Bi-Weekly / Monthly</span>
+                <span class="cap-spec-tag">Airbnb &amp; STR Host Turnovers</span>
+              </div>
+              <a href="#calculator" class="btn btn-green">Build Residential Estimate Now →</a>
+            </div>
           </div>
-        </div>
+        </article>
+
+        <!-- SERVICE 2: COMMERCIAL & OFFICES -->
+        <article class="service-feature-card cap-geo-panel cap-panel-secondary-top" data-category="commercial">
+          <div class="cap-panel-overview">
+            <div class="cap-panel-media">
+              <img src="assets/images/commercial-office.jpg" alt="Commercial Office Janitorial Cleaning">
+              <div class="cap-panel-scrim"></div>
+              <span class="cap-geo-badge">02 // COMMERCIAL</span>
+            </div>
+
+            <div class="cap-panel-body">
+              <div class="cap-panel-kicker">Corporate, Medical &amp; Industrial</div>
+              <h3 class="service-card-title">Commercial &amp; Office Cleaning</h3>
+              <p class="service-card-description">
+                Dependable janitorial and post-construction facility care for corporate offices, medical clinics, retail storefronts, and industrial spaces.
+              </p>
+
+              <ul class="service-bullet-list">
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Lobbies, conference rooms &amp; executive workstations</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Breakrooms, restrooms &amp; high-touch disinfection</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>After-hours shifts &amp; post-construction dust removal</li>
+              </ul>
+
+              <div class="cap-panel-actions">
+                <button type="button" class="btn btn-primary btn-sm cap-inspect-btn" data-select-filter="commercial">
+                  <span>Inspect Full Commercial Scope</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+                <a href="#contact" class="btn btn-outline btn-sm">Request Commercial Bid →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Expanded Detail Wing (Shown when Commercial & Offices is selected individually) -->
+          <div class="cap-detail-wing">
+            <div class="cap-detail-header">
+              <div>
+                <span class="cap-detail-eyebrow">Focused Capability Breakdown · 02 / 03</span>
+                <h4>Commercial, Office &amp; Post-Construction Janitorial</h4>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm cap-back-all-btn" data-select-filter="all">
+                ← Show All 3 Services
+              </button>
+            </div>
+
+            <p class="cap-detail-lead">
+              Keep your staff productive and your clients impressed with customized commercial janitorial schedules. We service offices, medical suites, law firms, banks, and newly remodeled commercial buildings across Caddo and Bossier parishes.
+            </p>
+
+            <div class="cap-scope-grid">
+              <div class="cap-scope-item">
+                <strong>Reception Lobbies &amp; Entryways</strong>
+                <p>Entry glass, reception counters, client waiting areas, and hard lobby floors polished for an immaculate first impression.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Workstations &amp; Conference Suites</strong>
+                <p>Conference tables, desks, chairs, glass partitions, and shared electronics dusted and sanitized without disturbing documents.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Commercial Restroom Sanitization</strong>
+                <p>Multi-stall restrooms, sinks, partitions, mirrors, and dispensers disinfected and restocked on every scheduled shift.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Employee Breakrooms &amp; Kitchenettes</strong>
+                <p>Tables, sinks, refrigerator exteriors, coffee stations, microwaves, and trash receptacles cleaned and deodorized.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Post-Construction &amp; Remodel Cleanup</strong>
+                <p>Fine drywall dust extraction, sticker/adhesive removal, window detailing, and hard-floor scrubbing for occupancy readiness.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Flexible Evening &amp; Weekend Shifts</strong>
+                <p>After-hours service windows, custom building checklists, and itemized monthly invoicing for commercial accounts.</p>
+              </div>
+            </div>
+
+            <div class="cap-detail-footer">
+              <div class="cap-tags-row">
+                <span class="cap-spec-tag">Corporate Offices</span>
+                <span class="cap-spec-tag">Medical &amp; Dental Suites</span>
+                <span class="cap-spec-tag">Retail &amp; Banks</span>
+                <span class="cap-spec-tag">Post-Construction Turnovers</span>
+              </div>
+              <a href="#contact" class="btn btn-green">Request Commercial Walkthrough →</a>
+            </div>
+          </div>
+        </article>
+
+        <!-- SERVICE 3: DEEP & MOVE IN/OUT -->
+        <article class="service-feature-card cap-geo-panel cap-panel-secondary-bottom" data-category="specialty">
+          <div class="cap-panel-overview">
+            <div class="cap-panel-media">
+              <img src="assets/images/sparkle-kitchen.jpg" alt="Deep Restoration and Move In Out Cleaning">
+              <div class="cap-panel-scrim"></div>
+              <span class="cap-geo-badge">03 // RESTORATIVE</span>
+            </div>
+
+            <div class="cap-panel-body">
+              <div class="cap-panel-kicker">Intensive Scrub &amp; Empty Turnovers</div>
+              <h3 class="service-card-title">Deep &amp; Move In/Out Cleaning</h3>
+              <p class="service-card-description">
+                Exhaustive top-to-bottom restorative detailing for seasonal resets, lease walkthrough inspections, and empty home move-in or move-out turnovers.
+              </p>
+
+              <ul class="service-bullet-list">
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Hand-wiped baseboards, door frames, trim &amp; switches</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Inside empty cabinets, drawers, pantries &amp; closets</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Heavy tile grout scrub, vents &amp; optional oven/fridge</li>
+              </ul>
+
+              <div class="cap-panel-actions">
+                <button type="button" class="btn btn-primary btn-sm cap-inspect-btn" data-select-filter="specialty">
+                  <span>Inspect Full Deep &amp; Move Scope</span>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+                <a href="#calculator" class="btn btn-outline btn-sm">Calculate Deep / Move Quote →</a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Expanded Detail Wing (Shown when Deep & Move In/Out is selected individually) -->
+          <div class="cap-detail-wing">
+            <div class="cap-detail-header">
+              <div>
+                <span class="cap-detail-eyebrow">Focused Capability Breakdown · 03 / 03</span>
+                <h4>Deep Restoration &amp; Move-In / Move-Out Turnovers</h4>
+              </div>
+              <button type="button" class="btn btn-outline btn-sm cap-back-all-btn" data-select-filter="all">
+                ← Show All 3 Services
+              </button>
+            </div>
+
+            <p class="cap-detail-lead">
+              When standard upkeep isn't enough, our Deep Clean and Move-In/Move-Out protocols tackle accumulated buildup, grease, soap scale, and interior cabinetry so your property looks brand new for move-in day or final landlord inspection.
+            </p>
+
+            <div class="cap-scope-grid">
+              <div class="cap-scope-item">
+                <strong>Hand-Wiped Baseboards &amp; Millwork</strong>
+                <p>Every baseboard, door frame, molding, window ledge, and light switch plate hand-scrubbed to remove scuffs and dust buildup.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Interior Cabinets, Drawers &amp; Pantries</strong>
+                <p>Complete interior and exterior wipe-down of empty kitchen cabinets, bathroom vanities, pantry shelves, and closet rods.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Intensive Tile, Grout &amp; Glass Descaling</strong>
+                <p>Heavy-duty scrubbing of shower tile, grout lines, tub surrounds, and glass enclosures to remove soap scum and mineral scale.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>High-Reach Fans, Vents &amp; Fixtures</strong>
+                <p>Ceiling fan blades, air return vents, light fixtures, and blinds detailed to clear trapped dust from top to bottom.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Appliance Interior Detailing (Add-Ons)</strong>
+                <p>Optional deep interior degreasing for single/double refrigerators and baked-on oven interiors right in our price calculator.</p>
+              </div>
+              <div class="cap-scope-item">
+                <strong>Walkthrough Inspection Readiness</strong>
+                <p>Built specifically for homebuyers, sellers, tenants, and property managers requiring a spotless key-handoff standard.</p>
+              </div>
+            </div>
+
+            <div class="cap-detail-footer">
+              <div class="cap-tags-row">
+                <span class="cap-spec-tag">First-Time Deep Reset</span>
+                <span class="cap-spec-tag">Move-In Preparation</span>
+                <span class="cap-spec-tag">Move-Out Lease Inspection</span>
+                <span class="cap-spec-tag">Real Estate Listing Prep</span>
+              </div>
+              <a href="#calculator" class="btn btn-green">Calculate Deep or Move Quote →</a>
+            </div>
+          </div>
+        </article>
+
       </div>
     </div>
   </section>

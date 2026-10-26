@@ -2191,125 +2191,296 @@ button, input, select, textarea {
 }
 
 /* ==========================================================================
-   SERVICES SHOWCASE SECTION (RESIDENTIAL & COMMERCIAL / INDUSTRIAL)
+   SERVICES SHOWCASE SECTION (02 · COMPREHENSIVE CAPABILITIES)
+   Full-Bleed 4-Section Selector + Geometric 3-Service Mosaic / Single Detail View
    ========================================================================== */
 .services-section {
-  padding: 5rem 0;
+  padding: 5.25rem 0 0 0;
   background: var(--bg-page);
   position: relative;
   overflow: hidden;
+  border-top: 1px solid var(--border-light);
 }
 
-.services-filter-tabs {
-  display: flex;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-bottom: 3rem;
-  flex-wrap: wrap;
+.capabilities-fullbleed-wrap {
+  width: 100%;
+  margin-top: 2.5rem;
 }
 
-.tab-btn {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1.5px solid var(--border-light);
-  color: var(--text-muted);
-  padding: 0.6rem 1.35rem;
-  border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all var(--transition-fast);
-}
-
-.tab-btn:hover {
-  border-color: var(--blue-primary);
-  color: var(--blue-primary);
-}
-
-.tab-btn.active {
-  background: var(--navy-primary);
-  color: #FFFFFF;
-  border-color: var(--navy-primary);
-  box-shadow: 0 6px 16px rgba(11, 37, 69, 0.22);
-}
-
-.services-cards-grid {
+/* 4-Section Full-Bleed Left-to-Right Selector Bar */
+.capabilities-selector-bar {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 2rem;
+  grid-template-columns: repeat(4, 1fr);
+  width: 100%;
+  background: var(--navy-dark);
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+  margin: 0;
+  gap: 0;
 }
 
-.service-feature-card {
-  background: rgba(255, 255, 255, 0.92);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid var(--border-light);
-  border-radius: 18px;
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: all var(--transition-fast);
+.cap-selector-item {
+  position: relative;
+  background: rgba(11, 37, 69, 0.65);
+  border: none;
+  border-right: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 0;
+  color: rgba(226, 232, 240, 0.78);
+  padding: 1.5rem 1.85rem;
+  text-align: left;
   display: flex;
   flex-direction: column;
-}
-
-.service-feature-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 20px 38px -10px rgba(11, 37, 69, 0.14), 0 0 24px rgba(0, 102, 204, 0.08);
-  border-color: rgba(0, 102, 204, 0.35);
-}
-
-.service-img-wrapper {
-  position: relative;
-  height: 220px;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.3rem;
+  cursor: pointer;
+  transition: background-color 0.24s ease, color 0.24s ease;
   overflow: hidden;
 }
 
-.service-img-wrapper img {
+.cap-selector-item:last-child {
+  border-right: none;
+}
+
+.cap-selector-item::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 4px;
+  background: linear-gradient(90deg, var(--blue-vibrant) 0%, var(--cyan-accent) 50%, #A3E635 100%);
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.cap-selector-item:hover {
+  background: rgba(0, 102, 204, 0.22);
+  color: #FFFFFF;
+}
+
+.cap-selector-item.active {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(0, 180, 216, 0.24) 0%, transparent 65%),
+    linear-gradient(180deg, rgba(0, 102, 204, 0.32) 0%, rgba(7, 30, 61, 0.95) 100%);
+  color: #FFFFFF;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.18);
+}
+
+.cap-selector-item.active::after {
+  transform: scaleX(1);
+}
+
+.cap-selector-top {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+}
+
+.cap-selector-num {
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  color: #A3E635;
+  background: rgba(163, 230, 53, 0.14);
+  border: 1px solid rgba(163, 230, 53, 0.32);
+  padding: 0.12rem 0.48rem;
+  border-radius: 6px;
+}
+
+.cap-selector-kicker {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: #BAE6FD;
+}
+
+.cap-selector-title {
+  font-family: 'Outfit', sans-serif;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #FFFFFF;
+  line-height: 1.2;
+  margin-top: 0.15rem;
+}
+
+.cap-selector-sub {
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #94A3B8;
+  line-height: 1.35;
+}
+
+.cap-selector-item.active .cap-selector-sub {
+  color: #CBD5E1;
+}
+
+/* ==========================================================================
+   FULL-BLEED LEFT-TO-RIGHT CAPABILITIES STAGE
+   Mode 1 (.is-all-view): Cool 3-Service Interlocking Geometric Mosaic
+   Mode 2 (.is-single-view): Expanded Full-Width Single Service Breakdown
+   ========================================================================== */
+.capabilities-stage {
+  width: 100%;
+  background: var(--navy-dark);
+  border-bottom: 1px solid var(--border-light);
+}
+
+/* MODE 1: All 3 Services in an Interlocking Full-Screen Geometric Layout */
+.capabilities-stage.is-all-view {
+  display: grid;
+  grid-template-columns: 1.08fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 2px;
+  background: rgba(148, 163, 184, 0.25);
+}
+
+/* Primary Left Wing (Service 01: Residential Homes) spans both rows */
+.capabilities-stage.is-all-view .cap-panel-primary {
+  grid-column: 1 / 2;
+  grid-row: 1 / 3;
+}
+
+/* Secondary Right Wings (Service 02 & 03) stack on the right */
+.capabilities-stage.is-all-view .cap-panel-secondary-top {
+  grid-column: 2 / 3;
+  grid-row: 1 / 2;
+}
+
+.capabilities-stage.is-all-view .cap-panel-secondary-bottom {
+  grid-column: 2 / 3;
+  grid-row: 2 / 3;
+}
+
+.service-feature-card.cap-geo-panel {
+  position: relative;
+  background: #FFFFFF;
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transition: background-color 0.28s ease;
+}
+
+.service-feature-card.cap-geo-panel:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+.service-feature-card.is-hidden-panel {
+  display: none !important;
+}
+
+/* Geometric Overview Layout Inside Each Panel */
+.cap-panel-overview {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+}
+
+/* Secondary panels in All-Services view use a sleek horizontal geometric split */
+.capabilities-stage.is-all-view .cap-panel-secondary-top .cap-panel-overview,
+.capabilities-stage.is-all-view .cap-panel-secondary-bottom .cap-panel-overview {
+  display: grid;
+  grid-template-columns: 0.88fr 1.12fr;
+  min-height: 330px;
+}
+
+.cap-panel-media {
+  position: relative;
+  overflow: hidden;
+  background: var(--navy-dark);
+}
+
+.capabilities-stage.is-all-view .cap-panel-primary .cap-panel-media {
+  height: 340px;
+  clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%);
+}
+
+.capabilities-stage.is-all-view .cap-panel-secondary-top .cap-panel-media,
+.capabilities-stage.is-all-view .cap-panel-secondary-bottom .cap-panel-media {
+  height: 100%;
+  min-height: 280px;
+  clip-path: polygon(0 0, 100% 0, 89% 100%, 0 100%);
+}
+
+.cap-panel-media img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  transition: transform 0.5s ease;
+  transition: transform 0.65s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.service-feature-card:hover .service-img-wrapper img {
+.cap-geo-panel:hover .cap-panel-media img {
   transform: scale(1.05);
 }
 
-.service-category-badge {
+.cap-panel-scrim {
   position: absolute;
-  top: 14px;
-  left: 14px;
-  background: rgba(7, 30, 61, 0.84);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.18);
-  color: #FFFFFF;
-  font-size: 0.7rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 0.28rem 0.68rem;
-  border-radius: 8px;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(7, 30, 61, 0.58) 0%, rgba(11, 37, 69, 0.18) 60%, rgba(0, 180, 216, 0.2) 100%);
+  pointer-events: none;
 }
 
-.service-card-content {
-  padding: 1.75rem;
+/* Chamfered Geometric Polygon Tag */
+.cap-geo-badge {
+  position: absolute;
+  top: 18px;
+  left: 18px;
+  background: rgba(7, 30, 61, 0.9);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border-left: 3px solid #A3E635;
+  color: #FFFFFF;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 0.38rem 0.95rem 0.38rem 0.75rem;
+  clip-path: polygon(0 0, 100% 0, 92% 100%, 0 100%);
+}
+
+.cap-panel-body {
+  padding: 2rem 2.25rem;
   display: flex;
   flex-direction: column;
-  flex-grow: 1;
+  justify-content: space-between;
+  flex: 1;
+  background:
+    radial-gradient(circle at 95% 10%, rgba(0, 102, 204, 0.05) 0%, transparent 55%),
+    #FFFFFF;
+}
+
+.cap-panel-kicker {
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--blue-primary);
+  margin-bottom: 0.35rem;
 }
 
 .service-card-title {
-  font-size: 1.3rem;
+  font-size: 1.48rem;
   font-weight: 800;
-  margin-bottom: 0.5rem;
+  margin-bottom: 0.55rem;
   color: var(--navy-primary);
+  line-height: 1.2;
 }
 
 .service-card-description {
-  font-size: 0.9rem;
+  font-size: 0.92rem;
   color: var(--text-muted);
-  line-height: 1.5;
-  margin-bottom: 1.25rem;
+  line-height: 1.56;
+  margin-bottom: 1.2rem;
 }
 
 .service-bullet-list {
@@ -2317,8 +2488,7 @@ button, input, select, textarea {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  margin-bottom: 1.5rem;
-  margin-top: auto;
+  margin-bottom: 1.45rem;
 }
 
 .service-bullet-list li {
@@ -2333,6 +2503,162 @@ button, input, select, textarea {
 .service-bullet-list li svg {
   color: var(--green-primary);
   flex-shrink: 0;
+}
+
+.cap-panel-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.65rem;
+  margin-top: auto;
+}
+
+/* Hide the Expanded Detail Wing when viewing All 3 Services */
+.cap-detail-wing {
+  display: none;
+}
+
+/* ==========================================================================
+   MODE 2 (.is-single-view): INDIVIDUAL SERVICE FULL-SCREEN DETAIL VIEW
+   ========================================================================== */
+.capabilities-stage.is-single-view {
+  display: block;
+  background: #FFFFFF;
+}
+
+.capabilities-stage.is-single-view .service-feature-card.is-expanded-panel {
+  display: grid;
+  grid-template-columns: 0.88fr 1.12fr;
+  width: 100%;
+  min-height: 540px;
+  background: #FFFFFF;
+}
+
+.capabilities-stage.is-single-view .cap-panel-overview {
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--border-light);
+  background: #F8FAFC;
+}
+
+.capabilities-stage.is-single-view .cap-panel-media {
+  height: 290px;
+  clip-path: polygon(0 0, 100% 0, 100% 90%, 0 100%);
+}
+
+.capabilities-stage.is-single-view .cap-inspect-btn {
+  display: none;
+}
+
+.capabilities-stage.is-single-view .cap-detail-wing {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 2.75rem 3.25rem;
+  background:
+    radial-gradient(circle at 90% 12%, rgba(0, 102, 204, 0.08) 0%, transparent 50%),
+    radial-gradient(circle at 15% 88%, rgba(94, 177, 51, 0.07) 0%, transparent 50%),
+    #FFFFFF;
+}
+
+.cap-detail-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 1.35rem;
+  flex-wrap: wrap;
+}
+
+.cap-detail-eyebrow {
+  display: inline-block;
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.09em;
+  color: var(--blue-primary);
+  margin-bottom: 0.3rem;
+}
+
+.cap-detail-header h4 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--navy-primary);
+  line-height: 1.2;
+}
+
+.cap-detail-lead {
+  font-size: 0.98rem;
+  color: var(--text-muted);
+  line-height: 1.64;
+  margin-bottom: 1.65rem;
+}
+
+.cap-scope-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 1.85rem;
+}
+
+.cap-scope-item {
+  background: rgba(248, 250, 252, 0.9);
+  border: 1px solid var(--border-light);
+  border-left: 3px solid var(--blue-primary);
+  border-radius: 10px;
+  padding: 1rem 1.15rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.cap-scope-item:hover {
+  border-left-color: var(--green-primary);
+  background: #FFFFFF;
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-2px);
+}
+
+.cap-scope-item strong {
+  display: block;
+  font-size: 0.92rem;
+  font-weight: 800;
+  color: var(--navy-primary);
+  margin-bottom: 0.25rem;
+}
+
+.cap-scope-item p {
+  font-size: 0.81rem;
+  color: var(--text-muted);
+  line-height: 1.48;
+  margin: 0;
+}
+
+.cap-detail-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.25rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid var(--border-light);
+  flex-wrap: wrap;
+}
+
+.cap-tags-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cap-spec-tag {
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--navy-primary);
+  background: var(--bg-ice);
+  border: 1px solid var(--border-light);
+  padding: 0.3rem 0.7rem;
+  border-radius: 8px;
 }
 
 /* ==========================================================================
@@ -3244,9 +3570,38 @@ html.js-ready .reveal-on-scroll.is-visible {
     gap: 0.85rem;
   }
 
-  .services-cards-grid {
+  .capabilities-selector-bar {
     grid-template-columns: repeat(2, 1fr);
-    gap: 1.5rem;
+  }
+
+  .cap-selector-item {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+    padding: 1.15rem 1.35rem;
+  }
+
+  .capabilities-stage.is-all-view {
+    grid-template-columns: 1fr;
+    grid-template-rows: auto;
+  }
+
+  .capabilities-stage.is-all-view .cap-panel-primary,
+  .capabilities-stage.is-all-view .cap-panel-secondary-top,
+  .capabilities-stage.is-all-view .cap-panel-secondary-bottom {
+    grid-column: 1 / -1;
+    grid-row: auto;
+  }
+
+  .capabilities-stage.is-single-view .service-feature-card.is-expanded-panel {
+    grid-template-columns: 1fr;
+  }
+
+  .capabilities-stage.is-single-view .cap-panel-overview {
+    border-right: none;
+    border-bottom: 1px solid var(--border-light);
+  }
+
+  .capabilities-stage.is-single-view .cap-detail-wing {
+    padding: 2rem 1.75rem;
   }
 
   .commercial-grid {
@@ -3592,28 +3947,69 @@ html.js-ready .reveal-on-scroll.is-visible {
     padding: 0.9rem 0.95rem;
   }
 
-  /* Services Showcase & Filter Tabs on Mobile */
-  .services-filter-tabs {
-    gap: 0.45rem;
-    margin-bottom: 1.75rem;
+  /* Section 02 Capabilities Showcase on Mobile */
+  .services-section {
+    padding: 3.35rem 0 0 0;
   }
 
-  .tab-btn {
-    padding: 0.48rem 0.9rem;
-    font-size: 0.8rem;
+  .capabilities-fullbleed-wrap {
+    margin-top: 1.5rem;
   }
 
-  .services-cards-grid {
+  .capabilities-selector-bar {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .cap-selector-item {
+    padding: 0.9rem 0.95rem;
+  }
+
+  .cap-selector-kicker {
+    display: none;
+  }
+
+  .cap-selector-title {
+    font-size: 0.94rem;
+  }
+
+  .cap-selector-sub {
+    font-size: 0.71rem;
+  }
+
+  .capabilities-stage.is-all-view .cap-panel-secondary-top .cap-panel-overview,
+  .capabilities-stage.is-all-view .cap-panel-secondary-bottom .cap-panel-overview {
     grid-template-columns: 1fr;
-    gap: 1.25rem;
+    min-height: auto;
   }
 
-  .service-img-wrapper {
-    height: 190px;
+  .capabilities-stage.is-all-view .cap-panel-primary .cap-panel-media,
+  .capabilities-stage.is-all-view .cap-panel-secondary-top .cap-panel-media,
+  .capabilities-stage.is-all-view .cap-panel-secondary-bottom .cap-panel-media,
+  .capabilities-stage.is-single-view .cap-panel-media {
+    height: 210px;
+    min-height: 210px;
+    clip-path: polygon(0 0, 100% 0, 100% 92%, 0 100%);
   }
 
-  .service-card-content {
-    padding: 1.25rem;
+  .cap-panel-body {
+    padding: 1.35rem 1.2rem;
+  }
+
+  .service-card-title {
+    font-size: 1.25rem;
+  }
+
+  .capabilities-stage.is-single-view .cap-detail-wing {
+    padding: 1.4rem 1.2rem;
+  }
+
+  .cap-detail-header h4 {
+    font-size: 1.25rem;
+  }
+
+  .cap-scope-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
   }
 
   /* Commercial Section on Mobile */

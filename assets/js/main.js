@@ -102,31 +102,56 @@
   window.addEventListener('scroll', updateScrollState, { passive: true });
   updateScrollState();
 
-  // --- 3. Animated Services Tabs Filtering ---
+  // --- 3. Section 02 Capabilities: 4-Section Selector & Geometric/Single View Controller ---
   const serviceTabs = document.querySelectorAll('.tab-btn');
   const serviceCards = document.querySelectorAll('.service-feature-card');
+  const capabilitiesStage = document.getElementById('capabilities-stage');
+  const inlineFilterTriggers = document.querySelectorAll('[data-select-filter]');
+
+  const setCapabilityFilter = (filter) => {
+    const normalizedFilter = filter || 'all';
+    const isAllView = normalizedFilter === 'all';
+
+    serviceTabs.forEach((tab) => {
+      const matches = tab.getAttribute('data-filter') === normalizedFilter;
+      tab.classList.toggle('active', matches);
+      tab.setAttribute('aria-selected', matches ? 'true' : 'false');
+    });
+
+    if (capabilitiesStage) {
+      capabilitiesStage.setAttribute('data-active-view', isAllView ? 'all' : 'single');
+      capabilitiesStage.classList.toggle('is-all-view', isAllView);
+      capabilitiesStage.classList.toggle('is-single-view', !isAllView);
+    }
+
+    serviceCards.forEach((card) => {
+      const category = card.getAttribute('data-category');
+      const shouldShow = isAllView || category === normalizedFilter;
+
+      if (shouldShow) {
+        card.classList.remove('is-hidden-panel');
+        card.classList.toggle('is-expanded-panel', !isAllView);
+        card.classList.remove('card-filtering-in');
+        void card.offsetWidth;
+        card.classList.add('card-filtering-in');
+      } else {
+        card.classList.remove('card-filtering-in', 'is-expanded-panel');
+        card.classList.add('is-hidden-panel');
+      }
+    });
+  };
 
   serviceTabs.forEach((tab) => {
     tab.addEventListener('click', () => {
-      serviceTabs.forEach((t) => t.classList.remove('active'));
-      tab.classList.add('active');
-
       const filter = tab.getAttribute('data-filter');
+      setCapabilityFilter(filter);
+    });
+  });
 
-      serviceCards.forEach((card) => {
-        const category = card.getAttribute('data-category');
-        const shouldShow = filter === 'all' || category === filter;
-
-        if (shouldShow) {
-          card.style.display = 'flex';
-          card.classList.remove('card-filtering-in');
-          void card.offsetWidth;
-          card.classList.add('card-filtering-in');
-        } else {
-          card.classList.remove('card-filtering-in');
-          card.style.display = 'none';
-        }
-      });
+  inlineFilterTriggers.forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const targetFilter = btn.getAttribute('data-select-filter');
+      setCapabilityFilter(targetFilter);
     });
   });
 
