@@ -17,3 +17,13 @@ body.modal-open { overflow: hidden; }
 .btn-book-now { white-space: normal; }
 #modal-recap-freq { color: var(--green-dark); }
 #modal-recap-total { color: var(--blue-primary); }
+
+/* TEMPORARY: Under-construction screen. Remove with the matching block in index.html. */
+body:has(.construction-screen) { overflow: hidden; }
+.construction-screen { position: fixed; inset: 0; z-index: 99999; display: flex; align-items: center; justify-content: center; padding: 1.5rem; background: linear-gradient(135deg, #0B1E3A 0%, #0066CC 60%, #3F8320 100%); }
+.construction-card { max-width: 480px; width: 100%; padding: 2.5rem 2rem; text-align: center; background: rgba(255, 255, 255, 0.96); border-radius: 20px; box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35); }
+.construction-logo { max-width: 220px; width: 100%; height: auto; margin: 0 auto 1.25rem; display: block; }
+.construction-title { margin: 0 0 0.5rem; font-size: 1.75rem; font-weight: 800; color: #0B1E3A; }
+.construction-copy { margin: 0 0 1.5rem; color: #475569; }
+.construction-phone { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 999px; background: var(--green-primary); color: #FFFFFF; font-weight: 700; text-decoration: none; }
+.construction-phone:hover { background: var(--green-dark); }
