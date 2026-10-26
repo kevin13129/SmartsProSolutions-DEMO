@@ -18,15 +18,20 @@
   const setDrawerState = (open) => {
     if (!drawerOverlay || !mobileToggle) return;
     drawerOverlay.classList.toggle('is-open', open);
+    drawerOverlay.classList.toggle('open', open);
     drawerOverlay.setAttribute('aria-hidden', open ? 'false' : 'true');
     mobileToggle.classList.toggle('is-open', open);
+    mobileToggle.classList.toggle('open', open);
     mobileToggle.setAttribute('aria-expanded', open ? 'true' : 'false');
     document.body.classList.toggle('modal-open', open);
   };
 
   if (mobileToggle && drawerOverlay) {
-    mobileToggle.addEventListener('click', () => {
-      const isCurrentlyOpen = drawerOverlay.classList.contains('is-open');
+    mobileToggle.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const isCurrentlyOpen =
+        drawerOverlay.classList.contains('is-open') ||
+        drawerOverlay.classList.contains('open');
       setDrawerState(!isCurrentlyOpen);
     });
 
@@ -51,7 +56,10 @@
     });
 
     document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && drawerOverlay.classList.contains('is-open')) {
+      if (
+        event.key === 'Escape' &&
+        (drawerOverlay.classList.contains('is-open') || drawerOverlay.classList.contains('open'))
+      ) {
         setDrawerState(false);
         mobileToggle.focus();
       }
@@ -61,7 +69,7 @@
   // --- 2. Header Scroll Elevation & Active Section Scroll-Spy ---
   const header = document.querySelector('.site-header');
   const desktopNavLinks = document.querySelectorAll('.nav-links .nav-link');
-  const trackedSectionIds = ['calculator-section', 'services', 'checklist', 'about', 'faq', 'contact'];
+  const trackedSectionIds = ['calculator', 'services', 'commercial', 'checklist', 'why-us', 'contact'];
   const trackedSections = trackedSectionIds
     .map((id) => document.getElementById(id))
     .filter(Boolean);
@@ -157,7 +165,7 @@
       step: '01 / 03',
       category: 'Luxury Residential Homes',
       title: 'Precision Recurring & One-Time Home Care',
-      desc: 'Meticulous sanitization of living spaces, hardwood and stone floors, bedrooms, and high-touch surfaces using non-toxic, family-safe formulas.'
+      desc: 'Meticulous detailing of living spaces, hardwood and stone floors, bedrooms, and high-touch surfaces with pet-friendly, detail-oriented care.'
     },
     {
       step: '02 / 03',
@@ -281,8 +289,8 @@
   }
 
   // --- 7. Live Calculator Price Feedback Pulse ---
-  const calcContainer = document.querySelector('.calculator-controls');
-  const priceDisplay = document.getElementById('calc-total-price');
+  const calcContainer = document.querySelector('.calc-inputs-wrapper');
+  const priceDisplay = document.querySelector('.quote-price-amount');
   if (calcContainer && priceDisplay) {
     let pulseTimeout = null;
     const triggerPricePulse = () => {
@@ -294,7 +302,7 @@
     };
 
     calcContainer.addEventListener('click', (event) => {
-      const interactive = event.target.closest('button');
+      const interactive = event.target.closest('button, label.service-card-option, label.freq-card-option');
       if (interactive) triggerPricePulse();
     });
 
