@@ -105,7 +105,7 @@ try {
   await evaluate('document.getElementById("card-cat-commercial").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.workflow.id'), 'commercial_walkthrough_pipeline');
   await evaluate('document.getElementById("btn-wizard-next").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 3);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 4);
   assert.equal(await evaluate('document.getElementById("calc-step-total").textContent'), '2');
   await evaluate('document.getElementById("btn-wizard-prev").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
@@ -121,14 +121,43 @@ try {
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.propertyType'), 'House');
   await evaluate('document.getElementById("btn-wizard-prev").click()');
 
-  // Residential flow: select Residential Homes, advance to Step 2, and test pricing & modal
+  // Residential flow: select Residential Homes, advance to Step 2, Step 3 Additional Info, and test Pet Add-On sync & modal
   await evaluate('document.getElementById("card-cat-residential").click()');
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
   await evaluate('document.getElementById("btn-bed-plus").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 200);
-  await evaluate('document.getElementById("btn-wizard-prev").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
+
+  // Advance to Step 3 (Additional Information) and verify mandatory 4-question validation
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 3);
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 3);
+  assert.equal(await evaluate('document.getElementById("addinfo-group-pets").classList.contains("wizard-field-missing")'), true);
+
+  // Choose "Yes, we have pets" -> auto-adds $35 Pet Add-On (200 + 35 = 235)
+  await evaluate('document.getElementById("addinfo-pets-yes").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.addons.pets'), 1);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 235);
+
+  // Switch to "No pets" -> resets pets add-on to 0, greys out #addon-item-pets, and shows lock note
+  await evaluate('document.getElementById("addinfo-pets-no").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.addons.pets'), 0);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 200);
+  assert.equal(await evaluate('document.getElementById("addon-item-pets").classList.contains("is-disabled-addon")'), true);
+  assert.equal(await evaluate('document.getElementById("addon-pets-lock-note").classList.contains("is-hidden")'), false);
+  assert.equal(await evaluate('document.getElementById("addon-pets-lock-note").textContent'), 'You chose no pets in additional information');
+
+  // Complete remaining 3 Additional Information questions and advance to Step 4 (Frequency)
+  await evaluate('document.querySelector(\'[data-addinfo-val="1-3 Months ago"]\').click()');
+  await evaluate('document.querySelector(\'[data-addinfo-val="Occupied, we live there"]\').click()');
+  await evaluate('document.querySelector(\'[data-addinfo-val="Average, normal use"]\').click()');
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 4);
+
+  // Verify Monthly frequency option label
+  assert.equal(await evaluate('document.querySelector(\'[data-freq="monthly"] .freq-name\').textContent'), 'Monthly');
+
   await evaluate('document.getElementById("btn-fridge-plus").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 265);
   assert.equal(await evaluate('getComputedStyle(document.getElementById("summary-addons-row")).display'), 'flex');

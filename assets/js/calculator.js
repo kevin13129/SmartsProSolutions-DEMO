@@ -2,9 +2,10 @@
  * SMARTS PRO SOLUTIONS - LIVE PRICING CALCULATOR ENGINE & MULTI-STEP WIZARD
  * Step 1: Type of Service (Residential, Commercial, Move-In/Out, Airbnb) + Scope Overview
  * Step 2: Property Details (Residential Tiers/Specific Areas OR Move-In/Out Property Type + Gauge)
- *         (Skipped automatically for Commercial & Offices -> goes straight to Frequency)
- * Step 3: Cleaning Frequency
- * Step 4: Custom Add-Ons (Residential / Move-In/Out / Airbnb)
+ * Step 3: Additional Information (Pets, Last Professional Cleaning, Occupancy, Current Condition)
+ *         (Steps 2 & 3 skipped automatically for Commercial & Offices -> goes straight to Frequency)
+ * Step 4: Cleaning Frequency
+ * Step 5: Custom Add-Ons (with smart Pet Hair add-on sync from Step 3)
  *
  * Includes per-step fulfillment validation with missing-option highlighting
  * and dispatches structured job envelopes to SmartsProDispatchFramework.
@@ -117,7 +118,7 @@
     serviceCategory: 'residential', // 'residential' | 'commercial' | 'moveinout' | 'airbnb'
     step1Fulfilled: false,
     step2ResidentialFulfilled: false,
-    step3FrequencyFulfilled: false,
+    step4FrequencyFulfilled: false,
     propertyType: '', // 'House' | 'Apartment' | 'Condo' | 'Townhome'
     scopeMode: 'full', // 'full' | 'specific'
     specificAreasText: '',
@@ -127,6 +128,12 @@
     halfBaths: 1,
     sqft: 1800,
     serviceType: 'standard', // 'standard' | 'deep' | 'moveinout' | 'airbnb'
+    additionalInfo: {
+      hasPets: '', // 'yes' | 'no'
+      lastCleaned: '',
+      occupancy: '',
+      condition: ''
+    },
     frequency: 'biweekly', // 'weekly' | 'biweekly' | 'turnover' | 'monthly' | 'onetime'
     addons: {
       fridge: 0,
@@ -158,9 +165,10 @@
     step2HeadingTitle: document.getElementById('step2-heading-title'),
     step2HeadingDesc: document.getElementById('step2-heading-desc'),
     step3Badge: document.getElementById('step-badge-3'),
-    step3HeadingTitle: document.getElementById('step3-heading-title'),
-    step3HeadingDesc: document.getElementById('step3-heading-desc'),
-    wizardTabNum3: document.getElementById('wizard-tab-num-3'),
+    step4Badge: document.getElementById('step-badge-4'),
+    step4HeadingTitle: document.getElementById('step4-heading-title'),
+    step4HeadingDesc: document.getElementById('step4-heading-desc'),
+    wizardTabNum4: document.getElementById('wizard-tab-num-4'),
 
     // Validation Banner
     validationBanner: document.getElementById('wizard-validation-banner'),
@@ -212,13 +220,20 @@
     sliderSqft: document.getElementById('slider-sqft'),
     inputSqft: document.getElementById('input-sqft'),
 
-    // Step 3: Frequency Cards
-    step3FrequencyGrid: document.getElementById('step3-frequency-grid'),
+    // Step 3: Additional Information Question Groups & Options
+    addinfoGroupPets: document.getElementById('addinfo-group-pets'),
+    addinfoGroupLastCleaned: document.getElementById('addinfo-group-lastcleaned'),
+    addinfoGroupOccupancy: document.getElementById('addinfo-group-occupancy'),
+    addinfoGroupCondition: document.getElementById('addinfo-group-condition'),
+    addinfoOptionBtns: document.querySelectorAll('.addinfo-check-option'),
+
+    // Step 4: Frequency Cards
+    step4FrequencyGrid: document.getElementById('step4-frequency-grid'),
     freqCards: document.querySelectorAll('.freq-card-option'),
     freqTurnoverTitle: document.getElementById('freq-turnover-title'),
     freqTurnoverSub: document.getElementById('freq-turnover-sub'),
 
-    // Step 4: Add-Ons
+    // Step 5: Add-Ons
     valFridge: document.getElementById('val-addon-fridge'),
     btnFridgeMinus: document.getElementById('btn-fridge-minus'),
     btnFridgePlus: document.getElementById('btn-fridge-plus'),
@@ -238,6 +253,7 @@
     btnPetsMinus: document.getElementById('btn-pets-minus'),
     btnPetsPlus: document.getElementById('btn-pets-plus'),
     cardPets: document.getElementById('addon-item-pets'),
+    addonPetsLockNote: document.getElementById('addon-pets-lock-note'),
 
     // Summary Output Elements
     quoteTotalAmount: document.getElementById('quote-total-amount'),
@@ -251,6 +267,8 @@
     summaryPropertyTypeVal: document.getElementById('summary-property-type-val'),
     summarySpecificAreasRow: document.getElementById('summary-specific-areas-row'),
     summarySpecificAreasVal: document.getElementById('summary-specific-areas-val'),
+    summaryAddinfoRow: document.getElementById('summary-addinfo-row'),
+    summaryAddinfoVal: document.getElementById('summary-addinfo-val'),
     summaryServiceType: document.getElementById('summary-service-type'),
     summaryServiceRate: document.getElementById('summary-service-rate'),
     summaryAddonsRow: document.getElementById('summary-addons-row'),
@@ -263,13 +281,14 @@
 
   /**
    * Returns the ordered array of active wizard step IDs for the current service category.
-   * Commercial & Offices only asks Step 1 (Type of Service) -> Step 3 (Cleaning Frequency).
+   * Commercial & Offices only asks Step 1 (Type of Service) -> Step 4 (Cleaning Frequency).
+   * Residential, Move-In/Out, and Airbnb include Step 3 (Additional Information) in a 5-step sequence.
    */
   function getActiveStepSequence() {
     if (state.serviceCategory === 'commercial') {
-      return [1, 3];
+      return [1, 4];
     }
-    return [1, 2, 3, 4];
+    return [1, 2, 3, 4, 5];
   }
 
   /**
@@ -355,10 +374,27 @@
     }
 
     if (stepId === 3) {
-      if (!state.step3FrequencyFulfilled) {
+      const missingGroups = [];
+      if (!state.additionalInfo.hasPets) missingGroups.push(els.addinfoGroupPets);
+      if (!state.additionalInfo.lastCleaned) missingGroups.push(els.addinfoGroupLastCleaned);
+      if (!state.additionalInfo.occupancy) missingGroups.push(els.addinfoGroupOccupancy);
+      if (!state.additionalInfo.condition) missingGroups.push(els.addinfoGroupCondition);
+
+      if (missingGroups.length > 0) {
+        showValidationError(
+          'Please answer all 4 required questions in Additional Information (Pets, Last Professional Cleaning, Occupancy, and Current Condition) before moving forward.',
+          missingGroups
+        );
+        return false;
+      }
+      return true;
+    }
+
+    if (stepId === 4) {
+      if (!state.step4FrequencyFulfilled) {
         showValidationError(
           'Please select a Cleaning Frequency schedule below to fulfill this section.',
-          [els.step3FrequencyGrid]
+          [els.step4FrequencyGrid]
         );
         return false;
       }
@@ -523,15 +559,17 @@
           : state.serviceCategory === 'airbnb'
             ? 'Airbnb Property Details'
             : 'Property Details',
-      3: 'Cleaning Frequency',
-      4: 'Custom Add-Ons'
+      3: 'Additional Information',
+      4: 'Cleaning Frequency',
+      5: 'Custom Add-Ons'
     };
 
     const nextButtonTitles = {
       1: 'Type of Service',
       2: 'Property Details',
-      3: 'Frequency',
-      4: 'Add-Ons'
+      3: 'Additional Info',
+      4: 'Frequency',
+      5: 'Add-Ons'
     };
 
     const title = stepTitles[state.wizardStep] || 'Property Details';
@@ -550,10 +588,11 @@
         'step-fill-1',
         'step-fill-2',
         'step-fill-3',
-        'step-fill-4'
+        'step-fill-4',
+        'step-fill-5'
       );
       if (totalSteps === 2) {
-        els.calcWizardProgressFill.classList.add(displayStepNum === 1 ? 'step-fill-2' : 'step-fill-4');
+        els.calcWizardProgressFill.classList.add(displayStepNum === 1 ? 'step-fill-2' : 'step-fill-5');
       } else {
         els.calcWizardProgressFill.classList.add(`step-fill-${displayStepNum}`);
       }
@@ -568,7 +607,7 @@
       tabsContainer.classList.toggle('is-two-step', totalSteps === 2);
     }
 
-    // Show/hide tabs based on Commercial (2 steps) vs 4-step flow
+    // Show/hide tabs based on Commercial (2 steps) vs 5-step flow
     els.wizardStepTabs.forEach((tab) => {
       const tabStep = parseInt(tab.getAttribute('data-step-target'), 10);
       const posInSeq = sequence.indexOf(tabStep);
@@ -586,20 +625,20 @@
       }
     });
 
-    if (els.wizardTabNum3) {
-      els.wizardTabNum3.textContent = state.serviceCategory === 'commercial' ? '2' : '3';
+    if (els.wizardTabNum4) {
+      els.wizardTabNum4.textContent = state.serviceCategory === 'commercial' ? '2' : '4';
     }
-    if (els.step3Badge) {
-      els.step3Badge.textContent = state.serviceCategory === 'commercial' ? '2' : '3';
+    if (els.step4Badge) {
+      els.step4Badge.textContent = state.serviceCategory === 'commercial' ? '2' : '4';
     }
-    if (els.step3HeadingTitle) {
-      els.step3HeadingTitle.textContent =
+    if (els.step4HeadingTitle) {
+      els.step4HeadingTitle.textContent =
         state.serviceCategory === 'commercial'
           ? 'Commercial Cleaning Frequency'
           : 'Cleaning Frequency';
     }
-    if (els.step3HeadingDesc) {
-      els.step3HeadingDesc.textContent =
+    if (els.step4HeadingDesc) {
+      els.step4HeadingDesc.textContent =
         state.serviceCategory === 'commercial'
           ? 'Select how often your office or facility needs service to complete your Commercial walkthrough request'
           : 'Select your preferred service schedule below to continue';
@@ -725,6 +764,12 @@
    * Update DOM UI to reflect current state and calculations
    */
   function updateUI() {
+    // Enforce Pet Add-On lock if customer chose "No pets" in Additional Information
+    const choseNoPets = state.additionalInfo.hasPets === 'no';
+    if (choseNoPets && state.addons.pets !== 0) {
+      state.addons.pets = 0;
+    }
+
     const calc = calculateQuote();
     const isSpecific = calc.isSpecificAreas;
     const isCommercial = calc.isCommercial;
@@ -788,16 +833,25 @@
       els.inputSqft.value = state.sqft;
     }
 
-    // 3. Update Frequency Cards
+    // 3. Update Step 3 Additional Information Checkboxes
+    els.addinfoOptionBtns.forEach((btn) => {
+      const group = btn.getAttribute('data-addinfo-group');
+      const val = btn.getAttribute('data-addinfo-val');
+      const isChecked = Boolean(group && state.additionalInfo[group] === val);
+      btn.classList.toggle('active', isChecked);
+      btn.setAttribute('aria-checked', isChecked ? 'true' : 'false');
+    });
+
+    // 4. Update Step 4 Frequency Cards
     els.freqCards.forEach((card) => {
       const cardFreq = card.getAttribute('data-freq');
-      const isSelected = state.step3FrequencyFulfilled && cardFreq === state.frequency;
+      const isSelected = state.step4FrequencyFulfilled && cardFreq === state.frequency;
       card.classList.toggle('active', isSelected);
       const radio = card.querySelector('input[type="radio"]');
       if (radio) radio.checked = isSelected;
     });
 
-    // 4. Update Add-on Quantities & Active States
+    // 5. Update Step 5 Add-on Quantities & Pet Lock State
     if (els.valFridge) els.valFridge.textContent = state.addons.fridge;
     if (els.btnFridgeMinus) els.btnFridgeMinus.disabled = state.addons.fridge <= 0;
     if (els.cardFridge) els.cardFridge.classList.toggle('has-quantity', state.addons.fridge > 0);
@@ -815,10 +869,21 @@
     if (els.cardOven) els.cardOven.classList.toggle('has-quantity', state.addons.oven > 0);
 
     if (els.valPets) els.valPets.textContent = state.addons.pets;
-    if (els.btnPetsMinus) els.btnPetsMinus.disabled = state.addons.pets <= 0;
-    if (els.cardPets) els.cardPets.classList.toggle('has-quantity', state.addons.pets > 0);
+    if (els.cardPets) {
+      els.cardPets.classList.toggle('is-disabled-addon', choseNoPets);
+      els.cardPets.classList.toggle('has-quantity', !choseNoPets && state.addons.pets > 0);
+    }
+    if (els.addonPetsLockNote) {
+      els.addonPetsLockNote.classList.toggle('is-hidden', !choseNoPets);
+    }
+    if (els.btnPetsMinus) {
+      els.btnPetsMinus.disabled = choseNoPets || state.addons.pets <= 0;
+    }
+    if (els.btnPetsPlus) {
+      els.btnPetsPlus.disabled = choseNoPets || state.addons.pets >= 5;
+    }
 
-    // 5. Update Summary Card Outputs
+    // 6. Update Summary Card Outputs
     if (els.quoteTotalAmount) {
       els.quoteTotalAmount.textContent = calc.grandTotal.toFixed(2);
       const priceParent = els.quoteTotalAmount.closest('.quote-price-amount');
@@ -833,7 +898,7 @@
       weekly: 'Scheduled Weekly (Every 7 Days)',
       biweekly: 'Scheduled Bi-Weekly (Every 2 Weeks)',
       turnover: 'Per Guest Turnover / Custom Schedule',
-      monthly: 'Scheduled Monthly (Every 4 Weeks)',
+      monthly: 'Scheduled Monthly',
       onetime: 'One-Time Cleaning Estimate'
     };
     if (els.quoteBillingFreq) {
@@ -914,6 +979,23 @@
           cleanedText.length > 0 ? cleanedText : 'Specify in Step 2';
       } else {
         els.summarySpecificAreasRow.classList.add('is-hidden');
+      }
+    }
+
+    if (els.summaryAddinfoRow && els.summaryAddinfoVal) {
+      const info = state.additionalInfo;
+      const hasAnyAddinfo = Boolean(
+        info.hasPets || info.lastCleaned || info.occupancy || info.condition
+      );
+      if (!isCommercial && hasAnyAddinfo) {
+        els.summaryAddinfoRow.classList.remove('is-hidden');
+        const parts = [];
+        if (info.hasPets) parts.push(info.hasPets === 'yes' ? 'Pets: Yes' : 'No Pets');
+        if (info.condition) parts.push(info.condition);
+        else if (info.occupancy) parts.push(info.occupancy);
+        els.summaryAddinfoVal.textContent = parts.join(' • ') || 'Recorded';
+      } else {
+        els.summaryAddinfoRow.classList.add('is-hidden');
       }
     }
 
@@ -1175,20 +1257,54 @@
       });
     }
 
-    // Step 3: Frequency Cards
+    // Step 3: Additional Information Checkbox Options
+    els.addinfoOptionBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const group = btn.getAttribute('data-addinfo-group');
+        const val = btn.getAttribute('data-addinfo-val');
+        if (!group || !val) return;
+
+        state.additionalInfo[group] = val;
+
+        // Sync Pets answer with Step 5 Pet Hair & Detailing Add-On ($35)
+        if (group === 'hasPets') {
+          if (val === 'yes') {
+            state.addons.pets = Math.max(1, state.addons.pets);
+          } else if (val === 'no') {
+            state.addons.pets = 0;
+          }
+        }
+
+        const block = btn.closest('.addinfo-question-block');
+        if (block) {
+          block.classList.remove('wizard-field-missing');
+        }
+        if (
+          state.additionalInfo.hasPets &&
+          state.additionalInfo.lastCleaned &&
+          state.additionalInfo.occupancy &&
+          state.additionalInfo.condition
+        ) {
+          clearValidationErrors();
+        }
+        updateUI();
+      });
+    });
+
+    // Step 4: Frequency Cards
     els.freqCards.forEach((card) => {
       card.addEventListener('click', () => {
         const selectedFreq = card.getAttribute('data-freq');
         if (selectedFreq) {
           state.frequency = selectedFreq;
-          state.step3FrequencyFulfilled = true;
+          state.step4FrequencyFulfilled = true;
           clearValidationErrors();
           updateUI();
         }
       });
     });
 
-    // Step 4: Add-on Steppers
+    // Step 5: Add-on Steppers
     if (els.btnFridgeMinus) {
       els.btnFridgeMinus.addEventListener('click', () => {
         if (state.addons.fridge > 0) {
@@ -1242,6 +1358,7 @@
 
     if (els.btnPetsMinus) {
       els.btnPetsMinus.addEventListener('click', () => {
+        if (state.additionalInfo.hasPets === 'no') return;
         if (state.addons.pets > 0) {
           state.addons.pets--;
           updateUI();
@@ -1250,6 +1367,7 @@
     }
     if (els.btnPetsPlus) {
       els.btnPetsPlus.addEventListener('click', () => {
+        if (state.additionalInfo.hasPets === 'no') return;
         if (state.addons.pets < 5) {
           state.addons.pets++;
           updateUI();
@@ -1271,7 +1389,7 @@
         state.serviceCategory = 'residential';
         state.step1Fulfilled = false;
         state.step2ResidentialFulfilled = false;
-        state.step3FrequencyFulfilled = false;
+        state.step4FrequencyFulfilled = false;
         state.propertyType = '';
         state.scopeMode = 'full';
         state.specificAreasText = '';
@@ -1281,6 +1399,12 @@
         state.halfBaths = 1;
         state.sqft = 1800;
         state.serviceType = 'standard';
+        state.additionalInfo = {
+          hasPets: '',
+          lastCleaned: '',
+          occupancy: '',
+          condition: ''
+        };
         state.frequency = 'biweekly';
         state.addons = { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 };
         if (els.inputSpecificAreas) els.inputSpecificAreas.value = '';
@@ -1302,7 +1426,7 @@
       updateUI();
     } else if (serviceKey === 'commercial') {
       selectServiceCategory('commercial');
-      state.wizardStep = 3;
+      state.wizardStep = 4;
       updateUI();
     } else if (serviceKey === 'moveinout') {
       selectServiceCategory('moveinout');

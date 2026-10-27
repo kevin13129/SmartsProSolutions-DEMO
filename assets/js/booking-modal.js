@@ -20,6 +20,8 @@
   const recapSpecs = document.getElementById('modal-recap-specs');
   const recapAreasRow = document.getElementById('modal-recap-areas-row');
   const recapAreas = document.getElementById('modal-recap-areas');
+  const recapAddinfoRow = document.getElementById('modal-recap-addinfo-row');
+  const recapAddinfo = document.getElementById('modal-recap-addinfo');
   const recapFreq = document.getElementById('modal-recap-freq');
   const recapAddonsRow = document.getElementById('modal-recap-addons-row');
   const recapAddons = document.getElementById('modal-recap-addons');
@@ -47,7 +49,7 @@
     weekly: 'Weekly (Every 7 Days)',
     biweekly: 'Every 2 Weeks',
     turnover: 'Per Turnover / Custom Schedule',
-    monthly: 'Every 4 Weeks (Monthly)',
+    monthly: 'Monthly',
     onetime: 'One-Time Service'
   };
 
@@ -92,6 +94,7 @@
         if (recapSpecsLabel) recapSpecsLabel.textContent = 'Facility Assessment:';
         if (recapSpecs) recapSpecs.textContent = 'On-Site Owner Walkthrough & Custom Scope';
         if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
+        if (recapAddinfoRow) recapAddinfoRow.classList.add('is-hidden');
         if (recapAddonsRow) recapAddonsRow.classList.add('is-hidden');
         if (recapTotalLabel) recapTotalLabel.textContent = 'Commercial Walkthrough Baseline:';
       } else if (isSpecific) {
@@ -120,6 +123,22 @@
         if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote:';
       }
 
+      // Additional Information Row (Step 3 answers for Owner Review)
+      if (recapAddinfoRow && recapAddinfo) {
+        const info = quote.state.additionalInfo || {};
+        if (!isCommercial && (info.hasPets || info.lastCleaned || info.occupancy || info.condition)) {
+          const infoParts = [];
+          if (info.hasPets) infoParts.push(info.hasPets === 'yes' ? 'Pets: Yes' : 'Pets: No');
+          if (info.lastCleaned) infoParts.push(`Last Cleaned: ${info.lastCleaned}`);
+          if (info.occupancy) infoParts.push(`Occupancy: ${info.occupancy}`);
+          if (info.condition) infoParts.push(`Condition: ${info.condition}`);
+          recapAddinfoRow.classList.remove('is-hidden');
+          recapAddinfo.textContent = infoParts.join(' • ');
+        } else {
+          recapAddinfoRow.classList.add('is-hidden');
+        }
+      }
+
       if (recapFreq) recapFreq.textContent = freqLabels[quote.state.frequency] || 'One-Time Service';
 
       const addonParts = [];
@@ -127,7 +146,13 @@
       if (quote.state.addons.fridgeDouble > 0) addonParts.push(`${quote.state.addons.fridgeDouble}x Double Fridge ($75)`);
       if (quote.state.addons.oven > 0) addonParts.push(`${quote.state.addons.oven}x Inside Oven ($80)`);
       if (quote.state.addons.pets > 0) addonParts.push(`${quote.state.addons.pets}x Pet Hair Detailing ($35)`);
-      if (recapAddons) recapAddons.textContent = addonParts.length > 0 ? addonParts.join(', ') : 'None selected';
+      if (recapAddons) {
+        if (quote.state.additionalInfo && quote.state.additionalInfo.hasPets === 'no' && addonParts.length === 0) {
+          recapAddons.textContent = 'None selected (No pets)';
+        } else {
+          recapAddons.textContent = addonParts.length > 0 ? addonParts.join(', ') : 'None selected';
+        }
+      }
 
       if (recapTotal) recapTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
 

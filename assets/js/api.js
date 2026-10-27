@@ -35,11 +35,27 @@
    */
   const PIPELINES = Object.freeze({
     COMMERCIAL_WALKTHROUGH: Object.freeze({
-      id: 'COMMERCIAL_WALKTHROUGH_PIPELINE',
+      id: 'commercial_walkthrough_pipeline',
       title: 'Commercial Walkthrough & Custom Bid Workflow',
+      label: 'Commercial Walkthrough & Facility Bid',
+      summary: 'Commercial requests route to the owner for an on-site walkthrough calendar slot and custom facility proposal.',
       calendarAction: 'Request On-Site Facility Walkthrough Slot',
       ownerAlertAction: 'Email Owner: Commercial Walkthrough & Frequency Request',
       paymentAction: 'Custom Commercial Proposal & Net/Monthly Invoicing',
+      stages: Object.freeze([
+        Object.freeze({
+          title: '1. Service & Frequency Selected',
+          detail: 'Commercial scope and preferred service schedule recorded'
+        }),
+        Object.freeze({
+          title: '2. Walkthrough Calendar Slot',
+          detail: 'Tentative facility walkthrough window queued for owner confirmation'
+        }),
+        Object.freeze({
+          title: '3. Owner Bid Notification',
+          detail: 'Email alert sent to owner to confirm walkthrough & issue custom proposal'
+        })
+      ]),
       steps: Object.freeze([
         '1. Service & Frequency Selected',
         '2. Walkthrough Calendar Slot (Pending Server Integration)',
@@ -47,11 +63,27 @@
       ])
     }),
     RESIDENTIAL_REVIEW: Object.freeze({
-      id: 'RESIDENTIAL_REVIEW_CONFIRM_PIPELINE',
+      id: 'residential_review_confirm_pipeline',
       title: 'Residential Review, Calendar Hold & Payment Workflow',
+      label: 'Residential Owner Review & Calendar Confirmation',
+      summary: 'Owner is alerted to review property specs & additional information, confirm the tentative calendar window, and unlock online payment confirmation.',
       calendarAction: 'Place Tentative Cleaning Window Hold on Calendar',
       ownerAlertAction: 'Email Owner: Review Property Scope & Confirm Booking',
       paymentAction: 'Owner Approval Triggers Customer Payment Link',
+      stages: Object.freeze([
+        Object.freeze({
+          title: '1. Property Scope & Additional Info',
+          detail: 'Service tier, property details, and condition answers captured'
+        }),
+        Object.freeze({
+          title: '2. Owner Alert & Calendar Hold',
+          detail: 'Owner reviews specs and confirms tentative arrival window'
+        }),
+        Object.freeze({
+          title: '3. Confirmed Price & Payment Link',
+          detail: 'Approved booking releases final confirmation and payment link'
+        })
+      ]),
       steps: Object.freeze([
         '1. Property Scope & Instant Estimate Completed',
         '2. Owner Alerted to Review & Confirm Calendar Availability',
@@ -72,10 +104,12 @@
     const state = (quoteSnapshot && quoteSnapshot.state) || {};
     const calc = (quoteSnapshot && quoteSnapshot.calculation) || {};
     const workflow = getWorkflowPlan(state);
+    const addInfo = state.additionalInfo || {};
 
     return Object.freeze({
-      schemaVersion: '2026-10-groundwork-v1',
+      schemaVersion: '2026-10-groundwork-v2',
       intakeEnabled: false,
+      workflow,
       pipelineId: workflow.id,
       pipelineTitle: workflow.title,
       calendarAction: workflow.calendarAction,
@@ -86,6 +120,12 @@
       propertyType: state.propertyType || 'house',
       scopeMode: state.scopeMode || 'full',
       frequency: state.frequency || 'biweekly',
+      additionalInfo: Object.freeze({
+        hasPets: addInfo.hasPets || '',
+        lastCleaned: addInfo.lastCleaned || '',
+        occupancy: addInfo.occupancy || '',
+        condition: addInfo.condition || ''
+      }),
       estimatedHours: Number(calc.estimatedHours) || 0,
       estimatedTotal: Number(calc.grandTotal) || 0,
       adapters: Object.freeze({

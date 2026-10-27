@@ -1,6 +1,6 @@
 # Security handoff: read this first
 
-Last updated: **2026-10-25**. This is the quick entry point for future models and
+Last updated: **2026-10-26**. This is the quick entry point for future models and
 developers. Detailed controls live in the linked baseline and roadmap; keep
 those documents authoritative rather than duplicating their full requirements.
 
@@ -27,7 +27,7 @@ those documents authoritative rather than duplicating their full requirements.
 | Widescreen hero | `index.html`, `assets/css/styles.css`, and `assets/js/main.js` implement a full-bleed widescreen hero slideshow using existing approved local assets (`hero-home.jpg`, `sparkle-kitchen.jpg`, `commercial-office.jpg`), CSS classes, and `textContent` updates without inline styles, inline handlers, or unsafe DOM sinks. |
 | Legacy API | `assets/js/api.js` removes only `smartspro_leads_v1` without reading/logging its contents; legacy submission calls return `success: false` and `INTAKE_UNAVAILABLE`. No backend mode switch remains. |
 | Lead exposure | Removed the unauthenticated viewer, Shift+L shortcut, CSV export, unsafe HTML rendering, payload logging and customer-data events. The old store was per browser, not a central database. |
-| Estimate authority | `assets/js/calculator.js` maintains bounded inputs and display estimates. Its totals are not approved prices or booking/payment evidence. `booking-modal.js` only renders a text-based recap. |
+| Estimate authority | `assets/js/calculator.js` maintains bounded inputs and display estimates across a 5-step wizard (`1. Type of Service`, `2. Property Details`, `3. Additional Information`, `4. Cleaning Frequency`, `5. Custom Add-Ons`, or 2 steps `[1, 4]` for Commercial). Step 3 Additional Information uses button-based `role="checkbox"` cards (no `<form>` or personal-data inputs) and syncs with the Step 5 Pet Hair add-on. Its totals are not approved prices or booking/payment evidence. `booking-modal.js` only renders a text-based recap. |
 | Browser protection | `vercel.json` defines CSP and other response headers. `index.html` and `404.html` include matching CSP fallbacks. Network submissions, inline code/styles and framing are denied for the current static design. |
 | Public files | `security/public-files.json` is an explicit publish allowlist. `scripts/build.mjs` generates `dist/` and rejects unsafe paths/symlinks. `.gitignore` and `.vercelignore` exclude common sensitive/local artifacts. |
 | Assets | Fonts are local under `assets/fonts/`, with licenses and recorded hashes. Inline styles moved to `assets/css/security.css`; no third-party browser resources are required. |
@@ -43,10 +43,10 @@ new UI no longer saves leads.
 
 ## Verification record
 
-Results from the widescreen hero update on 2026-10-25 (and baseline security implementation on 2026-10-19):
+Results from the 5-step calculator & Additional Information update on 2026-10-26 (and baseline security implementation on 2026-10-19):
 
-- `npm run build`: passed all **8** automated security tests on 2026-10-25 and generated the approved
-  public build in `dist/`. Temporary session preview adjustments in `scripts/preview.mjs` were reverted prior to handoff.
+- `npm run build`: passed all **8** automated security tests on 2026-10-26 and generated the approved
+  public build in `dist/`.
 - `npm run test:browser`: passed in local Chrome on 2026-10-19, including calculator/recap
   interaction, local fonts, legacy cleanup, disabled intake, mobile layout,
   blocked injected scripts/event handlers/network submissions, and no-JavaScript

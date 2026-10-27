@@ -424,7 +424,7 @@
         <div class="section-tag">01 · Instant Transparent Pricing</div>
         <h2 class="section-title">Service Selection &amp; Property Calculator</h2>
         <p class="section-desc">
-          Start by choosing your service category to see what is included, then step through property details, frequency, and custom add-ons. Each step validates your selection before moving forward.
+          Start by choosing your service category to see what is included, then step through property details, additional information, frequency, and custom add-ons. Each step validates your selection before moving forward.
         </p>
       </div>
 
@@ -437,7 +437,7 @@
             <div class="calc-wizard-header">
               <div class="calc-wizard-meta-row">
                 <div class="calc-wizard-step-counter">
-                  <span class="wizard-step-pill">Step <strong id="calc-step-current">1</strong> of <strong id="calc-step-total">4</strong></span>
+                  <span class="wizard-step-pill">Step <strong id="calc-step-current">1</strong> of <strong id="calc-step-total">5</strong></span>
                   <span class="wizard-step-active-name" id="calc-step-active-name">Type of Service</span>
                 </div>
                 <div class="calc-wizard-Arrows-top">
@@ -451,7 +451,7 @@
               </div>
 
               <!-- Progress Bar Track & Fill -->
-              <div class="calc-wizard-progress-track" role="progressbar" aria-label="Evaluation Progress" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" id="calc-wizard-progressbar">
+              <div class="calc-wizard-progress-track" role="progressbar" aria-label="Evaluation Progress" aria-valuemin="1" aria-valuemax="5" aria-valuenow="1" id="calc-wizard-progressbar">
                 <div class="calc-wizard-progress-fill step-fill-1" id="calc-wizard-progress-fill"></div>
               </div>
 
@@ -467,11 +467,15 @@
                 </button>
                 <button type="button" class="wizard-step-tab" data-step-target="3" id="wizard-tab-3" role="tab" aria-selected="false">
                   <span class="wizard-tab-num" id="wizard-tab-num-3">3</span>
-                  <span class="wizard-tab-text" id="wizard-tab-text-3">Frequency</span>
+                  <span class="wizard-tab-text" id="wizard-tab-text-3">Additional Info</span>
                 </button>
                 <button type="button" class="wizard-step-tab" data-step-target="4" id="wizard-tab-4" role="tab" aria-selected="false">
                   <span class="wizard-tab-num" id="wizard-tab-num-4">4</span>
-                  <span class="wizard-tab-text" id="wizard-tab-text-4">Add-Ons</span>
+                  <span class="wizard-tab-text" id="wizard-tab-text-4">Frequency</span>
+                </button>
+                <button type="button" class="wizard-step-tab" data-step-target="5" id="wizard-tab-5" role="tab" aria-selected="false">
+                  <span class="wizard-tab-num" id="wizard-tab-num-5">5</span>
+                  <span class="wizard-tab-text" id="wizard-tab-text-5">Add-Ons</span>
                 </button>
               </div>
             </div>
@@ -791,18 +795,206 @@
               </div>
 
               <!-- ============================================================
-                   STEP 3: CLEANING FREQUENCY (OR STEP 2 OF 2 FOR COMMERCIAL)
+                   STEP 3: ADDITIONAL INFORMATION (MANDATORY 4-QUESTION CHECKLIST)
                    ============================================================ -->
               <div class="calc-step-card" data-wizard-step="3" id="calc-step-3">
                 <div class="step-header">
                   <div class="step-num" id="step-badge-3">3</div>
                   <div class="step-info">
-                    <h3 id="step3-heading-title">Cleaning Frequency</h3>
-                    <p id="step3-heading-desc">Select your preferred service schedule below to continue</p>
+                    <h3 id="step3-addinfo-title">Additional Information</h3>
+                    <p id="step3-addinfo-desc">Please answer all 4 property questions below so our team can prepare for your cleaning</p>
                   </div>
                 </div>
 
-                <div class="frequency-options-grid" id="step3-frequency-grid">
+                <div class="addinfo-questions-stack" id="step3-addinfo-stack">
+                  <!-- Question 1: Do you have pets? -->
+                  <div class="addinfo-question-block" id="addinfo-group-pets" data-addinfo-question="hasPets">
+                    <div class="substep-label-row">
+                      <span class="substep-title">1. Do you have pets?</span>
+                      <span class="substep-req-badge">Required</span>
+                    </div>
+                    <div class="addinfo-options-grid addinfo-grid-2" role="group" aria-label="Do you have pets?">
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="hasPets" data-addinfo-val="yes" id="addinfo-pets-yes">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Yes, we have pets</strong>
+                          <span>Includes $35 Pet Hair &amp; Detailing add-on</span>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="hasPets" data-addinfo-val="no" id="addinfo-pets-no">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>No pets</strong>
+                          <span>Pet Hair add-on will be disabled in Step 5</span>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Question 2: When was the last professional cleaning? -->
+                  <div class="addinfo-question-block" id="addinfo-group-lastcleaned" data-addinfo-question="lastCleaned">
+                    <div class="substep-label-row">
+                      <span class="substep-title">2. When was the last professional cleaning?</span>
+                      <span class="substep-req-badge">Required</span>
+                    </div>
+                    <div class="addinfo-options-grid addinfo-grid-3" role="group" aria-label="When was the last professional cleaning?">
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="lastCleaned" data-addinfo-val="Within the last month">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Within the last month</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="lastCleaned" data-addinfo-val="1-3 Months ago">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>1-3 Months ago</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="lastCleaned" data-addinfo-val="4-6 months ago">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>4-6 months ago</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="lastCleaned" data-addinfo-val="More than 6 months ago">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>More than 6 months ago</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="lastCleaned" data-addinfo-val="Never professionally cleaned">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Never professionally cleaned</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="lastCleaned" data-addinfo-val="Unsure">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Unsure</strong>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Question 3: Will the home be occupied? -->
+                  <div class="addinfo-question-block" id="addinfo-group-occupancy" data-addinfo-question="occupancy">
+                    <div class="substep-label-row">
+                      <span class="substep-title">3. Will the home be occupied?</span>
+                      <span class="substep-req-badge">Required</span>
+                    </div>
+                    <div class="addinfo-options-grid addinfo-grid-3" role="group" aria-label="Will the home be occupied?">
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="occupancy" data-addinfo-val="Occupied, we live there">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Occupied, we live there</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="occupancy" data-addinfo-val="Empty / Unfurnished">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Empty / Unfurnished</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="occupancy" data-addinfo-val="Partially Furnished">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Partially Furnished</strong>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Question 4: How would you describe the current condition? -->
+                  <div class="addinfo-question-block" id="addinfo-group-condition" data-addinfo-question="condition">
+                    <div class="substep-label-row">
+                      <span class="substep-title">4. How would you describe the current condition?</span>
+                      <span class="substep-req-badge">Required</span>
+                    </div>
+                    <div class="addinfo-options-grid addinfo-grid-2" role="group" aria-label="How would you describe the current condition?">
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="condition" data-addinfo-val="Well maintained">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Well maintained</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="condition" data-addinfo-val="Average, normal use">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Average, normal use</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="condition" data-addinfo-val="Needs extra attention">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Needs extra attention</strong>
+                        </span>
+                      </button>
+
+                      <button type="button" class="addinfo-check-option" role="checkbox" aria-checked="false" data-addinfo-group="condition" data-addinfo-val="Heavy buildup">
+                        <span class="addinfo-checkbox-box" aria-hidden="true">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                        </span>
+                        <span class="addinfo-option-copy">
+                          <strong>Heavy buildup</strong>
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- ============================================================
+                   STEP 4: CLEANING FREQUENCY (OR STEP 2 OF 2 FOR COMMERCIAL)
+                   ============================================================ -->
+              <div class="calc-step-card" data-wizard-step="4" id="calc-step-4">
+                <div class="step-header">
+                  <div class="step-num" id="step-badge-4">4</div>
+                  <div class="step-info">
+                    <h3 id="step4-heading-title">Cleaning Frequency</h3>
+                    <p id="step4-heading-desc">Select your preferred service schedule below to continue</p>
+                  </div>
+                </div>
+
+                <div class="frequency-options-grid" id="step4-frequency-grid">
                   <!-- Weekly -->
                   <label class="freq-card-option" data-freq="weekly">
                     <input type="radio" name="frequency_choice" value="weekly">
@@ -817,11 +1009,11 @@
                     <div class="freq-sub">Bi-Weekly Care</div>
                   </label>
 
-                  <!-- Every 4 Weeks -->
+                  <!-- Monthly -->
                   <label class="freq-card-option" data-freq="monthly">
                     <input type="radio" name="frequency_choice" value="monthly">
-                    <div class="freq-name">Every 4 Wks</div>
-                    <div class="freq-sub">Monthly Refresh</div>
+                    <div class="freq-name">Monthly</div>
+                    <div class="freq-sub">Once a Month</div>
                   </label>
 
                   <!-- Per Turnover / Custom Commercial -->
@@ -841,11 +1033,11 @@
               </div>
 
               <!-- ============================================================
-                   STEP 4: CUSTOM ADD-ONS
+                   STEP 5: CUSTOM ADD-ONS
                    ============================================================ -->
-              <div class="calc-step-card" data-wizard-step="4" id="calc-step-4">
+              <div class="calc-step-card" data-wizard-step="5" id="calc-step-5">
                 <div class="step-header">
-                  <div class="step-num" id="step-badge-4">4</div>
+                  <div class="step-num" id="step-badge-5">5</div>
                   <div class="step-info">
                     <h3>Custom Add-Ons</h3>
                     <p>Optional: add appliance interior detailing or pet hair treatment, or click Review Estimate</p>
@@ -916,6 +1108,7 @@
                       <div class="addon-text-wrap">
                         <h4>Pet Hair &amp; Detailing</h4>
                         <span class="addon-rate-badge">$35 extra</span>
+                        <span class="addon-lock-note is-hidden" id="addon-pets-lock-note">You chose no pets in additional information</span>
                       </div>
                     </div>
                     <div class="stepper-auto stepper-control">
@@ -937,7 +1130,7 @@
               </button>
 
               <div class="wizard-footer-status" id="wizard-footer-status">
-                Step 1 of 4 · Type of Service
+                Step 1 of 5 · Type of Service
               </div>
 
               <button type="button" class="btn btn-primary wizard-nav-btn" id="btn-wizard-next">
@@ -998,6 +1191,14 @@
                     Requested Areas
                   </span>
                   <span class="breakdown-value" id="summary-specific-areas-val">Specify in Step 2</span>
+                </div>
+
+                <div class="breakdown-row is-hidden" id="summary-addinfo-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"></path><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>
+                    Additional Info
+                  </span>
+                  <span class="breakdown-value" id="summary-addinfo-val">Complete in Step 3</span>
                 </div>
 
                 <div class="breakdown-row">
@@ -1783,6 +1984,7 @@
           <div class="recap-row is-hidden" id="modal-recap-proptype-row"><span>Property Type:</span><strong id="modal-recap-proptype">House</strong></div>
           <div class="recap-row"><span id="modal-recap-specs-label">Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
           <div class="recap-row is-hidden" id="modal-recap-areas-row"><span>Specific Areas:</span><strong id="modal-recap-areas">—</strong></div>
+          <div class="recap-row is-hidden" id="modal-recap-addinfo-row"><span>Additional Info:</span><strong id="modal-recap-addinfo">—</strong></div>
           <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks</strong></div>
           <div class="recap-row" id="modal-recap-addons-row"><span>Custom Add-Ons:</span><span id="modal-recap-addons">None selected</span></div>
           <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote:</span><span id="modal-recap-total">$180.00</span></div>
