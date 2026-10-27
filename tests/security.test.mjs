@@ -73,7 +73,10 @@ test('public HTML has no personal-data forms, inline code, or external executabl
     for (const asset of html.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)) {
       assert.ok(publicFiles.includes(asset[1]), 'Unpublished asset: ' + asset[1]);
     }
-    assert.doesNotMatch(html, /(?:src|href)="(?:https?:)?\/\//i);
+    assert.doesNotMatch(html, /\bsrc="(?:https?:)?\/\//i);
+    for (const extHref of html.matchAll(/\bhref="((?:https?:)?\/\/[^"]+)"/gi)) {
+      assert.equal(extHref[1], 'https://builtforbusiness.net/');
+    }
   }
 });
 

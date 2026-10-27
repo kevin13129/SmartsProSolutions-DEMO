@@ -87,7 +87,7 @@ try {
   await evaluate('document.fonts.ready.then(() => true)');
   assert.deepEqual(await evaluate('window.__violations'), [], 'Legitimate page triggered CSP');
   assert.deepEqual(exceptions, [], 'Runtime errors');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 192.95);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 180);
   assert.equal(await evaluate('localStorage.getItem("smartspro_leads_v1")'), null);
   assert.equal(await evaluate('localStorage.getItem("unrelated")'), 'keep');
   assert.equal(await evaluate('document.querySelectorAll("form, textarea, input[type=email], input[type=tel]").length'), 0);
@@ -96,10 +96,41 @@ try {
   assert.equal(await evaluate('typeof SmartsProModal.openLeadsViewer'), 'undefined');
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"L", shiftKey:true}))');
   assert.equal(await evaluate('document.querySelectorAll(".modal-overlay.open").length'), 0);
+  // Step 1 validation: cannot advance until a Type of Service is selected
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
+  assert.equal(await evaluate('document.getElementById("step1-service-grid").classList.contains("wizard-field-missing")'), true);
+
+  // Commercial flow: selecting Commercial and clicking Next skips directly to Cleaning Frequency (Step 2 of 2)
+  await evaluate('document.getElementById("card-cat-commercial").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.workflow.id'), 'commercial_walkthrough_pipeline');
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 3);
+  assert.equal(await evaluate('document.getElementById("calc-step-total").textContent'), '2');
+  await evaluate('document.getElementById("btn-wizard-prev").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
+
+  // Move-In / Move-Out flow: requires selecting Property Type (House, Apartment, Condo, or Townhome)
+  await evaluate('document.getElementById("card-cat-moveinout").click()');
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
+  assert.equal(await evaluate('document.getElementById("move-property-type-group").classList.contains("wizard-field-missing")'), true);
+  await evaluate('document.querySelector(\'[data-prop-type="House"]\').click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.propertyType'), 'House');
+  await evaluate('document.getElementById("btn-wizard-prev").click()');
+
+  // Residential flow: select Residential Homes, advance to Step 2, and test pricing & modal
+  await evaluate('document.getElementById("card-cat-residential").click()');
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
   await evaluate('document.getElementById("btn-bed-plus").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 209.95);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 200);
+  await evaluate('document.getElementById("btn-wizard-prev").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
   await evaluate('document.getElementById("btn-fridge-plus").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 274.95);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 265);
   assert.equal(await evaluate('getComputedStyle(document.getElementById("summary-addons-row")).display'), 'flex');
   for (const [input, expected] of [['-100', 400], ['999999', 6000], ['', 400], ['1800', 1800]]) {
     await evaluate(`(() => { const field = document.getElementById('input-sqft'); field.value = ${JSON.stringify(input)}; field.dispatchEvent(new Event('input')); })()`);
@@ -108,7 +139,7 @@ try {
   await evaluate('document.getElementById("btn-book-quote-now").click()');
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
-  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$274.95');
+  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$265.00');
   assert.equal(await evaluate('document.activeElement.id'), 'modal-close-btn', await evaluate(`JSON.stringify({ active: document.activeElement.outerHTML.slice(0, 150), modalVisibility: getComputedStyle(document.getElementById('booking-modal-overlay')).visibility, buttonVisibility: getComputedStyle(document.getElementById('modal-close-btn')).visibility, rect: document.getElementById('modal-close-btn').getBoundingClientRect().toJSON() })`));
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"}))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);

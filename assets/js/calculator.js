@@ -1,515 +1,1322 @@
 /**
- * SMARTS PRO SOLUTIONS - PRICE CALCULATOR ENGINE
- * Live interactive estimate calculator with property details, service tiers,
- * recurring frequency discounts, and itemized add-ons.
+ * SMARTS PRO SOLUTIONS - LIVE PRICING CALCULATOR ENGINE & MULTI-STEP WIZARD
+ * Step 1: Type of Service (Residential, Commercial, Move-In/Out, Airbnb) + Scope Overview
+ * Step 2: Property Details (Residential Tiers/Specific Areas OR Move-In/Out Property Type + Gauge)
+ *         (Skipped automatically for Commercial & Offices -> goes straight to Frequency)
+ * Step 3: Cleaning Frequency
+ * Step 4: Custom Add-Ons (Residential / Move-In/Out / Airbnb)
+ *
+ * Includes per-step fulfillment validation with missing-option highlighting
+ * and dispatches structured job envelopes to SmartsProDispatchFramework.
  */
 
 (function () {
   'use strict';
 
-  // Calculator State
+  // --- Pricing Configuration ($40-$50/hr customer valuation) ---
+  const PRICING_CONFIG = {
+    minimumJobCharge: 120,
+    specificAreas: {
+      minHours: 2,
+      maxHours: 6,
+      baseTwoHourFlatRate: 120,
+      extraHourRate: 45
+    },
+    hourlyRates: {
+      standard: 40,
+      deep: 50,
+      moveinout: 50,
+      airbnb: 45,
+      commercial: 50
+    },
+    timeFactors: {
+      baseHours: 1.5,
+      perBedroomHours: 0.5,
+      perFullBathHours: 0.5,
+      perHalfBathHours: 0.25,
+      sqftBaseline: 1000,
+      sqftStepSize: 500,
+      hoursPerSqftStep: 0.5
+    },
+    serviceMultipliers: {
+      standard: 1.0,
+      deep: 1.1,
+      moveinout: 1.25,
+      airbnb: 1.0
+    },
+    addons: {
+      fridge: 65,
+      fridgeDouble: 75,
+      oven: 80,
+      pets: 35
+    }
+  };
+
+  // --- Service Scope Overviews for Step 1 ---
+  const SERVICE_OVERVIEWS = {
+    default: {
+      kicker: 'Service Scope Overview',
+      title: 'What Each Service Category Includes',
+      desc: 'Select one of the 4 service categories above to view its full room-by-room checklist and unlock the next step.',
+      items: [
+        'Residential Homes: Kitchens, baths, floors & dusting ($40/hr Standard, $50/hr Deep, or Specific Areas $120 min)',
+        'Commercial & Offices: Lobbies, desks, restrooms, breakrooms & custom facility walkthrough schedule',
+        'Move-In / Move-Out: Inside empty cabinets, drawers, closets, hand-wiped baseboards & lease inspection prep',
+        'Airbnb / STR Turnover: Linen change, bathroom & kitchen sanitization, restock check & guest-ready presentation'
+      ]
+    },
+    residential: {
+      kicker: 'RESIDENTIAL HOMES OVERVIEW',
+      title: 'Complete Home Care ($40/hr Standard · $50/hr Deep · $120 Specific Areas Min)',
+      desc: 'Customizable cleaning built for houses, apartments, and family homes across Shreveport & Bossier City. Choose full-property Standard/Deep cleaning or target Specific Areas by the hour.',
+      items: [
+        'Kitchens: Countertops, sink scrubbing, stovetop degreasing, microwave interior & cabinet faces',
+        'Bathrooms: Showers, tubs, toilets, mirrors, chrome fixtures & hospital-grade surface sanitization',
+        'Bedrooms & Living Spaces: Ceiling fans, window sills, baseboards, furniture dusting & pet-friendly floor care',
+        'Flexible Options: Choose Standard ($40/hr), Deep Clean ($50/hr), or Specific Areas ($120 2-hr minimum)'
+      ]
+    },
+    commercial: {
+      kicker: 'COMMERCIAL & OFFICES OVERVIEW',
+      title: 'Professional Facility & Office Maintenance (Custom Walkthrough & Schedule)',
+      desc: 'Tailored janitorial and commercial care for offices, medical suites, retail storefronts, and banks. Click Next to choose your Cleaning Frequency and request an owner walkthrough.',
+      items: [
+        'Lobby, Reception & Workstations: High-visibility glass, desks, conference tables & electronics-safe dusting',
+        'Restrooms & Breakrooms: Multi-stall restroom sanitization, soap/towel restocking & breakroom appliances',
+        'Floors & High-Traffic Corridors: Commercial HEPA vacuuming, hard-surface mopping & entryway detailing',
+        'Streamlined Commercial Flow: Proceeds directly to Cleaning Frequency & Walkthrough Request'
+      ]
+    },
+    moveinout: {
+      kicker: 'MOVE-IN / MOVE-OUT OVERVIEW',
+      title: 'Empty-Property Reset for Leases, Closings & Relocations ($50/hr)',
+      desc: 'Inspection-ready restoration for houses, apartments, condos, and townhomes. Designed to satisfy landlord move-out checklists and prepare empty residences for new occupants.',
+      items: [
+        'Inside Cabinets, Drawers & Closets: Full interior wipe-down of empty kitchen, bath & storage cabinetry',
+        'Deep Structural Detailing: Hand-washed baseboards, door frames, light switches, vents & window tracks',
+        'Kitchen & Bath Restoration: Heavy lime/soap-scum removal, appliance exteriors & sanitized fixtures',
+        'Property-Type Tailored: Next step asks whether your property is a House, Apartment, Condo, or Townhome'
+      ]
+    },
+    airbnb: {
+      kicker: 'AIRBNB / STR TURNOVER OVERVIEW',
+      title: '5-Star Guest-Ready Short-Term Rental Turnover ($45/hr)',
+      desc: 'Fast, checklist-driven hospitality resets between guest check-out and check-in so your listing earns spotless reviews every stay.',
+      items: [
+        'Hotel-Standard Bed & Linen Reset: Fresh linen staging, towel folding & guest-ready bedroom presentation',
+        'Kitchen & Bath Sanitization: Dish/appliance check, sanitized counters, gleaming sinks & restocked essentials',
+        'Host Damage & Inventory Check: Visual inspection for guest items left behind or maintenance issues',
+        'Same-Day Window Reliability: Precision scheduling aligned with 11 AM check-out and 3 PM check-in windows'
+      ]
+    }
+  };
+
+  // --- Calculator State ---
   const state = {
+    wizardStep: 1,
+    serviceCategory: 'residential', // 'residential' | 'commercial' | 'moveinout' | 'airbnb'
+    step1Fulfilled: false,
+    step2ResidentialFulfilled: false,
+    step3FrequencyFulfilled: false,
+    propertyType: '', // 'House' | 'Apartment' | 'Condo' | 'Townhome'
+    scopeMode: 'full', // 'full' | 'specific'
+    specificAreasText: '',
+    specificHours: 2,
     bedrooms: 3,
     fullBaths: 2,
     halfBaths: 1,
     sqft: 1800,
     serviceType: 'standard', // 'standard' | 'deep' | 'moveinout' | 'airbnb'
-    frequency: 'biweekly',   // 'weekly' | 'biweekly' | 'turnover' | 'monthly' | 'onetime'
+    frequency: 'biweekly', // 'weekly' | 'biweekly' | 'turnover' | 'monthly' | 'onetime'
     addons: {
-      fridgeSingle: 0,
+      fridge: 0,
       fridgeDouble: 0,
       oven: 0,
       pets: 0
     }
   };
 
-  // Pricing Parameters & Rates ($40/hr standard, $50/hr deep clean baseline)
-  const PRICING = {
-    minimumFloor: 110,
-    baseFlat: 60,
-    perBedroom: 20,
-    perFullBath: 30,
-    perHalfBath: 15,
-    sqftBaseThreshold: 1000,
-    sqftPerFootOver: 0.04,
-    
-    serviceMultipliers: {
-      standard: 1.0,
-      deep: 1.45,
-      moveinout: 1.65,
-      airbnb: 1.15
-    },
-
-    frequencyDiscounts: {
-      weekly: 0.20,     // 20% OFF
-      biweekly: 0.15,   // 15% OFF
-      turnover: 0.15,   // 15% OFF (Airbnb host partner)
-      monthly: 0.10,    // 10% OFF
-      onetime: 0.00     // No discount
-    },
-
-    addonRates: {
-      fridgeSingle: 65,    // $65 each
-      fridgeDouble: 75,    // $75 each
-      oven: 80,            // $80 each (subject to condition)
-      pets: 35             // $35 pet hair/detailing fee
-    }
-  };
-
-  // DOM Elements Cache
+  // --- DOM Elements Cache ---
   const els = {
-    // Steppers
-    bedVal: document.getElementById('val-bedrooms'),
-    bedMinus: document.getElementById('btn-bed-minus'),
-    bedPlus: document.getElementById('btn-bed-plus'),
+    // Top & Bottom Wizard Elements
+    calcStepCurrent: document.getElementById('calc-step-current'),
+    calcStepTotal: document.getElementById('calc-step-total'),
+    calcStepActiveName: document.getElementById('calc-step-active-name'),
+    calcWizardProgressBar: document.getElementById('calc-wizard-progressbar'),
+    calcWizardProgressFill: document.getElementById('calc-wizard-progress-fill'),
+    wizardFooterStatus: document.getElementById('wizard-footer-status'),
+    btnWizardPrevTop: document.getElementById('btn-wizard-prev-top'),
+    btnWizardNextTop: document.getElementById('btn-wizard-next-top'),
+    btnWizardPrev: document.getElementById('btn-wizard-prev'),
+    btnWizardNext: document.getElementById('btn-wizard-next'),
+    wizardNextLabel: document.getElementById('wizard-next-label'),
+    wizardStepTabs: document.querySelectorAll('.wizard-step-tab'),
+    wizardStepPanes: document.querySelectorAll('.calc-step-card'),
 
-    fullBathVal: document.getElementById('val-fullbaths'),
-    fullBathMinus: document.getElementById('btn-fullbath-minus'),
-    fullBathPlus: document.getElementById('btn-fullbath-plus'),
+    // Dynamic Step Numbers & Titles
+    step2Badge: document.getElementById('step-badge-2'),
+    step2HeadingTitle: document.getElementById('step2-heading-title'),
+    step2HeadingDesc: document.getElementById('step2-heading-desc'),
+    step3Badge: document.getElementById('step-badge-3'),
+    step3HeadingTitle: document.getElementById('step3-heading-title'),
+    step3HeadingDesc: document.getElementById('step3-heading-desc'),
+    wizardTabNum3: document.getElementById('wizard-tab-num-3'),
 
-    halfBathVal: document.getElementById('val-halfbaths'),
-    halfBathMinus: document.getElementById('btn-halfbath-minus'),
-    halfBathPlus: document.getElementById('btn-halfbath-plus'),
+    // Validation Banner
+    validationBanner: document.getElementById('wizard-validation-banner'),
+    validationMessage: document.getElementById('wizard-validation-message'),
 
-    // Sqft
-    sqftSlider: document.getElementById('slider-sqft'),
-    sqftInput: document.getElementById('input-sqft'),
+    // Step 1: Service Category & Overview
+    step1ServiceGrid: document.getElementById('step1-service-grid'),
+    serviceCategoryCards: document.querySelectorAll('#step1-service-grid .service-card-option'),
+    overviewKicker: document.getElementById('overview-kicker'),
+    overviewTitle: document.getElementById('overview-title'),
+    overviewDesc: document.getElementById('overview-desc'),
+    overviewBullet1: document.getElementById('overview-bullet-1'),
+    overviewBullet2: document.getElementById('overview-bullet-2'),
+    overviewBullet3: document.getElementById('overview-bullet-3'),
+    overviewBullet4: document.getElementById('overview-bullet-4'),
 
-    // Service types & Frequency
-    serviceCards: document.querySelectorAll('.service-card-option'),
+    // Step 2: Residential vs Move-In/Out Controls
+    step2ResidentialControls: document.getElementById('step2-residential-controls'),
+    residentialTierGroup: document.getElementById('residential-tier-group'),
+    residentialTierBtns: document.querySelectorAll('#residential-tier-group .scope-mode-btn'),
+    step2MoveinoutPropertyType: document.getElementById('step2-moveinout-property-type'),
+    movePropertyTypeGroup: document.getElementById('move-property-type-group'),
+    propertyTypeBtns: document.querySelectorAll('.property-type-btn'),
+
+    // Scope Mode & Specific Areas Elements
+    scopePanelFull: document.getElementById('scope-panel-full'),
+    scopePanelSpecific: document.getElementById('scope-panel-specific'),
+    specificAreasInputGroup: document.getElementById('specific-areas-input-group'),
+    inputSpecificAreas: document.getElementById('input-specific-areas'),
+    valSpecificHours: document.getElementById('val-specific-hours'),
+    btnHoursMinus: document.getElementById('btn-hours-minus'),
+    btnHoursPlus: document.getElementById('btn-hours-plus'),
+    hourTierBtns: document.querySelectorAll('.hour-tier-btn'),
+
+    // Bedrooms & Bathrooms
+    valBedrooms: document.getElementById('val-bedrooms'),
+    btnBedMinus: document.getElementById('btn-bed-minus'),
+    btnBedPlus: document.getElementById('btn-bed-plus'),
+
+    valFullBaths: document.getElementById('val-fullbaths'),
+    btnBathMinus: document.getElementById('btn-fullbath-minus'),
+    btnBathPlus: document.getElementById('btn-fullbath-plus'),
+
+    valHalfBaths: document.getElementById('val-halfbaths'),
+    btnHalfBathMinus: document.getElementById('btn-halfbath-minus'),
+    btnHalfBathPlus: document.getElementById('btn-halfbath-plus'),
+
+    // Square Footage
+    sliderSqft: document.getElementById('slider-sqft'),
+    inputSqft: document.getElementById('input-sqft'),
+
+    // Step 3: Frequency Cards
+    step3FrequencyGrid: document.getElementById('step3-frequency-grid'),
     freqCards: document.querySelectorAll('.freq-card-option'),
+    freqTurnoverTitle: document.getElementById('freq-turnover-title'),
+    freqTurnoverSub: document.getElementById('freq-turnover-sub'),
 
-    // Addons
-    addonFridgeVal: document.getElementById('val-addon-fridge'),
-    addonFridgeMinus: document.getElementById('btn-fridge-minus'),
-    addonFridgePlus: document.getElementById('btn-fridge-plus'),
+    // Step 4: Add-Ons
+    valFridge: document.getElementById('val-addon-fridge'),
+    btnFridgeMinus: document.getElementById('btn-fridge-minus'),
+    btnFridgePlus: document.getElementById('btn-fridge-plus'),
+    cardFridge: document.getElementById('addon-item-fridge'),
 
-    addonFridgeDoubleVal: document.getElementById('val-addon-fridge-double'),
-    addonFridgeDoubleMinus: document.getElementById('btn-fridge-double-minus'),
-    addonFridgeDoublePlus: document.getElementById('btn-fridge-double-plus'),
+    valFridgeDouble: document.getElementById('val-addon-fridge-double'),
+    btnFridgeDoubleMinus: document.getElementById('btn-fridge-double-minus'),
+    btnFridgeDoublePlus: document.getElementById('btn-fridge-double-plus'),
+    cardFridgeDouble: document.getElementById('addon-item-fridge-double'),
 
-    addonOvenVal: document.getElementById('val-addon-oven'),
-    addonOvenMinus: document.getElementById('btn-oven-minus'),
-    addonOvenPlus: document.getElementById('btn-oven-plus'),
+    valOven: document.getElementById('val-addon-oven'),
+    btnOvenMinus: document.getElementById('btn-oven-minus'),
+    btnOvenPlus: document.getElementById('btn-oven-plus'),
+    cardOven: document.getElementById('addon-item-oven'),
 
-    addonPetsVal: document.getElementById('val-addon-pets'),
-    addonPetsMinus: document.getElementById('btn-pets-minus'),
-    addonPetsPlus: document.getElementById('btn-pets-plus'),
+    valPets: document.getElementById('val-addon-pets'),
+    btnPetsMinus: document.getElementById('btn-pets-minus'),
+    btnPetsPlus: document.getElementById('btn-pets-plus'),
+    cardPets: document.getElementById('addon-item-pets'),
 
-    // Summary outputs
-    quoteTotal: document.getElementById('quote-total-amount'),
+    // Summary Output Elements
+    quoteTotalAmount: document.getElementById('quote-total-amount'),
     quoteBillingFreq: document.getElementById('quote-billing-freq'),
-    quoteSavingsAlert: document.getElementById('quote-savings-alert'),
-    quoteSavingsAmount: document.getElementById('quote-savings-amount'),
-    
-    breakdownBaseRate: document.getElementById('summary-base-rate'),
-    breakdownServiceType: document.getElementById('summary-service-type'),
-    breakdownServiceRate: document.getElementById('summary-service-rate'),
-    breakdownDiscountRow: document.getElementById('summary-discount-row'),
-    breakdownDiscountVal: document.getElementById('summary-discount-val'),
-    breakdownDiscountLabel: document.getElementById('summary-discount-label'),
-    breakdownAddonsRow: document.getElementById('summary-addons-row'),
-    breakdownAddonsVal: document.getElementById('summary-addons-val'),
+    quoteRateBasisNote: document.getElementById('quote-rate-basis-note'),
+    quoteMinimumNoteText: document.getElementById('quote-minimum-note-text'),
 
-    btnBookNow: document.getElementById('btn-book-quote-now'),
+    summaryScopeTitle: document.getElementById('summary-scope-title'),
+    summaryBaseRate: document.getElementById('summary-base-rate'),
+    summaryPropertyTypeRow: document.getElementById('summary-property-type-row'),
+    summaryPropertyTypeVal: document.getElementById('summary-property-type-val'),
+    summarySpecificAreasRow: document.getElementById('summary-specific-areas-row'),
+    summarySpecificAreasVal: document.getElementById('summary-specific-areas-val'),
+    summaryServiceType: document.getElementById('summary-service-type'),
+    summaryServiceRate: document.getElementById('summary-service-rate'),
+    summaryAddonsRow: document.getElementById('summary-addons-row'),
+    summaryAddonsVal: document.getElementById('summary-addons-val'),
+    btnBookQuoteLabel: document.getElementById('btn-book-quote-label'),
+
     btnPrintQuote: document.getElementById('btn-print-quote'),
-    btnShareQuote: document.getElementById('btn-share-quote')
+    btnResetCalc: document.getElementById('btn-reset-calc')
   };
 
   /**
-   * Calculate a display-only estimate. This is never a trusted price for billing.
+   * Returns the ordered array of active wizard step IDs for the current service category.
+   * Commercial & Offices only asks Step 1 (Type of Service) -> Step 3 (Cleaning Frequency).
+   */
+  function getActiveStepSequence() {
+    if (state.serviceCategory === 'commercial') {
+      return [1, 3];
+    }
+    return [1, 2, 3, 4];
+  }
+
+  /**
+   * Clears validation banner and any .wizard-field-missing highlights.
+   */
+  function clearValidationErrors() {
+    if (els.validationBanner) {
+      els.validationBanner.classList.add('is-hidden');
+    }
+    document.querySelectorAll('.wizard-field-missing').forEach((node) => {
+      node.classList.remove('wizard-field-missing');
+    });
+  }
+
+  /**
+   * Displays a validation message and highlights the missing container(s).
+   */
+  function showValidationError(message, highlightNodes) {
+    clearValidationErrors();
+    if (els.validationMessage) {
+      els.validationMessage.textContent = message;
+    }
+    if (els.validationBanner) {
+      els.validationBanner.classList.remove('is-hidden');
+    }
+    if (Array.isArray(highlightNodes)) {
+      highlightNodes.forEach((node) => {
+        if (node) {
+          node.classList.add('wizard-field-missing');
+        }
+      });
+    }
+  }
+
+  /**
+   * Validates whether the given step has been fulfilled by the user.
+   * Highlights missing fields and prevents moving forward if unfulfilled.
+   */
+  function validateStepFulfillment(stepId) {
+    clearValidationErrors();
+
+    if (stepId === 1) {
+      if (!state.step1Fulfilled) {
+        showValidationError(
+          'Please select a Type of Service (Residential Homes, Commercial & Offices, Move-In / Move-Out, or Airbnb Turnover) to fulfill this section before moving forward.',
+          [els.step1ServiceGrid]
+        );
+        return false;
+      }
+      return true;
+    }
+
+    if (stepId === 2) {
+      if (state.serviceCategory === 'moveinout') {
+        if (!state.propertyType) {
+          showValidationError(
+            'Please select your Property Type (House, Apartment, Condo, or Townhome) to fulfill the Property Details section.',
+            [els.step2MoveinoutPropertyType, els.movePropertyTypeGroup]
+          );
+          return false;
+        }
+        return true;
+      }
+
+      if (state.serviceCategory === 'residential') {
+        if (!state.step2ResidentialFulfilled) {
+          showValidationError(
+            'Please select your Residential Cleaning Tier (Standard Clean, Deep Clean, or Specific Areas) or adjust your property details to continue.',
+            [els.residentialTierGroup]
+          );
+          return false;
+        }
+        if (state.scopeMode === 'specific' && state.specificAreasText.trim().length === 0) {
+          showValidationError(
+            'Please enter which specific areas you want cleaned before moving forward.',
+            [els.specificAreasInputGroup, els.inputSpecificAreas]
+          );
+          if (els.inputSpecificAreas) els.inputSpecificAreas.focus();
+          return false;
+        }
+        return true;
+      }
+    }
+
+    if (stepId === 3) {
+      if (!state.step3FrequencyFulfilled) {
+        showValidationError(
+          'Please select a Cleaning Frequency schedule below to fulfill this section.',
+          [els.step3FrequencyGrid]
+        );
+        return false;
+      }
+      return true;
+    }
+
+    return true;
+  }
+
+  /**
+   * Updates the Step 1 Service Scope Overview box based on the active serviceCategory.
+   */
+  function updateServiceOverviewUI() {
+    const key = state.step1Fulfilled ? state.serviceCategory : 'default';
+    const info = SERVICE_OVERVIEWS[key] || SERVICE_OVERVIEWS.default;
+    if (els.overviewKicker) els.overviewKicker.textContent = info.kicker;
+    if (els.overviewTitle) els.overviewTitle.textContent = info.title;
+    if (els.overviewDesc) els.overviewDesc.textContent = info.desc;
+    if (els.overviewBullet1) els.overviewBullet1.textContent = info.items[0];
+    if (els.overviewBullet2) els.overviewBullet2.textContent = info.items[1];
+    if (els.overviewBullet3) els.overviewBullet3.textContent = info.items[2];
+    if (els.overviewBullet4) els.overviewBullet4.textContent = info.items[3];
+
+    els.serviceCategoryCards.forEach((card) => {
+      const cat = card.getAttribute('data-service-cat');
+      const isMatch = state.step1Fulfilled && cat === state.serviceCategory;
+      card.classList.toggle('active', isMatch);
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) radio.checked = isMatch;
+    });
+  }
+
+  /**
+   * Calculate live pricing & time metrics based on current state
    */
   function calculateQuote() {
-    // 1. Base rooms calculation
-    const roomCost = PRICING.baseFlat +
-      (state.bedrooms * PRICING.perBedroom) +
-      (state.fullBaths * PRICING.perFullBath) +
-      (state.halfBaths * PRICING.perHalfBath);
+    const cfg = PRICING_CONFIG;
 
-    // 2. Square footage adjustment
-    const sqftExcess = Math.max(0, state.sqft - PRICING.sqftBaseThreshold);
-    const sqftCost = sqftExcess * PRICING.sqftPerFootOver;
-    const baseSubtotal = roomCost + sqftCost;
-
-    // 3. Service type multiplier
-    const serviceMultiplier = PRICING.serviceMultipliers[state.serviceType] || 1.0;
-    const serviceSubtotal = baseSubtotal * serviceMultiplier;
-
-    // 4. Frequency Discount
-    const discountRate = PRICING.frequencyDiscounts[state.frequency] || 0;
-    const discountAmount = serviceSubtotal * discountRate;
-    let cleanAfterDiscount = serviceSubtotal - discountAmount;
-
-    // 5. Minimum Job Floor ($110 floor)
-    let isFloorApplied = false;
-    if (cleanAfterDiscount < PRICING.minimumFloor) {
-      cleanAfterDiscount = PRICING.minimumFloor;
-      isFloorApplied = true;
+    if (state.serviceCategory === 'commercial') {
+      const baseRate = cfg.hourlyRates.commercial;
+      const estimatedHours = 3.0;
+      const basePrice = Math.round(estimatedHours * baseRate);
+      return {
+        isCommercial: true,
+        isSpecificAreas: false,
+        hourlyRate: baseRate,
+        estimatedHours,
+        basePrice,
+        minApplied: false,
+        discountRate: 0,
+        discountAmount: 0,
+        addonsTotal: 0,
+        grandTotal: basePrice,
+        timeRangeText: 'On-Site Walkthrough',
+        crewText: 'Commercial Team'
+      };
     }
 
-    // 6. Add-ons
-    const addonsTotal = 
-      (state.addons.fridgeSingle * PRICING.addonRates.fridgeSingle) +
-      (state.addons.fridgeDouble * PRICING.addonRates.fridgeDouble) +
-      (state.addons.oven * PRICING.addonRates.oven) +
-      (state.addons.pets * PRICING.addonRates.pets);
+    const isSpecificAreas =
+      state.serviceCategory === 'residential' && state.scopeMode === 'specific';
 
-    // 7. Grand total
-    const grandTotal = cleanAfterDiscount + addonsTotal;
+    let basePrice = 0;
+    let estimatedHours = 2;
+    let minApplied = false;
+    let hourlyRate = cfg.hourlyRates[state.serviceType] || 40;
 
-    // 8. Time estimation
-    let estHours = 1.75 + (state.bedrooms * 0.45) + (state.fullBaths * 0.6) + (state.sqft / 1400);
-    if (state.serviceType === 'deep') estHours += 1.5;
-    if (state.serviceType === 'moveinout') estHours += 2.0;
-    if (state.serviceType === 'airbnb') estHours += 0.5;
-    if (state.addons.fridgeSingle > 0) estHours += 0.6 * state.addons.fridgeSingle;
-    if (state.addons.fridgeDouble > 0) estHours += 0.9 * state.addons.fridgeDouble;
-    if (state.addons.oven > 0) estHours += 0.75 * state.addons.oven;
-    if (state.addons.pets > 0) estHours += 0.5 * state.addons.pets;
+    if (isSpecificAreas) {
+      const bookedHours = Math.min(
+        cfg.specificAreas.maxHours,
+        Math.max(cfg.specificAreas.minHours, state.specificHours)
+      );
+      estimatedHours = bookedHours;
+      const extraHours = Math.max(0, bookedHours - cfg.specificAreas.minHours);
+      basePrice =
+        cfg.specificAreas.baseTwoHourFlatRate +
+        extraHours * cfg.specificAreas.extraHourRate;
+      minApplied = bookedHours === cfg.specificAreas.minHours;
+      hourlyRate = cfg.specificAreas.extraHourRate;
+    } else {
+      const tf = cfg.timeFactors;
+      const extraSqft = Math.max(0, state.sqft - tf.sqftBaseline);
+      const sqftHours = (extraSqft / tf.sqftStepSize) * tf.hoursPerSqftStep;
 
-    const roundedHoursMin = (Math.floor(estHours * 2) / 2).toFixed(1);
-    const roundedHoursMax = (Math.ceil((estHours + 0.75) * 2) / 2).toFixed(1);
-    const crewSize = estHours > 4.5 ? '2 - 3 Specialists' : '2 Cleaning Specialists';
+      const rawHours =
+        tf.baseHours +
+        state.bedrooms * tf.perBedroomHours +
+        state.fullBaths * tf.perFullBathHours +
+        state.halfBaths * tf.perHalfBathHours +
+        sqftHours;
+
+      const serviceMult = cfg.serviceMultipliers[state.serviceType] || 1.0;
+      estimatedHours = Math.max(2.0, Math.round(rawHours * serviceMult * 2) / 2);
+
+      const rawPrice = Math.round(estimatedHours * hourlyRate);
+      basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
+      minApplied = rawPrice < cfg.minimumJobCharge;
+    }
+
+    // Add-ons total
+    const addonsTotal =
+      state.addons.fridge * cfg.addons.fridge +
+      state.addons.fridgeDouble * cfg.addons.fridgeDouble +
+      state.addons.oven * cfg.addons.oven +
+      state.addons.pets * cfg.addons.pets;
+
+    const grandTotal = basePrice + addonsTotal;
+
+    const addonHours =
+      (state.addons.fridge + state.addons.fridgeDouble + state.addons.oven) * 0.5 +
+      state.addons.pets * 0.25;
+    const totalHours = estimatedHours + addonHours;
+
+    let timeRangeText = '';
+    if (isSpecificAreas) {
+      timeRangeText =
+        addonHours > 0
+          ? `${estimatedHours} hrs + ${addonHours.toFixed(1)}h add-ons`
+          : `${estimatedHours} Hours Booked`;
+    } else {
+      const minHrs = Math.max(1.5, Math.round((totalHours - 0.5) * 2) / 2);
+      const maxHrs = Math.round((totalHours + 0.5) * 2) / 2;
+      timeRangeText = `${minHrs} – ${maxHrs} hrs`;
+    }
+
+    let crewSize = '1 – 2 Pros';
+    if (totalHours >= 4.5) crewSize = '2 – 3 Pros';
+    if (totalHours >= 7.0) crewSize = '3 – 4 Pros';
 
     return {
-      baseSubtotal,
-      serviceSubtotal,
-      serviceMultiplier,
-      discountRate,
-      discountAmount,
-      isFloorApplied,
+      isCommercial: false,
+      isSpecificAreas,
+      hourlyRate,
+      estimatedHours,
+      basePrice,
+      minApplied,
+      discountRate: 0,
+      discountAmount: 0,
       addonsTotal,
       grandTotal,
-      estTime: `${roundedHoursMin} - ${roundedHoursMax} hrs`,
-      crewSize
+      timeRangeText,
+      crewText: crewSize
     };
   }
 
   /**
-   * Animate number transition smoothly
+   * Synchronize Wizard Step UI, Progress Bar, and Step-Specific Panels
    */
-  let currentAnimatedTotal = 0;
-  function animateQuoteTotal(targetVal) {
-    if (!els.quoteTotal) return;
-    const duration = 250;
-    const startTime = performance.now();
-    const startVal = currentAnimatedTotal || targetVal;
+  function updateWizardUI() {
+    const sequence = getActiveStepSequence();
+    const totalSteps = sequence.length;
+    if (!sequence.includes(state.wizardStep)) {
+      state.wizardStep = sequence[0];
+    }
+    const stepIndex = sequence.indexOf(state.wizardStep);
+    const displayStepNum = stepIndex + 1;
 
-    function step(timestamp) {
-      const elapsed = timestamp - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-      const easeOut = 1 - Math.pow(1 - progress, 3);
-      const current = startVal + (targetVal - startVal) * easeOut;
-      els.quoteTotal.textContent = current.toFixed(2);
+    const stepTitles = {
+      1: 'Type of Service',
+      2:
+        state.serviceCategory === 'moveinout'
+          ? 'Move-In / Out Property Details'
+          : state.serviceCategory === 'airbnb'
+            ? 'Airbnb Property Details'
+            : 'Property Details',
+      3: 'Cleaning Frequency',
+      4: 'Custom Add-Ons'
+    };
 
-      if (progress < 1) {
-        requestAnimationFrame(step);
+    const title = stepTitles[state.wizardStep] || 'Property Details';
+
+    if (els.calcStepCurrent) els.calcStepCurrent.textContent = String(displayStepNum);
+    if (els.calcStepTotal) els.calcStepTotal.textContent = String(totalSteps);
+    if (els.calcStepActiveName) els.calcStepActiveName.textContent = title;
+
+    if (els.calcWizardProgressBar) {
+      els.calcWizardProgressBar.setAttribute('aria-valuemax', String(totalSteps));
+      els.calcWizardProgressBar.setAttribute('aria-valuenow', String(displayStepNum));
+    }
+
+    if (els.calcWizardProgressFill) {
+      els.calcWizardProgressFill.classList.remove(
+        'step-fill-1',
+        'step-fill-2',
+        'step-fill-3',
+        'step-fill-4'
+      );
+      if (totalSteps === 2) {
+        els.calcWizardProgressFill.classList.add(displayStepNum === 1 ? 'step-fill-2' : 'step-fill-4');
       } else {
-        els.quoteTotal.textContent = targetVal.toFixed(2);
-        currentAnimatedTotal = targetVal;
+        els.calcWizardProgressFill.classList.add(`step-fill-${displayStepNum}`);
       }
     }
-    requestAnimationFrame(step);
+
+    if (els.wizardFooterStatus) {
+      els.wizardFooterStatus.textContent = `Step ${displayStepNum} of ${totalSteps} · ${title}`;
+    }
+
+    // Show/hide tabs based on Commercial (2 steps) vs 4-step flow
+    els.wizardStepTabs.forEach((tab) => {
+      const tabStep = parseInt(tab.getAttribute('data-step-target'), 10);
+      const posInSeq = sequence.indexOf(tabStep);
+      if (posInSeq === -1) {
+        tab.classList.add('is-hidden');
+        tab.classList.remove('is-active', 'is-completed');
+        tab.setAttribute('aria-selected', 'false');
+      } else {
+        tab.classList.remove('is-hidden');
+        const isCurrent = tabStep === state.wizardStep;
+        const isCompleted = posInSeq < stepIndex;
+        tab.classList.toggle('is-active', isCurrent);
+        tab.classList.toggle('is-completed', isCompleted);
+        tab.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
+      }
+    });
+
+    if (els.wizardTabNum3) {
+      els.wizardTabNum3.textContent = state.serviceCategory === 'commercial' ? '2' : '3';
+    }
+    if (els.step3Badge) {
+      els.step3Badge.textContent = state.serviceCategory === 'commercial' ? '2' : '3';
+    }
+    if (els.step3HeadingTitle) {
+      els.step3HeadingTitle.textContent =
+        state.serviceCategory === 'commercial'
+          ? 'Commercial Cleaning Frequency'
+          : 'Cleaning Frequency';
+    }
+    if (els.step3HeadingDesc) {
+      els.step3HeadingDesc.textContent =
+        state.serviceCategory === 'commercial'
+          ? 'Select how often your office or facility needs service to complete your Commercial walkthrough request'
+          : 'Select your preferred service schedule below to continue';
+    }
+    if (els.freqTurnoverTitle && els.freqTurnoverSub) {
+      if (state.serviceCategory === 'commercial') {
+        els.freqTurnoverTitle.textContent = 'Custom / Daily';
+        els.freqTurnoverSub.textContent = 'Multi-Day Facility Care';
+      } else {
+        els.freqTurnoverTitle.textContent = 'Per Turnover';
+        els.freqTurnoverSub.textContent = 'Airbnb / Host Partner';
+      }
+    }
+
+    // Configure Step 2 sub-sections based on serviceCategory
+    if (state.serviceCategory === 'moveinout') {
+      if (els.step2ResidentialControls) els.step2ResidentialControls.classList.add('is-hidden');
+      if (els.step2MoveinoutPropertyType) els.step2MoveinoutPropertyType.classList.remove('is-hidden');
+      if (els.step2HeadingTitle) {
+        els.step2HeadingTitle.textContent = 'Move-In / Move-Out Property Details';
+      }
+      if (els.step2HeadingDesc) {
+        els.step2HeadingDesc.textContent =
+          'Select your property type (House, Apartment, Condo, or Townhome) and adjust your property details gauge';
+      }
+    } else if (state.serviceCategory === 'airbnb') {
+      if (els.step2ResidentialControls) els.step2ResidentialControls.classList.add('is-hidden');
+      if (els.step2MoveinoutPropertyType) els.step2MoveinoutPropertyType.classList.add('is-hidden');
+      if (els.step2HeadingTitle) {
+        els.step2HeadingTitle.textContent = 'Airbnb / STR Property Details';
+      }
+      if (els.step2HeadingDesc) {
+        els.step2HeadingDesc.textContent =
+          'Configure your short-term rental bedrooms, bathrooms, and square footage below';
+      }
+    } else {
+      if (els.step2ResidentialControls) els.step2ResidentialControls.classList.remove('is-hidden');
+      if (els.step2MoveinoutPropertyType) els.step2MoveinoutPropertyType.classList.add('is-hidden');
+      if (els.step2HeadingTitle) {
+        els.step2HeadingTitle.textContent = 'Residential Property Details';
+      }
+      if (els.step2HeadingDesc) {
+        els.step2HeadingDesc.textContent =
+          'Choose Standard ($40/hr), Deep Clean ($50/hr), or Specific Areas ($120 2-hr min), then set your home size';
+      }
+    }
+
+    // Update Step Panes
+    els.wizardStepPanes.forEach((pane) => {
+      const paneStep = parseInt(pane.getAttribute('data-wizard-step'), 10);
+      pane.classList.toggle('is-active-step', paneStep === state.wizardStep);
+    });
+
+    // Prev / Next buttons
+    const isFirstStep = stepIndex === 0;
+    const isLastStep = stepIndex === totalSteps - 1;
+    if (els.btnWizardPrev) els.btnWizardPrev.disabled = isFirstStep;
+    if (els.btnWizardPrevTop) els.btnWizardPrevTop.disabled = isFirstStep;
+
+    if (els.wizardNextLabel) {
+      if (isLastStep) {
+        els.wizardNextLabel.textContent =
+          state.serviceCategory === 'commercial'
+            ? 'Review Commercial Request'
+            : 'Review Estimate';
+      } else {
+        const nextStepId = sequence[stepIndex + 1];
+        const nextLabel = stepTitles[nextStepId] || 'Next';
+        els.wizardNextLabel.textContent = `Next: ${nextLabel}`;
+      }
+    }
+  }
+
+  function handlePrevStep() {
+    const sequence = getActiveStepSequence();
+    const pos = sequence.indexOf(state.wizardStep);
+    if (pos > 0) {
+      clearValidationErrors();
+      state.wizardStep = sequence[pos - 1];
+      updateWizardUI();
+    }
+  }
+
+  function handleNextStep() {
+    const sequence = getActiveStepSequence();
+    const pos = sequence.indexOf(state.wizardStep);
+    if (!validateStepFulfillment(state.wizardStep)) {
+      return;
+    }
+    if (pos < sequence.length - 1) {
+      state.wizardStep = sequence[pos + 1];
+      updateWizardUI();
+    } else if (
+      window.SmartsProModal &&
+      typeof window.SmartsProModal.openBookingModal === 'function'
+    ) {
+      window.SmartsProModal.openBookingModal();
+    }
+  }
+
+  function goToWizardStep(targetStepId) {
+    const sequence = getActiveStepSequence();
+    if (!sequence.includes(targetStepId)) return;
+
+    const currentPos = sequence.indexOf(state.wizardStep);
+    const targetPos = sequence.indexOf(targetStepId);
+
+    if (targetPos > currentPos) {
+      for (let i = currentPos; i < targetPos; i++) {
+        if (!validateStepFulfillment(sequence[i])) {
+          return;
+        }
+      }
+    } else {
+      clearValidationErrors();
+    }
+
+    state.wizardStep = targetStepId;
+    updateWizardUI();
   }
 
   /**
-   * Update UI elements from state and calculated quote
+   * Update DOM UI to reflect current state and calculations
    */
   function updateUI() {
-    const quote = calculateQuote();
+    const calc = calculateQuote();
+    const isSpecific = calc.isSpecificAreas;
+    const isCommercial = calc.isCommercial;
 
-    // Update Stepper displays
-    if (els.bedVal) els.bedVal.textContent = state.bedrooms;
-    if (els.fullBathVal) els.fullBathVal.textContent = state.fullBaths;
-    if (els.halfBathVal) els.halfBathVal.textContent = state.halfBaths;
+    updateServiceOverviewUI();
 
-    if (els.bedMinus) els.bedMinus.disabled = state.bedrooms <= 0;
-    if (els.fullBathMinus) els.fullBathMinus.disabled = state.fullBaths <= 1;
-    if (els.halfBathMinus) els.halfBathMinus.disabled = state.halfBaths <= 0;
-
-    // Sqft input & slider sync
-    if (els.sqftSlider && els.sqftSlider.value != state.sqft) {
-      els.sqftSlider.value = state.sqft;
-    }
-    if (els.sqftInput && els.sqftInput.value != state.sqft) {
-      els.sqftInput.value = state.sqft;
-    }
-    updateSliderBackground(els.sqftSlider);
-
-    // Addons display
-    if (els.addonFridgeVal) els.addonFridgeVal.textContent = state.addons.fridgeSingle;
-    if (els.addonFridgeDoubleVal) els.addonFridgeDoubleVal.textContent = state.addons.fridgeDouble;
-    if (els.addonOvenVal) els.addonOvenVal.textContent = state.addons.oven;
-    if (els.addonPetsVal) els.addonPetsVal.textContent = state.addons.pets;
-
-    if (els.addonFridgeMinus) els.addonFridgeMinus.disabled = state.addons.fridgeSingle <= 0;
-    if (els.addonFridgeDoubleMinus) els.addonFridgeDoubleMinus.disabled = state.addons.fridgeDouble <= 0;
-    if (els.addonOvenMinus) els.addonOvenMinus.disabled = state.addons.oven <= 0;
-    if (els.addonPetsMinus) els.addonPetsMinus.disabled = state.addons.pets <= 0;
-
-    // Highlight addon card if quantity > 0
-    toggleAddonCardHighlight('addon-item-fridge', state.addons.fridgeSingle > 0);
-    toggleAddonCardHighlight('addon-item-fridge-double', state.addons.fridgeDouble > 0);
-    toggleAddonCardHighlight('addon-item-oven', state.addons.oven > 0);
-    toggleAddonCardHighlight('addon-item-pets', state.addons.pets > 0);
-
-    // Active Service radio card
-    els.serviceCards.forEach(card => {
-      const radio = card.querySelector('input[type="radio"]');
-      if (radio && radio.value === state.serviceType) {
-        card.classList.add('active');
-        radio.checked = true;
-      } else {
-        card.classList.remove('active');
-      }
+    // 1. Update Residential Tier Buttons & Scope Panels
+    els.residentialTierBtns.forEach((btn) => {
+      const tier = btn.getAttribute('data-res-tier');
+      const currentTier = state.scopeMode === 'specific' ? 'specific' : state.serviceType;
+      const isActive = tier === currentTier;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
 
-    // Active Frequency radio card
-    els.freqCards.forEach(card => {
-      const radio = card.querySelector('input[type="radio"]');
-      if (radio && radio.value === state.frequency) {
-        card.classList.add('active');
-        radio.checked = true;
-      } else {
-        card.classList.remove('active');
-      }
+    // Property Type Buttons (House, Apartment, Condo, Townhome)
+    els.propertyTypeBtns.forEach((btn) => {
+      const pType = btn.getAttribute('data-prop-type');
+      const isActive = state.propertyType === pType;
+      btn.classList.toggle('active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
 
-    // Update Summary Price & Breakdown
-    animateQuoteTotal(quote.grandTotal);
+    if (els.scopePanelFull) {
+      els.scopePanelFull.classList.toggle('is-hidden', isSpecific);
+    }
+    if (els.scopePanelSpecific) {
+      els.scopePanelSpecific.classList.toggle('is-hidden', !isSpecific);
+    }
+
+    // Specific Hours UI
+    if (els.valSpecificHours) els.valSpecificHours.textContent = state.specificHours;
+    if (els.btnHoursMinus) {
+      els.btnHoursMinus.disabled = state.specificHours <= PRICING_CONFIG.specificAreas.minHours;
+    }
+    if (els.btnHoursPlus) {
+      els.btnHoursPlus.disabled = state.specificHours >= PRICING_CONFIG.specificAreas.maxHours;
+    }
+    els.hourTierBtns.forEach((btn) => {
+      const h = parseInt(btn.getAttribute('data-hours-val'), 10);
+      btn.classList.toggle('active', h === state.specificHours);
+    });
+
+    // 2. Update Stepper Values
+    if (els.valBedrooms) els.valBedrooms.textContent = state.bedrooms;
+    if (els.btnBedMinus) els.btnBedMinus.disabled = state.bedrooms <= 1;
+    if (els.btnBedPlus) els.btnBedPlus.disabled = state.bedrooms >= 8;
+
+    if (els.valFullBaths) els.valFullBaths.textContent = state.fullBaths;
+    if (els.btnBathMinus) els.btnBathMinus.disabled = state.fullBaths <= 1;
+    if (els.btnBathPlus) els.btnBathPlus.disabled = state.fullBaths >= 6;
+
+    if (els.valHalfBaths) els.valHalfBaths.textContent = state.halfBaths;
+    if (els.btnHalfBathMinus) els.btnHalfBathMinus.disabled = state.halfBaths <= 0;
+    if (els.btnHalfBathPlus) els.btnHalfBathPlus.disabled = state.halfBaths >= 4;
+
+    if (els.sliderSqft && document.activeElement !== els.sliderSqft) {
+      els.sliderSqft.value = state.sqft;
+    }
+    if (els.inputSqft && document.activeElement !== els.inputSqft) {
+      els.inputSqft.value = state.sqft;
+    }
+
+    // 3. Update Frequency Cards
+    els.freqCards.forEach((card) => {
+      const cardFreq = card.getAttribute('data-freq');
+      const isSelected = state.step3FrequencyFulfilled && cardFreq === state.frequency;
+      card.classList.toggle('active', isSelected);
+      const radio = card.querySelector('input[type="radio"]');
+      if (radio) radio.checked = isSelected;
+    });
+
+    // 4. Update Add-on Quantities & Active States
+    if (els.valFridge) els.valFridge.textContent = state.addons.fridge;
+    if (els.btnFridgeMinus) els.btnFridgeMinus.disabled = state.addons.fridge <= 0;
+    if (els.cardFridge) els.cardFridge.classList.toggle('has-quantity', state.addons.fridge > 0);
+
+    if (els.valFridgeDouble) els.valFridgeDouble.textContent = state.addons.fridgeDouble;
+    if (els.btnFridgeDoubleMinus) {
+      els.btnFridgeDoubleMinus.disabled = state.addons.fridgeDouble <= 0;
+    }
+    if (els.cardFridgeDouble) {
+      els.cardFridgeDouble.classList.toggle('has-quantity', state.addons.fridgeDouble > 0);
+    }
+
+    if (els.valOven) els.valOven.textContent = state.addons.oven;
+    if (els.btnOvenMinus) els.btnOvenMinus.disabled = state.addons.oven <= 0;
+    if (els.cardOven) els.cardOven.classList.toggle('has-quantity', state.addons.oven > 0);
+
+    if (els.valPets) els.valPets.textContent = state.addons.pets;
+    if (els.btnPetsMinus) els.btnPetsMinus.disabled = state.addons.pets <= 0;
+    if (els.cardPets) els.cardPets.classList.toggle('has-quantity', state.addons.pets > 0);
+
+    // 5. Update Summary Card Outputs
+    if (els.quoteTotalAmount) {
+      els.quoteTotalAmount.textContent = calc.grandTotal.toFixed(2);
+      const priceParent = els.quoteTotalAmount.closest('.quote-price-amount');
+      if (priceParent) {
+        priceParent.classList.remove('price-pulse');
+        void priceParent.offsetWidth;
+        priceParent.classList.add('price-pulse');
+      }
+    }
 
     const freqLabels = {
-      weekly: 'Billed Weekly (Every 7 Days)',
-      biweekly: 'Billed Bi-Weekly (Every 2 Weeks)',
-      turnover: 'Per Guest Turnover (Airbnb / STR)',
-      monthly: 'Billed Monthly (Every 4 Weeks)',
-      onetime: 'One-Time Cleaning Rate'
+      weekly: 'Scheduled Weekly (Every 7 Days)',
+      biweekly: 'Scheduled Bi-Weekly (Every 2 Weeks)',
+      turnover: 'Per Guest Turnover / Custom Schedule',
+      monthly: 'Scheduled Monthly (Every 4 Weeks)',
+      onetime: 'One-Time Cleaning Estimate'
     };
     if (els.quoteBillingFreq) {
-      els.quoteBillingFreq.textContent = freqLabels[state.frequency] || '';
+      els.quoteBillingFreq.textContent = isCommercial
+        ? `Commercial Walkthrough · ${freqLabels[state.frequency] || 'Custom Schedule'}`
+        : freqLabels[state.frequency] || 'Estimated Per Cleaning';
     }
 
-    // Savings badge
-    if (els.quoteSavingsAlert && els.quoteSavingsAmount) {
-      if (quote.discountAmount > 0) {
-        els.quoteSavingsAlert.style.display = 'inline-flex';
-        els.quoteSavingsAmount.textContent = `$${quote.discountAmount.toFixed(2)}`;
+    if (els.quoteMinimumNoteText) {
+      if (isCommercial) {
+        els.quoteMinimumNoteText.textContent =
+          'Commercial walkthrough confirms final facility pricing';
+      } else if (isSpecific) {
+        els.quoteMinimumNoteText.textContent =
+          '$120 flat minimum (2 hrs) • +$45/hr up to 6 hrs';
       } else {
-        els.quoteSavingsAlert.style.display = 'none';
+        els.quoteMinimumNoteText.textContent =
+          '$40/hr Standard • $50/hr Deep Clean ($120 min)';
       }
-    }
-
-    // Breakdown lines
-    if (els.breakdownBaseRate) {
-      els.breakdownBaseRate.textContent = `${state.bedrooms} Bed, ${state.fullBaths} Full, ${state.halfBaths} Half • ${state.sqft.toLocaleString()} sq ft`;
     }
 
     const serviceNames = {
-      standard: 'Standard Clean',
-      deep: 'Deep Restoration Clean',
-      moveinout: 'Move In / Move Out Clean',
-      airbnb: 'Airbnb / STR Turnover'
+      standard: 'Standard · $40/hr',
+      deep: 'Deep Clean · $50/hr',
+      moveinout: 'Move-In/Out · $50/hr',
+      airbnb: 'Airbnb Turnover · $45/hr'
     };
-    if (els.breakdownServiceType) {
-      els.breakdownServiceType.textContent = serviceNames[state.serviceType] || 'Standard';
+    if (els.summaryServiceType) {
+      if (isCommercial) {
+        els.summaryServiceType.textContent = 'Commercial Walkthrough';
+      } else if (isSpecific) {
+        els.summaryServiceType.textContent = `Specific Areas · ${state.specificHours} hrs`;
+      } else {
+        els.summaryServiceType.textContent =
+          serviceNames[state.serviceType] || 'Standard · $40/hr';
+      }
     }
-    if (els.breakdownServiceRate) {
-      els.breakdownServiceRate.textContent = `$${quote.serviceSubtotal.toFixed(2)}`;
+    if (els.summaryServiceRate) {
+      els.summaryServiceRate.textContent = `$${calc.basePrice.toFixed(2)}`;
     }
 
-    // Discount row
-    if (els.breakdownDiscountRow) {
-      if (quote.discountAmount > 0) {
-        els.breakdownDiscountRow.style.display = 'flex';
-        const pct = Math.round(quote.discountRate * 100);
-        if (els.breakdownDiscountLabel) {
-          els.breakdownDiscountLabel.textContent = `Recurring Discount (${pct}% OFF)`;
-        }
-        if (els.breakdownDiscountVal) {
-          els.breakdownDiscountVal.textContent = `-$${quote.discountAmount.toFixed(2)}`;
-        }
+    // Property Type Row (for Move-In/Out when selected)
+    if (els.summaryPropertyTypeRow && els.summaryPropertyTypeVal) {
+      if (state.serviceCategory === 'moveinout') {
+        els.summaryPropertyTypeRow.classList.remove('is-hidden');
+        els.summaryPropertyTypeVal.textContent = state.propertyType || 'Select in Step 2';
       } else {
-        els.breakdownDiscountRow.style.display = 'none';
+        els.summaryPropertyTypeRow.classList.add('is-hidden');
       }
     }
 
-    // Addons row
-    if (els.breakdownAddonsRow && els.breakdownAddonsVal) {
-      if (quote.addonsTotal > 0) {
-        els.breakdownAddonsRow.style.display = 'flex';
-        els.breakdownAddonsVal.textContent = `+$${quote.addonsTotal.toFixed(2)}`;
+    if (els.summaryScopeTitle && els.summaryBaseRate) {
+      if (isCommercial) {
+        els.summaryScopeTitle.textContent = 'Facility Scope';
+        els.summaryBaseRate.textContent = 'Confirmed during owner walkthrough';
+      } else if (isSpecific) {
+        els.summaryScopeTitle.textContent = 'Booked Time';
+        const extraHrs = Math.max(0, state.specificHours - 2);
+        els.summaryBaseRate.textContent =
+          extraHrs > 0
+            ? `${state.specificHours} hrs ($120 + ${extraHrs} × $45/hr)`
+            : '2 hrs ($120 Flat Minimum)';
       } else {
-        els.breakdownAddonsRow.style.display = 'none';
+        els.summaryScopeTitle.textContent = 'Property Size';
+        const bathText =
+          state.halfBaths > 0
+            ? `${state.fullBaths} Full, ${state.halfBaths} Half`
+            : `${state.fullBaths} Full Bath`;
+        els.summaryBaseRate.textContent = `${state.bedrooms} Bed, ${bathText} • ${state.sqft.toLocaleString()} sq ft`;
       }
     }
 
-    // Public display state for the estimate recap, never a booking/payment authority.
-    window.SmartsProCurrentQuote = {
+    if (els.summarySpecificAreasRow && els.summarySpecificAreasVal) {
+      if (isSpecific) {
+        els.summarySpecificAreasRow.classList.remove('is-hidden');
+        const cleanedText = state.specificAreasText.trim();
+        els.summarySpecificAreasVal.textContent =
+          cleanedText.length > 0 ? cleanedText : 'Specify in Step 2';
+      } else {
+        els.summarySpecificAreasRow.classList.add('is-hidden');
+      }
+    }
+
+    if (els.summaryAddonsRow) {
+      if (calc.addonsTotal > 0) {
+        els.summaryAddonsRow.classList.remove('addons-hidden', 'is-hidden');
+        els.summaryAddonsRow.style.display = 'flex';
+        if (els.summaryAddonsVal) {
+          els.summaryAddonsVal.textContent = `+$${calc.addonsTotal.toFixed(2)}`;
+        }
+      } else {
+        els.summaryAddonsRow.classList.add('addons-hidden');
+        els.summaryAddonsRow.style.display = '';
+      }
+    }
+
+    if (els.btnBookQuoteLabel) {
+      els.btnBookQuoteLabel.textContent = isCommercial
+        ? 'Request Commercial Walkthrough'
+        : 'Review Estimate & Next Steps';
+    }
+
+    updateWizardUI();
+
+    const quoteSnapshot = {
       state: JSON.parse(JSON.stringify(state)),
-      calculation: quote
+      calculation: calc
     };
-  }
 
-  function toggleAddonCardHighlight(id, hasQty) {
-    const card = document.getElementById(id);
-    if (card) {
-      card.classList.toggle('has-quantity', hasQty);
+    if (
+      window.SmartsProDispatchFramework &&
+      typeof window.SmartsProDispatchFramework.buildJobEnvelope === 'function'
+    ) {
+      quoteSnapshot.dispatchEnvelope =
+        window.SmartsProDispatchFramework.buildJobEnvelope(quoteSnapshot);
     }
-  }
 
-  function updateSliderBackground(slider) {
-    if (!slider) return;
-    const min = parseInt(slider.min, 10) || 400;
-    const max = parseInt(slider.max, 10) || 6000;
-    const val = parseInt(slider.value, 10);
-    const percentage = ((val - min) / (max - min)) * 100;
-    slider.style.background = `linear-gradient(to right, #0066CC 0%, #00B4D8 ${percentage}%, #CBD5E1 ${percentage}%, #CBD5E1 100%)`;
+    window.SmartsProCurrentQuote = quoteSnapshot;
   }
 
   /**
-   * Set up event listeners
+   * Select a Step 1 Service Category ('residential' | 'commercial' | 'moveinout' | 'airbnb')
    */
-  function initListeners() {
-    // Bedrooms Stepper
-    els.bedMinus?.addEventListener('click', () => {
-      if (state.bedrooms > 0) {
-        state.bedrooms--;
-        updateUI();
-      }
-    });
-    els.bedPlus?.addEventListener('click', () => {
-      if (state.bedrooms < 10) {
-        state.bedrooms++;
-        updateUI();
-      }
-    });
+  function selectServiceCategory(category) {
+    if (!['residential', 'commercial', 'moveinout', 'airbnb'].includes(category)) return;
+    state.serviceCategory = category;
+    state.step1Fulfilled = true;
+    clearValidationErrors();
 
-    // Full Baths Stepper
-    els.fullBathMinus?.addEventListener('click', () => {
-      if (state.fullBaths > 1) {
-        state.fullBaths--;
-        updateUI();
+    if (category === 'residential') {
+      if (state.serviceType === 'moveinout' || state.serviceType === 'airbnb') {
+        state.serviceType = 'standard';
       }
-    });
-    els.fullBathPlus?.addEventListener('click', () => {
-      if (state.fullBaths < 8) {
-        state.fullBaths++;
-        updateUI();
-      }
-    });
-
-    // Half Baths Stepper
-    els.halfBathMinus?.addEventListener('click', () => {
-      if (state.halfBaths > 0) {
-        state.halfBaths--;
-        updateUI();
-      }
-    });
-    els.halfBathPlus?.addEventListener('click', () => {
-      if (state.halfBaths < 6) {
-        state.halfBaths++;
-        updateUI();
-      }
-    });
-
-    // Bound both controls consistently. Server-side validation is still required
-    // before these display-only values can be used in a real booking.
-    function updateSquareFootage(value) {
-      const parsed = Number(value);
-      state.sqft = Number.isFinite(parsed) ? Math.min(6000, Math.max(400, Math.round(parsed))) : 400;
-      updateUI();
+    } else if (category === 'moveinout') {
+      state.scopeMode = 'full';
+      state.serviceType = 'moveinout';
+    } else if (category === 'airbnb') {
+      state.scopeMode = 'full';
+      state.serviceType = 'airbnb';
+      state.frequency = 'turnover';
+    } else if (category === 'commercial') {
+      state.scopeMode = 'full';
     }
 
-    // Sqft slider & input
-    els.sqftSlider?.addEventListener('input', (e) => {
-      updateSquareFootage(e.target.value);
-    });
-
-    els.sqftInput?.addEventListener('input', (e) => {
-      updateSquareFootage(e.target.value);
-    });
-
-    // Service Type radio cards
-    els.serviceCards.forEach(card => {
-      card.addEventListener('click', () => {
-        const radio = card.querySelector('input[type="radio"]');
-        if (radio && Object.hasOwn(PRICING.serviceMultipliers, radio.value)) {
-          state.serviceType = radio.value;
-          updateUI();
-        }
-      });
-    });
-
-    // Frequency radio cards
-    els.freqCards.forEach(card => {
-      card.addEventListener('click', () => {
-        const radio = card.querySelector('input[type="radio"]');
-        if (radio && Object.hasOwn(PRICING.frequencyDiscounts, radio.value)) {
-          state.frequency = radio.value;
-          updateUI();
-        }
-      });
-    });
-
-    // Addons Steppers
-    els.addonFridgeMinus?.addEventListener('click', () => {
-      if (state.addons.fridgeSingle > 0) { state.addons.fridgeSingle--; updateUI(); }
-    });
-    els.addonFridgePlus?.addEventListener('click', () => {
-      if (state.addons.fridgeSingle < 5) { state.addons.fridgeSingle++; updateUI(); }
-    });
-
-    els.addonFridgeDoubleMinus?.addEventListener('click', () => {
-      if (state.addons.fridgeDouble > 0) { state.addons.fridgeDouble--; updateUI(); }
-    });
-    els.addonFridgeDoublePlus?.addEventListener('click', () => {
-      if (state.addons.fridgeDouble < 5) { state.addons.fridgeDouble++; updateUI(); }
-    });
-
-    els.addonOvenMinus?.addEventListener('click', () => {
-      if (state.addons.oven > 0) { state.addons.oven--; updateUI(); }
-    });
-    els.addonOvenPlus?.addEventListener('click', () => {
-      if (state.addons.oven < 5) { state.addons.oven++; updateUI(); }
-    });
-
-    els.addonPetsMinus?.addEventListener('click', () => {
-      if (state.addons.pets > 0) { state.addons.pets--; updateUI(); }
-    });
-    els.addonPetsPlus?.addEventListener('click', () => {
-      if (state.addons.pets < 5) { state.addons.pets++; updateUI(); }
-    });
-
-    // Print Quote button
-    els.btnPrintQuote?.addEventListener('click', () => {
-      window.print();
-    });
-
-    // Share / Copy Link or summary
-    els.btnShareQuote?.addEventListener('click', () => {
-      const q = window.SmartsProCurrentQuote;
-      const shareText = `Smarts Pro Solutions Estimate: $${q.calculation.grandTotal.toFixed(2)} (${state.bedrooms} Bed, ${state.fullBaths} Bath, ${state.sqft} sqft - ${state.serviceType.toUpperCase()} CLEAN). Call (318) 564-4360 to book!`;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(shareText).then(() => {
-          alert('Estimate summary copied to clipboard! You can paste and send this via text or email.');
-        }).catch(() => alert(shareText));
-      } else {
-        alert(shareText);
-      }
-    });
-
-    // Trigger Book Now Modal
-    els.btnBookNow?.addEventListener('click', () => {
-      if (window.SmartsProModal && typeof window.SmartsProModal.openBookingModal === 'function') {
-        window.SmartsProModal.openBookingModal(window.SmartsProCurrentQuote);
-      }
-    });
+    updateUI();
   }
+
+  /**
+   * Bind Event Listeners
+   */
+  function initCalculatorEvents() {
+    // Wizard Step Tabs
+    els.wizardStepTabs.forEach((tab) => {
+      tab.addEventListener('click', () => {
+        const target = parseInt(tab.getAttribute('data-step-target'), 10);
+        if (!isNaN(target)) goToWizardStep(target);
+      });
+    });
+
+    if (els.btnWizardPrev) els.btnWizardPrev.addEventListener('click', handlePrevStep);
+    if (els.btnWizardPrevTop) els.btnWizardPrevTop.addEventListener('click', handlePrevStep);
+    if (els.btnWizardNext) els.btnWizardNext.addEventListener('click', handleNextStep);
+    if (els.btnWizardNextTop) els.btnWizardNextTop.addEventListener('click', handleNextStep);
+
+    // Step 1: Service Category Cards
+    els.serviceCategoryCards.forEach((card) => {
+      card.addEventListener('click', () => {
+        const cat = card.getAttribute('data-service-cat');
+        if (cat) selectServiceCategory(cat);
+      });
+    });
+
+    // Step 2: Residential Tier Buttons (Standard $40/hr, Deep $50/hr, Specific Areas $120 min)
+    els.residentialTierBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tier = btn.getAttribute('data-res-tier');
+        state.step2ResidentialFulfilled = true;
+        clearValidationErrors();
+        if (tier === 'specific') {
+          state.scopeMode = 'specific';
+        } else if (tier === 'deep') {
+          state.scopeMode = 'full';
+          state.serviceType = 'deep';
+        } else {
+          state.scopeMode = 'full';
+          state.serviceType = 'standard';
+        }
+        updateUI();
+      });
+    });
+
+    // Step 2: Move-In/Out Property Type Buttons (House, Apartment, Condo, Townhome)
+    els.propertyTypeBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const pType = btn.getAttribute('data-prop-type');
+        if (pType) {
+          state.propertyType = pType;
+          clearValidationErrors();
+          updateUI();
+        }
+      });
+    });
+
+    // Specific Areas Text Input
+    if (els.inputSpecificAreas) {
+      els.inputSpecificAreas.addEventListener('input', (e) => {
+        state.specificAreasText = String(e.target.value || '').slice(0, 180);
+        if (state.specificAreasText.trim().length > 0) {
+          state.step2ResidentialFulfilled = true;
+          clearValidationErrors();
+        }
+        updateUI();
+      });
+    }
+
+    // Specific Areas Hours Stepper & Pills
+    if (els.btnHoursMinus) {
+      els.btnHoursMinus.addEventListener('click', () => {
+        if (state.specificHours > PRICING_CONFIG.specificAreas.minHours) {
+          state.specificHours--;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnHoursPlus) {
+      els.btnHoursPlus.addEventListener('click', () => {
+        if (state.specificHours < PRICING_CONFIG.specificAreas.maxHours) {
+          state.specificHours++;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+    els.hourTierBtns.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const hrs = parseInt(btn.getAttribute('data-hours-val'), 10);
+        if (!isNaN(hrs)) {
+          state.specificHours = Math.min(
+            PRICING_CONFIG.specificAreas.maxHours,
+            Math.max(PRICING_CONFIG.specificAreas.minHours, hrs)
+          );
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    });
+
+    // Bedrooms
+    if (els.btnBedMinus) {
+      els.btnBedMinus.addEventListener('click', () => {
+        if (state.bedrooms > 1) {
+          state.bedrooms--;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnBedPlus) {
+      els.btnBedPlus.addEventListener('click', () => {
+        if (state.bedrooms < 8) {
+          state.bedrooms++;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+
+    // Full Baths
+    if (els.btnBathMinus) {
+      els.btnBathMinus.addEventListener('click', () => {
+        if (state.fullBaths > 1) {
+          state.fullBaths--;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnBathPlus) {
+      els.btnBathPlus.addEventListener('click', () => {
+        if (state.fullBaths < 6) {
+          state.fullBaths++;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+
+    // Half Baths
+    if (els.btnHalfBathMinus) {
+      els.btnHalfBathMinus.addEventListener('click', () => {
+        if (state.halfBaths > 0) {
+          state.halfBaths--;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnHalfBathPlus) {
+      els.btnHalfBathPlus.addEventListener('click', () => {
+        if (state.halfBaths < 4) {
+          state.halfBaths++;
+          state.step2ResidentialFulfilled = true;
+          updateUI();
+        }
+      });
+    }
+
+    // Sqft Slider
+    if (els.sliderSqft) {
+      els.sliderSqft.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value, 10) || 1800;
+        state.sqft = Math.min(6000, Math.max(400, val));
+        state.step2ResidentialFulfilled = true;
+        if (els.inputSqft) els.inputSqft.value = state.sqft;
+        updateUI();
+      });
+    }
+
+    // Sqft Number Input
+    if (els.inputSqft) {
+      els.inputSqft.addEventListener('input', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val)) val = 400;
+        state.sqft = Math.min(6000, Math.max(400, val));
+        state.step2ResidentialFulfilled = true;
+        if (els.sliderSqft) els.sliderSqft.value = state.sqft;
+        updateUI();
+      });
+
+      els.inputSqft.addEventListener('blur', (e) => {
+        let val = parseInt(e.target.value, 10);
+        if (isNaN(val) || val < 400) val = 400;
+        if (val > 6000) val = 6000;
+        state.sqft = val;
+        e.target.value = val;
+        if (els.sliderSqft) els.sliderSqft.value = val;
+        updateUI();
+      });
+    }
+
+    // Step 3: Frequency Cards
+    els.freqCards.forEach((card) => {
+      card.addEventListener('click', () => {
+        const selectedFreq = card.getAttribute('data-freq');
+        if (selectedFreq) {
+          state.frequency = selectedFreq;
+          state.step3FrequencyFulfilled = true;
+          clearValidationErrors();
+          updateUI();
+        }
+      });
+    });
+
+    // Step 4: Add-on Steppers
+    if (els.btnFridgeMinus) {
+      els.btnFridgeMinus.addEventListener('click', () => {
+        if (state.addons.fridge > 0) {
+          state.addons.fridge--;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnFridgePlus) {
+      els.btnFridgePlus.addEventListener('click', () => {
+        if (state.addons.fridge < 5) {
+          state.addons.fridge++;
+          updateUI();
+        }
+      });
+    }
+
+    if (els.btnFridgeDoubleMinus) {
+      els.btnFridgeDoubleMinus.addEventListener('click', () => {
+        if (state.addons.fridgeDouble > 0) {
+          state.addons.fridgeDouble--;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnFridgeDoublePlus) {
+      els.btnFridgeDoublePlus.addEventListener('click', () => {
+        if (state.addons.fridgeDouble < 5) {
+          state.addons.fridgeDouble++;
+          updateUI();
+        }
+      });
+    }
+
+    if (els.btnOvenMinus) {
+      els.btnOvenMinus.addEventListener('click', () => {
+        if (state.addons.oven > 0) {
+          state.addons.oven--;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnOvenPlus) {
+      els.btnOvenPlus.addEventListener('click', () => {
+        if (state.addons.oven < 5) {
+          state.addons.oven++;
+          updateUI();
+        }
+      });
+    }
+
+    if (els.btnPetsMinus) {
+      els.btnPetsMinus.addEventListener('click', () => {
+        if (state.addons.pets > 0) {
+          state.addons.pets--;
+          updateUI();
+        }
+      });
+    }
+    if (els.btnPetsPlus) {
+      els.btnPetsPlus.addEventListener('click', () => {
+        if (state.addons.pets < 5) {
+          state.addons.pets++;
+          updateUI();
+        }
+      });
+    }
+
+    // Print Quote
+    if (els.btnPrintQuote) {
+      els.btnPrintQuote.addEventListener('click', () => {
+        window.print();
+      });
+    }
+
+    // Reset Calculator
+    if (els.btnResetCalc) {
+      els.btnResetCalc.addEventListener('click', () => {
+        state.wizardStep = 1;
+        state.serviceCategory = 'residential';
+        state.step1Fulfilled = false;
+        state.step2ResidentialFulfilled = false;
+        state.step3FrequencyFulfilled = false;
+        state.propertyType = '';
+        state.scopeMode = 'full';
+        state.specificAreasText = '';
+        state.specificHours = 2;
+        state.bedrooms = 3;
+        state.fullBaths = 2;
+        state.halfBaths = 1;
+        state.sqft = 1800;
+        state.serviceType = 'standard';
+        state.frequency = 'biweekly';
+        state.addons = { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 };
+        if (els.inputSpecificAreas) els.inputSpecificAreas.value = '';
+        clearValidationErrors();
+        updateUI();
+      });
+    }
+  }
+
+  /**
+   * Public helper to allow Service Showcase Cards to pre-select a calculator service
+   */
+  window.selectCalculatorService = function (serviceKey) {
+    if (serviceKey === 'specific') {
+      selectServiceCategory('residential');
+      state.scopeMode = 'specific';
+      state.step2ResidentialFulfilled = true;
+      state.wizardStep = 2;
+      updateUI();
+    } else if (serviceKey === 'commercial') {
+      selectServiceCategory('commercial');
+      state.wizardStep = 3;
+      updateUI();
+    } else if (serviceKey === 'moveinout') {
+      selectServiceCategory('moveinout');
+      state.wizardStep = 2;
+      updateUI();
+    } else if (serviceKey === 'airbnb') {
+      selectServiceCategory('airbnb');
+      state.wizardStep = 2;
+      updateUI();
+    } else if (serviceKey === 'deep' || serviceKey === 'standard') {
+      selectServiceCategory('residential');
+      state.scopeMode = 'full';
+      state.serviceType = serviceKey;
+      state.step2ResidentialFulfilled = true;
+      state.wizardStep = 2;
+      updateUI();
+    }
+    const calcSection = document.getElementById('calculator');
+    if (calcSection) {
+      calcSection.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   // Initialize on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
-    initListeners();
+    initCalculatorEvents();
     updateUI();
   });
-
 })();

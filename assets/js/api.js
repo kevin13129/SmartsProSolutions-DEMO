@@ -25,4 +25,81 @@
       });
     }
   });
+
+  /**
+   * Groundwork Dispatch, Calendar & Payment Framework (Non-PII Architecture)
+   * Prepares structured workflow routing for:
+   * 1. Commercial Walkthrough Requests -> Calendar slot + Owner email bid alert
+   * 2. Residential / Move / Airbnb Requests -> Owner review & confirmation email alert + Calendar hold + Payment stage
+   * Remains offline (no network calls or PII storage) until server controls in docs/SECURITY-ROADMAP.md are active.
+   */
+  const PIPELINES = Object.freeze({
+    COMMERCIAL_WALKTHROUGH: Object.freeze({
+      id: 'COMMERCIAL_WALKTHROUGH_PIPELINE',
+      title: 'Commercial Walkthrough & Custom Bid Workflow',
+      calendarAction: 'Request On-Site Facility Walkthrough Slot',
+      ownerAlertAction: 'Email Owner: Commercial Walkthrough & Frequency Request',
+      paymentAction: 'Custom Commercial Proposal & Net/Monthly Invoicing',
+      steps: Object.freeze([
+        '1. Service & Frequency Selected',
+        '2. Walkthrough Calendar Slot (Pending Server Integration)',
+        '3. Instant Owner Email Notification to Confirm Walkthrough'
+      ])
+    }),
+    RESIDENTIAL_REVIEW: Object.freeze({
+      id: 'RESIDENTIAL_REVIEW_CONFIRM_PIPELINE',
+      title: 'Residential Review, Calendar Hold & Payment Workflow',
+      calendarAction: 'Place Tentative Cleaning Window Hold on Calendar',
+      ownerAlertAction: 'Email Owner: Review Property Scope & Confirm Booking',
+      paymentAction: 'Owner Approval Triggers Customer Payment Link',
+      steps: Object.freeze([
+        '1. Property Scope & Instant Estimate Completed',
+        '2. Owner Alerted to Review & Confirm Calendar Availability',
+        '3. Confirmed Price & Secure Payment Link Sent After Review'
+      ])
+    })
+  });
+
+  function getWorkflowPlan(quoteState) {
+    const category = quoteState && quoteState.serviceCategory ? quoteState.serviceCategory : 'residential';
+    if (category === 'commercial') {
+      return PIPELINES.COMMERCIAL_WALKTHROUGH;
+    }
+    return PIPELINES.RESIDENTIAL_REVIEW;
+  }
+
+  function buildJobEnvelope(quoteSnapshot) {
+    const state = (quoteSnapshot && quoteSnapshot.state) || {};
+    const calc = (quoteSnapshot && quoteSnapshot.calculation) || {};
+    const workflow = getWorkflowPlan(state);
+
+    return Object.freeze({
+      schemaVersion: '2026-10-groundwork-v1',
+      intakeEnabled: false,
+      pipelineId: workflow.id,
+      pipelineTitle: workflow.title,
+      calendarAction: workflow.calendarAction,
+      ownerAlertAction: workflow.ownerAlertAction,
+      paymentAction: workflow.paymentAction,
+      serviceCategory: state.serviceCategory || 'residential',
+      serviceType: state.serviceType || 'standard',
+      propertyType: state.propertyType || 'house',
+      scopeMode: state.scopeMode || 'full',
+      frequency: state.frequency || 'biweekly',
+      estimatedHours: Number(calc.estimatedHours) || 0,
+      estimatedTotal: Number(calc.grandTotal) || 0,
+      adapters: Object.freeze({
+        calendarManagement: 'PENDING_SERVER_ADAPTER',
+        ownerEmailNotification: 'PENDING_SERVER_ADAPTER',
+        paymentCheckout: 'PENDING_SERVER_ADAPTER'
+      })
+    });
+  }
+
+  window.SmartsProDispatchFramework = Object.freeze({
+    intakeAvailable: false,
+    pipelines: PIPELINES,
+    getWorkflowPlan,
+    buildJobEnvelope
+  });
 })();

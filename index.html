@@ -305,8 +305,8 @@
               <span class="hero-metric-label">Online Estimate</span>
             </div>
             <div class="hero-metric-item">
-              <span class="hero-metric-val">Up to 20%</span>
-              <span class="hero-metric-label">Recurring Plan Off</span>
+              <span class="hero-metric-val">$40–$50</span>
+              <span class="hero-metric-label">Hourly Valuation</span>
             </div>
             <div class="hero-metric-item">
               <span class="hero-metric-val">14+ Yrs</span>
@@ -409,7 +409,7 @@
   </section>
 
   <!-- ==========================================================================
-       PRICE CALCULATOR SECTION (THE HIGHLIGHT ENGINE)
+       PRICE CALCULATOR SECTION (ALL-IN-ONE STEP-BY-STEP EVALUATION TILE)
        ========================================================================== -->
   <section class="calculator-section" id="calculator">
     <div class="section-aura-backdrop" aria-hidden="true">
@@ -421,301 +421,531 @@
     <div class="container section-content-layer">
       <div class="section-header reveal-on-scroll">
         <div class="section-tag">01 · Instant Transparent Pricing</div>
-        <h2 class="section-title">Property Details &amp; Price Calculator</h2>
+        <h2 class="section-title">Service Selection &amp; Property Calculator</h2>
         <p class="section-desc">
-          Select your room counts, square footage, cleaning tier, and optional add-ons below. Your estimated quote updates live in real-time with recurring frequency discounts automatically applied.
+          Start by choosing your service category to see what is included, then step through property details, frequency, and custom add-ons. Each step validates your selection before moving forward.
         </p>
       </div>
 
       <div class="calc-grid">
-        <!-- Left: Interactive Inputs -->
+        <!-- Left: All-In-One Interactive Step-by-Step Evaluation Tile -->
         <div class="calc-inputs-wrapper">
+          <div class="calc-wizard-shell" id="calc-wizard-shell">
 
-          <!-- Step 1: Property Specifications -->
-          <div class="calc-step-card">
-            <div class="step-header">
-              <div class="step-num">1</div>
-              <div class="step-info">
-                <h3>Property Details</h3>
-                <p>Input your bedrooms, full baths, half baths, and total square footage</p>
+            <!-- Top Progress Bar & Step # of # Header -->
+            <div class="calc-wizard-header">
+              <div class="calc-wizard-meta-row">
+                <div class="calc-wizard-step-counter">
+                  <span class="wizard-step-pill">Step <strong id="calc-step-current">1</strong> of <strong id="calc-step-total">4</strong></span>
+                  <span class="wizard-step-active-name" id="calc-step-active-name">Type of Service</span>
+                </div>
+                <div class="calc-wizard-Arrows-top">
+                  <button type="button" class="wizard-icon-arrow" id="btn-wizard-prev-top" aria-label="Previous Evaluation Step" disabled>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                  </button>
+                  <button type="button" class="wizard-icon-arrow" id="btn-wizard-next-top" aria-label="Next Evaluation Step">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Progress Bar Track & Fill -->
+              <div class="calc-wizard-progress-track" role="progressbar" aria-label="Evaluation Progress" aria-valuemin="1" aria-valuemax="4" aria-valuenow="1" id="calc-wizard-progressbar">
+                <div class="calc-wizard-progress-fill step-fill-1" id="calc-wizard-progress-fill"></div>
+              </div>
+
+              <!-- Quick Step Indicator Tabs -->
+              <div class="calc-wizard-step-tabs" id="calc-wizard-step-tabs" role="tablist" aria-label="Calculator Evaluation Steps">
+                <button type="button" class="wizard-step-tab is-active" data-step-target="1" id="wizard-tab-1" role="tab" aria-selected="true">
+                  <span class="wizard-tab-num" id="wizard-tab-num-1">1</span>
+                  <span class="wizard-tab-text" id="wizard-tab-text-1">Type of Service</span>
+                </button>
+                <button type="button" class="wizard-step-tab" data-step-target="2" id="wizard-tab-2" role="tab" aria-selected="false">
+                  <span class="wizard-tab-num" id="wizard-tab-num-2">2</span>
+                  <span class="wizard-tab-text" id="wizard-tab-text-2">Property Details</span>
+                </button>
+                <button type="button" class="wizard-step-tab" data-step-target="3" id="wizard-tab-3" role="tab" aria-selected="false">
+                  <span class="wizard-tab-num" id="wizard-tab-num-3">3</span>
+                  <span class="wizard-tab-text" id="wizard-tab-text-3">Frequency</span>
+                </button>
+                <button type="button" class="wizard-step-tab" data-step-target="4" id="wizard-tab-4" role="tab" aria-selected="false">
+                  <span class="wizard-tab-num" id="wizard-tab-num-4">4</span>
+                  <span class="wizard-tab-text" id="wizard-tab-text-4">Add-Ons</span>
+                </button>
               </div>
             </div>
 
-            <div class="property-specs-grid">
-              <!-- Bedrooms -->
-              <div class="spec-control-item">
-                <div class="spec-icon-label">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path><path d="M6 8v9"></path></svg>
-                  <span class="spec-label-title">Bedrooms</span>
-                  <span class="spec-label-sub">Sleep areas & studies</span>
-                </div>
-                <div class="stepper-control">
-                  <button type="button" class="stepper-btn" id="btn-bed-minus" aria-label="Decrease Bedrooms">−</button>
-                  <span class="stepper-value" id="val-bedrooms">3</span>
-                  <button type="button" class="stepper-btn" id="btn-bed-plus" aria-label="Increase Bedrooms">+</button>
-                </div>
-              </div>
-
-              <!-- Full Bathrooms -->
-              <div class="spec-control-item">
-                <div class="spec-icon-label">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4.67 3 4 3.67 4 4.5v1.28C4 8.7 6.3 11 9.22 11h5.56C17.7 11 20 8.7 20 5.78V4.5c0-.83-.67-1.5-1.5-1.5a1.5 1.5 0 0 0-1 .5L15 6"></path><path d="M4 14h16c0 4.42-3.58 8-8 8s-8-3.58-8-8z"></path></svg>
-                  <span class="spec-label-title">Full Bathrooms</span>
-                  <span class="spec-label-sub">Shower and/or tub</span>
-                </div>
-                <div class="stepper-control">
-                  <button type="button" class="stepper-btn" id="btn-fullbath-minus" aria-label="Decrease Full Bathrooms">−</button>
-                  <span class="stepper-value" id="val-fullbaths">2</span>
-                  <button type="button" class="stepper-btn" id="btn-fullbath-plus" aria-label="Increase Full Bathrooms">+</button>
-                </div>
-              </div>
-
-              <!-- Half Bathrooms -->
-              <div class="spec-control-item">
-                <div class="spec-icon-label">
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v12"></path><path d="M15 10v12"></path><path d="M11 14v8"></path><path d="M4 10h16"></path><path d="M2 10a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2"></path></svg>
-                  <span class="spec-label-title">Half Bathrooms</span>
-                  <span class="spec-label-sub">Sink & toilet powder room</span>
-                </div>
-                <div class="stepper-control">
-                  <button type="button" class="stepper-btn" id="btn-halfbath-minus" aria-label="Decrease Half Bathrooms">−</button>
-                  <span class="stepper-value" id="val-halfbaths">1</span>
-                  <button type="button" class="stepper-btn" id="btn-halfbath-plus" aria-label="Increase Half Bathrooms">+</button>
-                </div>
-              </div>
+            <!-- Inline Validation Banner (Highlights what is missing when trying to advance) -->
+            <div class="wizard-validation-banner is-hidden" id="wizard-validation-banner" role="alert" aria-live="polite">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+              <span id="wizard-validation-message">Please select an option below to fulfill this step before moving forward.</span>
             </div>
 
-            <!-- Square Footage Control with linked Slider & Input -->
-            <div class="sqft-control-box">
-              <div class="sqft-header-row">
-                <div class="sqft-title-wrap">
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
-                  <span>Approximate Square Footage</span>
+            <!-- Unified Evaluation Viewport (Only 1 Step Shown at a Time) -->
+            <div class="calc-wizard-stage">
+
+              <!-- ============================================================
+                   STEP 1: CHOOSE TYPE OF SERVICE + OVERVIEW OF WHAT'S INCLUDED
+                   ============================================================ -->
+              <div class="calc-step-card is-active-step" data-wizard-step="1" id="calc-step-1">
+                <div class="step-header">
+                  <div class="step-num" id="step-badge-1">1</div>
+                  <div class="step-info">
+                    <h3>Choose Type of Service</h3>
+                    <p>Select your primary service category below to inspect what is included and unlock the next step</p>
+                  </div>
                 </div>
-                <div class="sqft-display-input-wrap">
-                  <input type="number" id="input-sqft" class="sqft-number-input" value="1800" min="400" max="6000" step="50" aria-label="Square footage number">
-                  <span class="sqft-unit">sq ft</span>
+
+                <!-- 4 Primary Service Categories -->
+                <div class="service-cards-grid primary-service-grid" id="step1-service-grid">
+                  <!-- Option 1: Residential Homes -->
+                  <label class="service-card-option" data-service-cat="residential" id="card-cat-residential">
+                    <input type="radio" name="primary_service_category" value="residential">
+                    <div class="service-card-top">
+                      <div class="service-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                      </div>
+                      <div class="service-radio-custom"></div>
+                    </div>
+                    <div class="service-card-name">Residential Homes</div>
+                    <p class="service-card-desc">Standard upkeep ($40/hr), Deep Restoration ($50/hr), or Specific Priority Areas ($120 2-hr flat min).</p>
+                    <span class="service-multiplier-tag">$40–$50 / Hr Valuation</span>
+                  </label>
+
+                  <!-- Option 2: Commercial & Offices -->
+                  <label class="service-card-option" data-service-cat="commercial" id="card-cat-commercial">
+                    <input type="radio" name="primary_service_category" value="commercial">
+                    <div class="service-card-top">
+                      <div class="service-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2" ry="2"></rect><line x1="9" y1="6" x2="9" y2="6.01"></line><line x1="15" y1="6" x2="15" y2="6.01"></line><line x1="9" y1="10" x2="9" y2="10.01"></line><line x1="15" y1="10" x2="15" y2="10.01"></line><line x1="9" y1="14" x2="9" y2="14.01"></line><line x1="15" y1="14" x2="15" y2="14.01"></line></svg>
+                      </div>
+                      <div class="service-radio-custom"></div>
+                    </div>
+                    <div class="service-card-name">Commercial &amp; Offices</div>
+                    <p class="service-card-desc">Executive suites, medical facilities, lobbies, restrooms &amp; breakrooms. Proceeds directly to service frequency.</p>
+                    <span class="service-multiplier-tag">Walkthrough &amp; Schedule</span>
+                  </label>
+
+                  <!-- Option 3: Move-In / Move-Out -->
+                  <label class="service-card-option" data-service-cat="moveinout" id="card-cat-moveinout">
+                    <input type="radio" name="primary_service_category" value="moveinout">
+                    <div class="service-card-top">
+                      <div class="service-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                      </div>
+                      <div class="service-radio-custom"></div>
+                    </div>
+                    <div class="service-card-name">Move-In / Move-Out</div>
+                    <p class="service-card-desc">Empty-property turnover for houses, apartments, condos &amp; townhomes: inside cabinets, closets &amp; baseboards.</p>
+                    <span class="service-multiplier-tag">$50 / Hr Turnover Rate</span>
+                  </label>
+
+                  <!-- Option 4: Airbnb / STR Turnover -->
+                  <label class="service-card-option" data-service-cat="airbnb" id="card-cat-airbnb">
+                    <input type="radio" name="primary_service_category" value="airbnb">
+                    <div class="service-card-top">
+                      <div class="service-icon-wrap">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline><path d="M12 2v4"></path></svg>
+                      </div>
+                      <div class="service-radio-custom"></div>
+                    </div>
+                    <div class="service-card-name">Airbnb / STR Turnover</div>
+                    <p class="service-card-desc">Fast guest-ready staging: fresh bed linens, sanitized bathrooms, kitchen reset, trash cleared &amp; inspection check.</p>
+                    <span class="service-multiplier-tag">$45 / Hr Host Rate</span>
+                  </label>
+                </div>
+
+                <!-- Dynamic Service Overview Box (Shows What Each Section Includes) -->
+                <div class="service-overview-panel" id="step1-service-overview">
+                  <div class="service-overview-header">
+                    <span class="service-overview-kicker" id="overview-kicker">Service Scope Overview</span>
+                    <h4 id="overview-title">What Each Service Category Includes</h4>
+                  </div>
+                  <p class="service-overview-desc" id="overview-desc">
+                    Select one of the 4 service categories above to view its full room-by-room checklist and unlock Step 2.
+                  </p>
+                  <div class="service-overview-grid" id="overview-items-grid">
+                    <div class="overview-check-item">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <span id="overview-bullet-1"><strong>Residential Homes:</strong> Kitchens, baths, floors, dusting ($40/hr Standard, $50/hr Deep, or Specific Areas $120 min)</span>
+                    </div>
+                    <div class="overview-check-item">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <span id="overview-bullet-2"><strong>Commercial &amp; Offices:</strong> Lobbies, desks, restrooms, breakrooms &amp; custom facility walkthrough schedule</span>
+                    </div>
+                    <div class="overview-check-item">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <span id="overview-bullet-3"><strong>Move-In / Move-Out:</strong> Inside empty cabinets, drawers, closets, hand-wiped baseboards &amp; lease inspection prep</span>
+                    </div>
+                    <div class="overview-check-item">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                      <span id="overview-bullet-4"><strong>Airbnb / STR Turnover:</strong> Linen change, bathroom &amp; kitchen sanitization, restock check &amp; guest-ready presentation</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div class="slider-container">
-                <input type="range" id="slider-sqft" class="calc-range-slider" min="400" max="6000" step="50" value="1800" aria-label="Square footage slider">
+              <!-- ============================================================
+                   STEP 2: PROPERTY DETAILS (RESIDENTIAL / MOVE-IN-OUT / AIRBNB)
+                   ============================================================ -->
+              <div class="calc-step-card" data-wizard-step="2" id="calc-step-2">
+                <div class="step-header">
+                  <div class="step-num" id="step-badge-2">2</div>
+                  <div class="step-info">
+                    <h3 id="step2-heading-title">Property Details</h3>
+                    <p id="step2-heading-desc">Configure your property specifications and cleaning scope below</p>
+                  </div>
+                </div>
+
+                <!-- SUB-SECTION A (Shown for Residential Homes): Choose Standard ($40/hr), Deep ($50/hr), or Specific Areas ($120 min) -->
+                <div class="residential-tier-block" id="step2-residential-controls">
+                  <div class="substep-label-row">
+                    <span class="substep-title">Select Residential Cleaning Tier or Specific Areas</span>
+                    <span class="substep-req-badge">Required</span>
+                  </div>
+                  <div class="scope-mode-selector residential-tier-selector" id="residential-tier-group" role="radiogroup" aria-label="Select Residential Cleaning Tier">
+                    <button type="button" class="scope-mode-btn active" id="btn-scope-full" data-res-tier="standard" data-scope-mode="full" aria-pressed="true">
+                      <span class="scope-mode-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                      </span>
+                      <span class="scope-mode-copy">
+                        <strong>Standard Clean ($40/hr)</strong>
+                        <span>Full property • Routine home maintenance</span>
+                      </span>
+                    </button>
+
+                    <button type="button" class="scope-mode-btn" id="btn-scope-deep" data-res-tier="deep" data-scope-mode="full" aria-pressed="false">
+                      <span class="scope-mode-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
+                      </span>
+                      <span class="scope-mode-copy">
+                        <strong>Deep Clean ($50/hr)</strong>
+                        <span>Full property • Baseboards, grout &amp; heavy scrub</span>
+                      </span>
+                    </button>
+
+                    <button type="button" class="scope-mode-btn" id="btn-scope-specific" data-res-tier="specific" data-scope-mode="specific" aria-pressed="false">
+                      <span class="scope-mode-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                      </span>
+                      <span class="scope-mode-copy">
+                        <strong>Specific Areas</strong>
+                        <span>2-hr min flat rate $120 • +$45/hr up to 6 hrs</span>
+                      </span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- SUB-SECTION B (Shown for Move-In / Move-Out): What Type of Property Is It? (House, Apartment, Condo, Townhome) -->
+                <div class="move-property-type-block is-hidden" id="step2-moveinout-property-type">
+                  <div class="substep-label-row">
+                    <span class="substep-title">What type of property is this Move-In / Move-Out clean for?</span>
+                    <span class="substep-req-badge">Required Selection</span>
+                  </div>
+                  <div class="property-type-grid" id="move-property-type-group" role="radiogroup" aria-label="Select Property Type">
+                    <button type="button" class="property-type-btn" data-prop-type="House">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+                      <strong>House</strong>
+                      <span>Single-family home</span>
+                    </button>
+                    <button type="button" class="property-type-btn" data-prop-type="Apartment">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="9" y1="6" x2="9.01" y2="6"></line><line x1="15" y1="6" x2="15.01" y2="6"></line><line x1="9" y1="10" x2="9.01" y2="10"></line><line x1="15" y1="10" x2="15.01" y2="10"></line><line x1="9" y1="14" x2="9.01" y2="14"></line><line x1="15" y1="14" x2="15.01" y2="14"></line></svg>
+                      <strong>Apartment</strong>
+                      <span>Unit or flat</span>
+                    </button>
+                    <button type="button" class="property-type-btn" data-prop-type="Condo">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                      <strong>Condo</strong>
+                      <span>Condominium residence</span>
+                    </button>
+                    <button type="button" class="property-type-btn" data-prop-type="Townhome">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18"></path><path d="M5 21V7l5-4 5 4v14"></path><path d="M15 21V11l4-3 2 2v11"></path></svg>
+                      <strong>Townhome</strong>
+                      <span>Multi-level townhome</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- PANEL 1: Full Property Gauge (Bedrooms, Full Baths, Half Baths, Square Footage) -->
+                <div class="scope-panel-full" id="scope-panel-full">
+                  <div class="property-specs-grid">
+                    <!-- Bedrooms -->
+                    <div class="spec-control-item">
+                      <div class="spec-icon-label">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 4v16"></path><path d="M2 8h18a2 2 0 0 1 2 2v10"></path><path d="M2 17h20"></path><path d="M6 8v9"></path></svg>
+                        <span class="spec-label-title">Bedrooms</span>
+                        <span class="spec-label-sub">Sleep areas &amp; studies</span>
+                      </div>
+                      <div class="stepper-control">
+                        <button type="button" class="stepper-btn" id="btn-bed-minus" aria-label="Decrease Bedrooms">−</button>
+                        <span class="stepper-value" id="val-bedrooms">3</span>
+                        <button type="button" class="stepper-btn" id="btn-bed-plus" aria-label="Increase Bedrooms">+</button>
+                      </div>
+                    </div>
+
+                    <!-- Full Bathrooms -->
+                    <div class="spec-control-item">
+                      <div class="spec-icon-label">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 6 6.5 3.5a1.5 1.5 0 0 0-1-.5C4.67 3 4 3.67 4 4.5v1.28C4 8.7 6.3 11 9.22 11h5.56C17.7 11 20 8.7 20 5.78V4.5c0-.83-.67-1.5-1.5-1.5a1.5 1.5 0 0 0-1 .5L15 6"></path><path d="M4 14h16c0 4.42-3.58 8-8 8s-8-3.58-8-8z"></path></svg>
+                        <span class="spec-label-title">Full Bathrooms</span>
+                        <span class="spec-label-sub">Shower and/or tub</span>
+                      </div>
+                      <div class="stepper-control">
+                        <button type="button" class="stepper-btn" id="btn-fullbath-minus" aria-label="Decrease Full Bathrooms">−</button>
+                        <span class="stepper-value" id="val-fullbaths">2</span>
+                        <button type="button" class="stepper-btn" id="btn-fullbath-plus" aria-label="Increase Full Bathrooms">+</button>
+                      </div>
+                    </div>
+
+                    <!-- Half Bathrooms -->
+                    <div class="spec-control-item">
+                      <div class="spec-icon-label">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10v12"></path><path d="M15 10v12"></path><path d="M11 14v8"></path><path d="M4 10h16"></path><path d="M2 10a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2"></path></svg>
+                        <span class="spec-label-title">Half Bathrooms</span>
+                        <span class="spec-label-sub">Sink &amp; toilet powder room</span>
+                      </div>
+                      <div class="stepper-control">
+                        <button type="button" class="stepper-btn" id="btn-halfbath-minus" aria-label="Decrease Half Bathrooms">−</button>
+                        <span class="stepper-value" id="val-halfbaths">1</span>
+                        <button type="button" class="stepper-btn" id="btn-halfbath-plus" aria-label="Increase Half Bathrooms">+</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Square Footage Control with linked Slider & Input -->
+                  <div class="sqft-control-box">
+                    <div class="sqft-header-row">
+                      <div class="sqft-title-wrap">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line><line x1="9" y1="21" x2="9" y2="9"></line></svg>
+                        <span>Approximate Square Footage</span>
+                      </div>
+                      <div class="sqft-display-input-wrap">
+                        <input type="number" id="input-sqft" class="sqft-number-input" value="1800" min="400" max="6000" step="50" aria-label="Square footage number">
+                        <span class="sqft-unit">sq ft</span>
+                      </div>
+                    </div>
+
+                    <div class="slider-container">
+                      <input type="range" id="slider-sqft" class="calc-range-slider" min="400" max="6000" step="50" value="1800" aria-label="Square footage slider">
+                    </div>
+                    <div class="slider-labels-row">
+                      <span>400 sq ft</span>
+                      <span>2,000 sq ft</span>
+                      <span>4,000 sq ft</span>
+                      <span>6,000+ sq ft</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- PANEL 2: Specific Areas Custom Text Entry & Booked Hours (2-6 Hours) -->
+                <div class="scope-panel-specific is-hidden" id="scope-panel-specific">
+                  <div class="specific-areas-box">
+                    <div class="specific-input-group" id="specific-areas-input-group">
+                      <label for="input-specific-areas" class="specific-input-label">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                        <span>Which specific areas would you like cleaned? (Required)</span>
+                      </label>
+                      <input id="input-specific-areas" class="specific-areas-input" placeholder="Type your specific areas (e.g., Kitchen, master bathroom, living room &amp; hallways)..." maxlength="180" autocomplete="off" aria-label="Type your specific areas to clean">
+                      <span class="specific-input-hint">Describe the rooms, surfaces, or priority tasks you want our team to focus on during your booked time.</span>
+                    </div>
+
+                    <div class="specific-hours-card">
+                      <div class="specific-hours-header">
+                        <div class="specific-hours-title-wrap">
+                          <h4>How many hours are you booking?</h4>
+                          <p><strong>2-hour minimum flat rate = $120</strong> • Each additional hour up to 6 hours is <strong>+$45/hr</strong></p>
+                        </div>
+                        <div class="stepper-control specific-hours-stepper">
+                          <button type="button" class="stepper-btn" id="btn-hours-minus" aria-label="Decrease Booked Hours">−</button>
+                          <span class="stepper-value" id="val-specific-hours">2</span>
+                          <button type="button" class="stepper-btn" id="btn-hours-plus" aria-label="Increase Booked Hours">+</button>
+                        </div>
+                      </div>
+
+                      <div class="specific-hours-pills" role="group" aria-label="Select Booked Hours">
+                        <button type="button" class="hour-tier-btn active" data-hours-val="2">
+                          <strong>2 Hours</strong>
+                          <span>$120 Flat Min</span>
+                        </button>
+                        <button type="button" class="hour-tier-btn" data-hours-val="3">
+                          <strong>3 Hours</strong>
+                          <span>$165 (+$45)</span>
+                        </button>
+                        <button type="button" class="hour-tier-btn" data-hours-val="4">
+                          <strong>4 Hours</strong>
+                          <span>$210 (+$90)</span>
+                        </button>
+                        <button type="button" class="hour-tier-btn" data-hours-val="5">
+                          <strong>5 Hours</strong>
+                          <span>$255 (+$135)</span>
+                        </button>
+                        <button type="button" class="hour-tier-btn" data-hours-val="6">
+                          <strong>6 Hours</strong>
+                          <span>$300 (+$180)</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div class="slider-labels-row">
-                <span>400 sq ft</span>
-                <span>2,000 sq ft</span>
-                <span>4,000 sq ft</span>
-                <span>6,000+ sq ft</span>
+
+              <!-- ============================================================
+                   STEP 3: CLEANING FREQUENCY (OR STEP 2 OF 2 FOR COMMERCIAL)
+                   ============================================================ -->
+              <div class="calc-step-card" data-wizard-step="3" id="calc-step-3">
+                <div class="step-header">
+                  <div class="step-num" id="step-badge-3">3</div>
+                  <div class="step-info">
+                    <h3 id="step3-heading-title">Cleaning Frequency</h3>
+                    <p id="step3-heading-desc">Select your preferred service schedule below to continue</p>
+                  </div>
+                </div>
+
+                <div class="frequency-options-grid" id="step3-frequency-grid">
+                  <!-- Weekly -->
+                  <label class="freq-card-option" data-freq="weekly">
+                    <input type="radio" name="frequency_choice" value="weekly">
+                    <div class="freq-name">Weekly</div>
+                    <div class="freq-sub">Every 7 Days</div>
+                  </label>
+
+                  <!-- Every 2 Weeks -->
+                  <label class="freq-card-option" data-freq="biweekly">
+                    <input type="radio" name="frequency_choice" value="biweekly">
+                    <div class="freq-name">Every 2 Wks</div>
+                    <div class="freq-sub">Bi-Weekly Care</div>
+                  </label>
+
+                  <!-- Every 4 Weeks -->
+                  <label class="freq-card-option" data-freq="monthly">
+                    <input type="radio" name="frequency_choice" value="monthly">
+                    <div class="freq-name">Every 4 Wks</div>
+                    <div class="freq-sub">Monthly Refresh</div>
+                  </label>
+
+                  <!-- Per Turnover / Custom Commercial -->
+                  <label class="freq-card-option" data-freq="turnover">
+                    <input type="radio" name="frequency_choice" value="turnover">
+                    <div class="freq-name" id="freq-turnover-title">Per Turnover</div>
+                    <div class="freq-sub" id="freq-turnover-sub">Airbnb / Host Partner</div>
+                  </label>
+
+                  <!-- One Time -->
+                  <label class="freq-card-option" data-freq="onetime">
+                    <input type="radio" name="frequency_choice" value="onetime">
+                    <div class="freq-name">One Time</div>
+                    <div class="freq-sub">Single Visit / Bid</div>
+                  </label>
+                </div>
               </div>
+
+              <!-- ============================================================
+                   STEP 4: CUSTOM ADD-ONS
+                   ============================================================ -->
+              <div class="calc-step-card" data-wizard-step="4" id="calc-step-4">
+                <div class="step-header">
+                  <div class="step-num" id="step-badge-4">4</div>
+                  <div class="step-info">
+                    <h3>Custom Add-Ons</h3>
+                    <p>Optional: add appliance interior detailing or pet hair treatment, or click Review Estimate</p>
+                  </div>
+                </div>
+
+                <div class="addons-grid">
+                  <!-- Single Refrigerator: $65 each -->
+                  <div class="addon-card-item" id="addon-item-fridge">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="5" y1="10" x2="19" y2="10"></line><line x1="10" y1="6" x2="10" y2="7"></line><line x1="10" y1="14" x2="10" y2="16"></line></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Single Refrigerator</h4>
+                        <span class="addon-rate-badge">$65 each</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-fridge-minus" aria-label="Decrease Single Refrigerator">−</button>
+                      <span class="stepper-value" id="val-addon-fridge">0</span>
+                      <button type="button" class="stepper-btn" id="btn-fridge-plus" aria-label="Increase Single Refrigerator">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Double Refrigerator: $75 each -->
+                  <div class="addon-card-item" id="addon-item-fridge-double">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="12" y1="2" x2="12" y2="22"></line><line x1="4" y1="11" x2="20" y2="11"></line><line x1="10" y1="6" x2="10" y2="8"></line><line x1="14" y1="6" x2="14" y2="8"></line></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Double / French Door Fridge</h4>
+                        <span class="addon-rate-badge">$75 each</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-fridge-double-minus" aria-label="Decrease Double Refrigerator">−</button>
+                      <span class="stepper-value" id="val-addon-fridge-double">0</span>
+                      <button type="button" class="stepper-btn" id="btn-fridge-double-plus" aria-label="Increase Double Refrigerator">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Inside Oven: $80 each -->
+                  <div class="addon-card-item" id="addon-item-oven">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"></rect><line x1="4" y1="8" x2="20" y2="8"></line><circle cx="8" cy="5.5" r="1"></circle><circle cx="12" cy="5.5" r="1"></circle><circle cx="16" cy="5.5" r="1"></circle><rect x="7" y="11" width="10" height="7" rx="1"></rect></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Inside Oven</h4>
+                        <span class="addon-rate-badge">$80 (subject to condition)</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Oven">−</button>
+                      <span class="stepper-value" id="val-addon-oven">0</span>
+                      <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Oven">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Pet Hair & Detailing: $35 extra -->
+                  <div class="addon-card-item" id="addon-item-pets">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="8" r="2.5"></circle><circle cx="17" cy="8" r="2.5"></circle><circle cx="12" cy="4.5" r="2.5"></circle><path d="M12 11c-3 0-5.5 2-5.5 5 0 2 2.5 4 5.5 4s5.5-2 5.5-4c0-3-2.5-5-5.5-5z"></path></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Pet Hair &amp; Detailing</h4>
+                        <span class="addon-rate-badge">$35 extra</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-pets-minus" aria-label="Decrease Pet Detailing">−</button>
+                      <span class="stepper-value" id="val-addon-pets">0</span>
+                      <button type="button" class="stepper-btn" id="btn-pets-plus" aria-label="Increase Pet Detailing">+</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
+
+            <!-- Bottom Back & Forth Arrow Bar inside the All-In-One Tile -->
+            <div class="calc-wizard-footer">
+              <button type="button" class="btn btn-outline wizard-nav-btn" id="btn-wizard-prev" disabled>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                <span id="wizard-prev-label">Previous</span>
+              </button>
+
+              <div class="wizard-footer-status" id="wizard-footer-status">
+                Step 1 of 4 · Type of Service
+              </div>
+
+              <button type="button" class="btn btn-primary wizard-nav-btn" id="btn-wizard-next">
+                <span id="wizard-next-label">Next: Property Details</span>
+                <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+            </div>
+
           </div>
-
-          <!-- Step 2: Type of Service -->
-          <div class="calc-step-card">
-            <div class="step-header">
-              <div class="step-num">2</div>
-              <div class="step-info">
-                <h3>Type of Service</h3>
-                <p>Choose the level of cleaning intensity required for your home or space</p>
-              </div>
-            </div>
-
-            <div class="service-cards-grid">
-              <!-- Standard Clean -->
-              <label class="service-card-option active" data-type="standard">
-                <input type="radio" name="service_type" value="standard" checked>
-                <div class="service-card-top">
-                  <div class="service-icon-wrap">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
-                  </div>
-                  <div class="service-radio-custom"></div>
-                </div>
-                <div class="service-card-name">Standard Clean</div>
-                <p class="service-card-desc">Recurring upkeep: kitchens sanitized, bathrooms scrubbed, dusting, mopping, vacuuming, and trash emptying.</p>
-                <span class="service-multiplier-tag">Regular Maintenance</span>
-              </label>
-
-              <!-- Deep Clean -->
-              <label class="service-card-option" data-type="deep">
-                <input type="radio" name="service_type" value="deep">
-                <div class="service-card-top">
-                  <div class="service-icon-wrap">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
-                  </div>
-                  <div class="service-radio-custom"></div>
-                </div>
-                <div class="service-card-name">Deep Clean</div>
-                <p class="service-card-desc">Thorough restorative scrub: baseboards, door frames, switch plates, heavy tile soap scum, detailed grout, and vents.</p>
-                <span class="service-multiplier-tag">Detailed Scrub</span>
-              </label>
-
-              <!-- Move-in / Move-out -->
-              <label class="service-card-option" data-type="moveinout">
-                <input type="radio" name="service_type" value="moveinout">
-                <div class="service-card-top">
-                  <div class="service-icon-wrap">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                  </div>
-                  <div class="service-radio-custom"></div>
-                </div>
-                <div class="service-card-name">Move-In / Out</div>
-                <p class="service-card-desc">Complete empty-property turnover: inside empty cabinets & closets wiped, detailed baseboards, ready for inspection.</p>
-                <span class="service-multiplier-tag">100% Turnover Ready</span>
-              </label>
-
-              <!-- Airbnb / Vacation Rental Turnover -->
-              <label class="service-card-option" data-type="airbnb">
-                <input type="radio" name="service_type" value="airbnb">
-                <div class="service-card-top">
-                  <div class="service-icon-wrap">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline><path d="M12 2v4"></path></svg>
-                  </div>
-                  <div class="service-radio-custom"></div>
-                </div>
-                <div class="service-card-name">Airbnb / STR Turnover</div>
-                <p class="service-card-desc">Fast guest turnover: fresh bed linens, sanitized bathrooms, kitchen restocked, trash cleared, and guest-ready staging.</p>
-                <span class="service-multiplier-tag">Guest-Ready Staged</span>
-              </label>
-            </div>
-          </div>
-
-          <!-- Step 3: Recurring Frequency & Discounts -->
-          <div class="calc-step-card">
-            <div class="step-header">
-              <div class="step-num">3</div>
-              <div class="step-info">
-                <h3>Cleaning Frequency</h3>
-                <p>Unlock automatic recurring discounts on every clean (excluding one-time)</p>
-              </div>
-            </div>
-
-            <div class="frequency-options-grid">
-              <!-- Weekly: 20% Discount -->
-              <label class="freq-card-option" data-freq="weekly">
-                <span class="freq-discount-badge">Save 20%</span>
-                <input type="radio" name="frequency_choice" value="weekly">
-                <div class="freq-name">Weekly</div>
-                <div class="freq-sub">Every 7 Days</div>
-              </label>
-
-              <!-- Every 2 Weeks: 15% Discount -->
-              <label class="freq-card-option active" data-freq="biweekly">
-                <span class="freq-discount-badge">Save 15%</span>
-                <input type="radio" name="frequency_choice" value="biweekly" checked>
-                <div class="freq-name">Every 2 Wks</div>
-                <div class="freq-sub">Most Popular</div>
-              </label>
-
-              <!-- Every 4 Weeks: 10% Discount -->
-              <label class="freq-card-option" data-freq="monthly">
-                <span class="freq-discount-badge">Save 10%</span>
-                <input type="radio" name="frequency_choice" value="monthly">
-                <div class="freq-name">Every 4 Wks</div>
-                <div class="freq-sub">Monthly Refresh</div>
-              </label>
-
-              <!-- Per Turnover: 15% Discount -->
-              <label class="freq-card-option" data-freq="turnover">
-                <span class="freq-discount-badge">Save 15%</span>
-                <input type="radio" name="frequency_choice" value="turnover">
-                <div class="freq-name">Per Turnover</div>
-                <div class="freq-sub">Airbnb / Host Partner</div>
-              </label>
-
-              <!-- One Time: No Discount -->
-              <label class="freq-card-option" data-freq="onetime">
-                <input type="radio" name="frequency_choice" value="onetime">
-                <div class="freq-name">One Time</div>
-                <div class="freq-sub">Standard Rate</div>
-              </label>
-            </div>
-          </div>
-
-          <!-- Step 4: Custom Add-Ons -->
-          <div class="calc-step-card">
-            <div class="step-header">
-              <div class="step-num">4</div>
-              <div class="step-info">
-                <h3>Custom Add-Ons</h3>
-                <p>Include specialty extras to tailor your clean to perfection</p>
-              </div>
-            </div>
-
-            <div class="addons-grid">
-              <!-- Single Refrigerator: $65 each -->
-              <div class="addon-card-item" id="addon-item-fridge">
-                <div class="addon-info-block">
-                  <div class="addon-icon-circle">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="5" y1="10" x2="19" y2="10"></line><line x1="10" y1="6" x2="10" y2="7"></line><line x1="10" y1="14" x2="10" y2="16"></line></svg>
-                  </div>
-                  <div class="addon-text-wrap">
-                    <h4>Single Refrigerator</h4>
-                    <span class="addon-rate-badge">$65 each</span>
-                  </div>
-                </div>
-                <div class="stepper-auto stepper-control">
-                  <button type="button" class="stepper-btn" id="btn-fridge-minus" aria-label="Decrease Single Refrigerator">−</button>
-                  <span class="stepper-value" id="val-addon-fridge">0</span>
-                  <button type="button" class="stepper-btn" id="btn-fridge-plus" aria-label="Increase Single Refrigerator">+</button>
-                </div>
-              </div>
-
-              <!-- Double Refrigerator: $75 each -->
-              <div class="addon-card-item" id="addon-item-fridge-double">
-                <div class="addon-info-block">
-                  <div class="addon-icon-circle">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="12" y1="2" x2="12" y2="22"></line><line x1="4" y1="11" x2="20" y2="11"></line><line x1="10" y1="6" x2="10" y2="8"></line><line x1="14" y1="6" x2="14" y2="8"></line></svg>
-                  </div>
-                  <div class="addon-text-wrap">
-                    <h4>Double / French Door Fridge</h4>
-                    <span class="addon-rate-badge">$75 each</span>
-                  </div>
-                </div>
-                <div class="stepper-auto stepper-control">
-                  <button type="button" class="stepper-btn" id="btn-fridge-double-minus" aria-label="Decrease Double Refrigerator">−</button>
-                  <span class="stepper-value" id="val-addon-fridge-double">0</span>
-                  <button type="button" class="stepper-btn" id="btn-fridge-double-plus" aria-label="Increase Double Refrigerator">+</button>
-                </div>
-              </div>
-
-              <!-- Inside Oven: $80 each -->
-              <div class="addon-card-item" id="addon-item-oven">
-                <div class="addon-info-block">
-                  <div class="addon-icon-circle">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"></rect><line x1="4" y1="8" x2="20" y2="8"></line><circle cx="8" cy="5.5" r="1"></circle><circle cx="12" cy="5.5" r="1"></circle><circle cx="16" cy="5.5" r="1"></circle><rect x="7" y="11" width="10" height="7" rx="1"></rect></svg>
-                  </div>
-                  <div class="addon-text-wrap">
-                    <h4>Inside Oven</h4>
-                    <span class="addon-rate-badge">$80 (subject to condition)</span>
-                  </div>
-                </div>
-                <div class="stepper-auto stepper-control">
-                  <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Oven">−</button>
-                  <span class="stepper-value" id="val-addon-oven">0</span>
-                  <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Oven">+</button>
-                </div>
-              </div>
-
-              <!-- Pet Hair & Detailing: $35 extra -->
-              <div class="addon-card-item" id="addon-item-pets">
-                <div class="addon-info-block">
-                  <div class="addon-icon-circle">
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="8" r="2.5"></circle><circle cx="17" cy="8" r="2.5"></circle><circle cx="12" cy="4.5" r="2.5"></circle><path d="M12 11c-3 0-5.5 2-5.5 5 0 2 2.5 4 5.5 4s5.5-2 5.5-4c0-3-2.5-5-5.5-5z"></path></svg>
-                  </div>
-                  <div class="addon-text-wrap">
-                    <h4>Pet Hair & Detailing</h4>
-                    <span class="addon-rate-badge">$35 extra</span>
-                  </div>
-                </div>
-                <div class="stepper-auto stepper-control">
-                  <button type="button" class="stepper-btn" id="btn-pets-minus" aria-label="Decrease Pet Detailing">−</button>
-                  <span class="stepper-value" id="val-addon-pets">0</span>
-                  <button type="button" class="stepper-btn" id="btn-pets-plus" aria-label="Increase Pet Detailing">+</button>
-                </div>
-              </div>
-            </div>
-          </div>
-
         </div>
 
         <!-- Right: Sticky Live Quote Summary Card -->
@@ -724,26 +954,22 @@
             <div class="quote-card-header">
               <div class="quote-header-flex">
                 <span class="quote-header-title">Estimated Quote</span>
-                <span class="quote-live-pill">Real-Time Estimate</span>
+                <span class="quote-live-pill" id="quote-live-pill">Real-Time Estimate</span>
               </div>
             </div>
 
             <div class="quote-card-body">
               <!-- Big Price Display -->
               <div class="quote-price-banner">
-                <div class="quote-price-label">Estimated Investment</div>
+                <div class="quote-price-label" id="quote-price-label">Estimated Investment</div>
                 <div class="quote-price-amount">
-                  <span class="price-currency">$</span>
-                  <span id="quote-total-amount">0.00</span>
+                  <span class="price-currency" id="quote-price-currency">$</span>
+                  <span id="quote-total-amount">180.00</span>
                 </div>
-                <div class="price-billing-freq" id="quote-billing-freq">Billed Bi-Weekly (Every 2 Weeks)</div>
-                <div class="quote-savings-alert" id="quote-savings-alert">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                  <span>You're saving <strong id="quote-savings-amount">$0.00</strong> per clean!</span>
-                </div>
-                <div class="quote-minimum-note">
+                <div class="price-billing-freq" id="quote-billing-freq">Scheduled Bi-Weekly (Every 2 Weeks)</div>
+                <div class="quote-minimum-note" id="quote-rate-basis-note">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                  <span>$110 minimum service floor applies</span>
+                  <span id="quote-minimum-note-text">$40/hr Standard • $50/hr Deep Clean</span>
                 </div>
               </div>
 
@@ -752,25 +978,33 @@
                 <div class="breakdown-row">
                   <span class="breakdown-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path></svg>
-                    Property Size
+                    <span id="summary-scope-title">Property Size</span>
                   </span>
-                  <span class="breakdown-value" id="summary-base-rate">3 Bed, 2 Bath • 1,800 sq ft</span>
+                  <span class="breakdown-value" id="summary-base-rate">3 Bed, 2 Full, 1 Half • 1,800 sq ft</span>
+                </div>
+
+                <div class="breakdown-row is-hidden" id="summary-property-type-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="3" y1="9" x2="21" y2="9"></line></svg>
+                    Property Type
+                  </span>
+                  <span class="breakdown-value" id="summary-property-type-val">Select in Step 2</span>
+                </div>
+
+                <div class="breakdown-row is-hidden" id="summary-specific-areas-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                    Requested Areas
+                  </span>
+                  <span class="breakdown-value" id="summary-specific-areas-val">Specify in Step 2</span>
                 </div>
 
                 <div class="breakdown-row">
                   <span class="breakdown-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
-                    Service Tier (<span id="summary-service-type">Standard</span>)
+                    Service Tier (<span id="summary-service-type">Standard · $40/hr</span>)
                   </span>
-                  <span class="breakdown-value" id="summary-service-rate">$0.00</span>
-                </div>
-
-                <div class="breakdown-row breakdown-discount-row" id="summary-discount-row">
-                  <span class="breakdown-label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                    <span id="summary-discount-label">Recurring Discount (15% OFF)</span>
-                  </span>
-                  <span class="breakdown-value" id="summary-discount-val">-$0.00</span>
+                  <span class="breakdown-value" id="summary-service-rate">$180.00</span>
                 </div>
 
                 <div class="addons-hidden breakdown-row" id="summary-addons-row">
@@ -785,7 +1019,7 @@
               <!-- Action Buttons -->
               <div class="quote-cta-actions">
                 <button type="button" class="btn btn-green btn-book-now" id="btn-book-quote-now">
-                  <span>Review Estimate & Call to Book</span>
+                  <span id="btn-book-quote-label">Review Estimate &amp; Next Steps</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
 
@@ -803,7 +1037,7 @@
 
               <div class="quote-guarantee-note">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                <span>Transparent Pricing • No Card Required Today</span>
+                <span>Transparent Pricing • Owner-Confirmed Scheduling</span>
               </div>
             </div>
           </div>
@@ -895,7 +1129,7 @@
               <ul class="service-bullet-list">
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Kitchen countertops, sinks &amp; appliance exteriors</li>
                 <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Complete bathroom scrubbing &amp; fixture sanitization</li>
-                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Up to 20% off with locked-in recurring schedules</li>
+                <li><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>Transparent $40/hr standard &amp; flexible recurring schedules</li>
               </ul>
 
               <div class="cap-panel-actions">
@@ -921,7 +1155,7 @@
             </div>
 
             <p class="cap-detail-lead">
-              Designed for busy homeowners and families who want consistent, hotel-grade presentation without lifting a finger. Choose a one-time refresh or lock in automatic savings on a weekly (20% off), bi-weekly (15% off), or monthly (10% off) schedule.
+              Designed for busy homeowners and families who want consistent, hotel-grade presentation without lifting a finger. Choose a one-time refresh, book specific priority areas by the hour, or reserve a dedicated weekly, bi-weekly, or monthly schedule.
             </p>
 
             <div class="cap-scope-grid">
@@ -947,7 +1181,7 @@
               </div>
               <div class="cap-scope-item">
                 <strong>Dedicated Recurring Teams</strong>
-                <p>Priority scheduling with up to 20% recurring discounts, trash liner replacement, and flexible 24-hour rescheduling.</p>
+                <p>Priority weekly, bi-weekly, or monthly scheduling, trash liner replacement, and flexible 24-hour rescheduling.</p>
               </div>
             </div>
 
@@ -1518,8 +1752,10 @@
       </div>
 
       <div class="footer-bottom">
-        <div>
-          © <span id="footer-year">2026</span> Smarts Pro Solutions. Founded in 2012. All Rights Reserved.
+        <div class="footer-copyright-group">
+          <span>© <span id="footer-year">2026</span> Smarts Pro Solutions. Founded in 2012. All Rights Reserved.</span>
+          <span class="footer-credit-sep" aria-hidden="true">·</span>
+          <span class="footer-credit">Made by <a href="https://builtforbusiness.net/" target="_blank" rel="noopener noreferrer" class="footer-credit-link">https://builtforbusiness.net/</a></span>
         </div>
         <div class="footer-actions">
           <a href="#calculator" class="footer-calculator-link">Calculate Instant Estimate →</a>
@@ -1542,16 +1778,33 @@
       </div>
       <div class="modal-body">
         <div class="modal-quote-recap">
-          <div class="recap-row"><span>Service Selected:</span><strong id="modal-recap-service">Standard Clean</strong></div>
-          <div class="recap-row"><span>Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
-          <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks (15% OFF)</strong></div>
-          <div class="recap-row"><span>Custom Add-Ons:</span><span id="modal-recap-addons">None selected</span></div>
-          <div class="recap-row recap-total"><span>Estimated Quote:</span><span id="modal-recap-total">$246.50</span></div>
+          <div class="recap-row"><span>Service Selected:</span><strong id="modal-recap-service">Standard Clean ($40/hr)</strong></div>
+          <div class="recap-row is-hidden" id="modal-recap-proptype-row"><span>Property Type:</span><strong id="modal-recap-proptype">House</strong></div>
+          <div class="recap-row"><span id="modal-recap-specs-label">Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
+          <div class="recap-row is-hidden" id="modal-recap-areas-row"><span>Specific Areas:</span><strong id="modal-recap-areas">—</strong></div>
+          <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks</strong></div>
+          <div class="recap-row" id="modal-recap-addons-row"><span>Custom Add-Ons:</span><span id="modal-recap-addons">None selected</span></div>
+          <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote:</span><span id="modal-recap-total">$180.00</span></div>
         </div>
+
+        <!-- Dispatch, Calendar & Owner Confirmation Workflow Groundwork -->
+        <div class="modal-workflow-groundwork" id="modal-workflow-groundwork">
+          <div class="workflow-groundwork-header">
+            <span class="workflow-groundwork-kicker" id="modal-workflow-kicker">DISPATCH &amp; CALENDAR WORKFLOW</span>
+            <h4 id="modal-workflow-title">Residential Owner Review &amp; Calendar Confirmation</h4>
+            <p id="modal-workflow-summary">Owner is alerted to review property specs, confirm the tentative calendar window, and unlock online payment/deposit confirmation.</p>
+          </div>
+          <ol class="workflow-stages-list" id="modal-workflow-stages">
+            <li><span class="workflow-stage-badge">1</span><span id="modal-workflow-stage-1">Calendar System: Hold tentative arrival window pending owner approval</span></li>
+            <li><span class="workflow-stage-badge">2</span><span id="modal-workflow-stage-2">Owner Dispatch Alert: Send property specs &amp; hourly estimate for owner review</span></li>
+            <li><span class="workflow-stage-badge">3</span><span id="modal-workflow-stage-3">Customer Confirmation &amp; Payment: Owner confirms job &amp; releases payment link</span></li>
+          </ol>
+        </div>
+
         <div class="intake-notice" id="booking-intake-notice">
-          <p>This is an estimate, subject to confirmation of the property and service scope. It does not reserve a time or lock in a price.</p>
-          <p>Online booking is not available yet. Call our team to confirm your price and availability.</p>
-          <a class="btn btn-green btn-lg" href="tel:3185644360">Call (318) 564-4360 to Book</a>
+          <p id="modal-intake-primary-copy">This is an estimate, subject to confirmation of the property and service scope. It does not reserve a time or lock in a price.</p>
+          <p id="modal-intake-secondary-copy">Online booking &amp; calendar dispatch are being finalized. Call our team directly to confirm your price and schedule.</p>
+          <a class="btn btn-green btn-lg" id="modal-call-cta" href="tel:3185644360">Call (318) 564-4360 to Book</a>
         </div>
       </div>
     </div>
