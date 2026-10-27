@@ -519,12 +519,19 @@
       1: 'Type of Service',
       2:
         state.serviceCategory === 'moveinout'
-          ? 'Move-In / Out Property Details'
+          ? 'Move-In / Out Details'
           : state.serviceCategory === 'airbnb'
             ? 'Airbnb Property Details'
             : 'Property Details',
       3: 'Cleaning Frequency',
       4: 'Custom Add-Ons'
+    };
+
+    const nextButtonTitles = {
+      1: 'Type of Service',
+      2: 'Property Details',
+      3: 'Frequency',
+      4: 'Add-Ons'
     };
 
     const title = stepTitles[state.wizardStep] || 'Property Details';
@@ -554,6 +561,11 @@
 
     if (els.wizardFooterStatus) {
       els.wizardFooterStatus.textContent = `Step ${displayStepNum} of ${totalSteps} · ${title}`;
+    }
+
+    const tabsContainer = document.getElementById('calc-wizard-step-tabs');
+    if (tabsContainer) {
+      tabsContainer.classList.toggle('is-two-step', totalSteps === 2);
     }
 
     // Show/hide tabs based on Commercial (2 steps) vs 4-step flow
@@ -651,11 +663,11 @@
       if (isLastStep) {
         els.wizardNextLabel.textContent =
           state.serviceCategory === 'commercial'
-            ? 'Review Commercial Request'
+            ? 'Review Walkthrough'
             : 'Review Estimate';
       } else {
         const nextStepId = sequence[stepIndex + 1];
-        const nextLabel = stepTitles[nextStepId] || 'Next';
+        const nextLabel = nextButtonTitles[nextStepId] || 'Next';
         els.wizardNextLabel.textContent = `Next: ${nextLabel}`;
       }
     }
