@@ -64,30 +64,35 @@
     }),
     RESIDENTIAL_REVIEW: Object.freeze({
       id: 'residential_review_confirm_pipeline',
-      title: 'Residential Review, Calendar Hold & Payment Workflow',
-      label: 'Residential Owner Review & Calendar Confirmation',
-      summary: 'Owner is alerted to review property specs & additional information, confirm the tentative calendar window, and unlock online payment confirmation.',
-      calendarAction: 'Place Tentative Cleaning Window Hold on Calendar',
-      ownerAlertAction: 'Email Owner: Review Property Scope & Confirm Booking',
-      paymentAction: 'Owner Approval Triggers Customer Payment Link',
+      title: 'Residential Review, Calendar Sync & Two-Stage Payment Workflow',
+      label: 'Residential Owner Review, Calendar Sync & 50%/50% Payment',
+      summary: 'Owner is alerted by email with calendar sync to review property specs & additional information, release the 50% non-refundable deposit link (flat rate, no refunds policy), and collect the remaining 50% balance upon job completion.',
+      calendarAction: 'Place Tentative Cleaning Window Hold & Sync Calendar to Owner Email',
+      ownerAlertAction: 'Email Owner: Review Property Scope, Sync Calendar & Confirm Booking',
+      paymentAction: 'Two-Stage Payment: 50% Non-Refundable Deposit to Book + 50% Balance at Job Completion (No Refunds Policy)',
       stages: Object.freeze([
         Object.freeze({
           title: '1. Property Scope & Additional Info',
-          detail: 'Service tier, property details, and condition answers captured'
+          detail: 'Service tier, property details, and condition answers captured at flat-rate pricing (no recurring discounts)'
         }),
         Object.freeze({
-          title: '2. Owner Alert & Calendar Hold',
-          detail: 'Owner reviews specs and confirms tentative arrival window'
+          title: '2. Owner Email Alert & Calendar Sync',
+          detail: 'Owner receives email summary with calendar event hold to review specs and approve arrival window'
         }),
         Object.freeze({
-          title: '3. Confirmed Price & Payment Link',
-          detail: 'Approved booking releases final confirmation and payment link'
+          title: '3. 50% Non-Refundable Deposit (Locks Booking)',
+          detail: 'Approved booking sends 50% deposit link (strict no refunds policy) and locks the calendar slot on owner email'
+        }),
+        Object.freeze({
+          title: '4. Job Completion & Remaining 50% Balance',
+          detail: 'Upon service completion, the remaining 50% balance invoice/charge is triggered to close out the job'
         })
       ]),
       steps: Object.freeze([
-        '1. Property Scope & Instant Estimate Completed',
-        '2. Owner Alerted to Review & Confirm Calendar Availability',
-        '3. Confirmed Price & Secure Payment Link Sent After Review'
+        '1. Property Scope & Flat-Rate Estimate Completed',
+        '2. Owner Email Alert & Calendar Window Sync',
+        '3. 50% Non-Refundable Deposit Invoice Sent After Review (No Refunds Policy)',
+        '4. Remaining 50% Balance Collected Upon Job Completion'
       ])
     })
   });
@@ -105,9 +110,18 @@
     const calc = (quoteSnapshot && quoteSnapshot.calculation) || {};
     const workflow = getWorkflowPlan(state);
     const addInfo = state.additionalInfo || {};
+    const total = Number(calc.grandTotal) || 0;
+    const depositAmount =
+      typeof calc.depositAmount === 'number'
+        ? calc.depositAmount
+        : Math.round(total * 0.5 * 100) / 100;
+    const remainingBalance =
+      typeof calc.remainingBalance === 'number'
+        ? calc.remainingBalance
+        : Math.round((total - depositAmount) * 100) / 100;
 
     return Object.freeze({
-      schemaVersion: '2026-10-groundwork-v2',
+      schemaVersion: '2026-11-groundwork-v4',
       intakeEnabled: false,
       workflow,
       pipelineId: workflow.id,
@@ -120,6 +134,23 @@
       propertyType: state.propertyType || 'house',
       scopeMode: state.scopeMode || 'full',
       frequency: state.frequency || 'biweekly',
+      pricingModel: 'FLAT_RATE_NO_RECURRING_DISCOUNTS',
+      recurringDiscountRate: 0,
+      depositRate: 0.5,
+      refundPolicy: 'NO_REFUNDS',
+      paymentPlan: Object.freeze({
+        depositStage: Object.freeze({
+          rate: 0.5,
+          amount: depositAmount,
+          trigger: 'ON_OWNER_BOOKING_APPROVAL',
+          refundable: false
+        }),
+        completionStage: Object.freeze({
+          rate: 0.5,
+          amount: remainingBalance,
+          trigger: 'ON_JOB_COMPLETION'
+        })
+      }),
       additionalInfo: Object.freeze({
         hasPets: addInfo.hasPets || '',
         lastCleaned: addInfo.lastCleaned || '',
@@ -127,11 +158,14 @@
         condition: addInfo.condition || ''
       }),
       estimatedHours: Number(calc.estimatedHours) || 0,
-      estimatedTotal: Number(calc.grandTotal) || 0,
+      estimatedTotal: total,
+      estimatedDeposit: depositAmount,
+      estimatedBalance: remainingBalance,
       adapters: Object.freeze({
-        calendarManagement: 'PENDING_SERVER_ADAPTER',
+        calendarToEmailSync: 'PENDING_SERVER_ADAPTER',
         ownerEmailNotification: 'PENDING_SERVER_ADAPTER',
-        paymentCheckout: 'PENDING_SERVER_ADAPTER'
+        depositCheckout: 'PENDING_SERVER_ADAPTER',
+        completionBalanceCollection: 'PENDING_SERVER_ADAPTER'
       })
     });
   }

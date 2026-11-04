@@ -30,6 +30,24 @@ test('the browser boundary rejects submission without inspecting, storing, loggi
   assert.equal(api.exportLeadsCSV, undefined);
   assert.equal(api.config, undefined);
   assert.ok(Object.isFrozen(api));
+  const dispatch = context.window.SmartsProDispatchFramework;
+  assert.ok(Object.isFrozen(dispatch));
+  const envelope = dispatch.buildJobEnvelope({
+    state: { serviceCategory: 'residential', frequency: 'weekly' },
+    calculation: { grandTotal: 200, depositAmount: 100, remainingBalance: 100, estimatedHours: 4 }
+  });
+  assert.equal(envelope.pricingModel, 'FLAT_RATE_NO_RECURRING_DISCOUNTS');
+  assert.equal(envelope.recurringDiscountRate, 0);
+  assert.equal(envelope.depositRate, 0.5);
+  assert.equal(envelope.refundPolicy, 'NO_REFUNDS');
+  assert.equal(envelope.estimatedTotal, 200);
+  assert.equal(envelope.estimatedDeposit, 100);
+  assert.equal(envelope.estimatedBalance, 100);
+  assert.equal(envelope.paymentPlan.depositStage.amount, 100);
+  assert.equal(envelope.paymentPlan.depositStage.refundable, false);
+  assert.equal(envelope.paymentPlan.completionStage.amount, 100);
+  assert.equal(envelope.adapters.calendarToEmailSync, 'PENDING_SERVER_ADAPTER');
+  assert.equal(envelope.adapters.completionBalanceCollection, 'PENDING_SERVER_ADAPTER');
   assert.deepEqual(removed, ['smartspro_leads_v1']);
   assert.deepEqual([...records], [['unrelated', 'keep']]);
 });

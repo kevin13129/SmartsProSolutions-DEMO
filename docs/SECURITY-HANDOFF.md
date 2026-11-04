@@ -1,6 +1,6 @@
 # Security handoff: read this first
 
-Last updated: **2026-10-26**. This is the quick entry point for future models and
+Last updated: **2026-11-03**. This is the quick entry point for future models and
 developers. Detailed controls live in the linked baseline and roadmap; keep
 those documents authoritative rather than duplicating their full requirements.
 
@@ -9,6 +9,11 @@ those documents authoritative rather than duplicating their full requirements.
 - The owner requested security foundations before customer-facing customization.
 - The app is a static cleaning-service website with a working estimate calculator,
   estimate recap, print/copy options, and phone contact.
+- Business pricing, payment & scheduling terms confirmed by the owner on 2026-11-03:
+  **flat-rate pricing per visit (no recurring discount tiers)**, **two-stage payment
+  collection (50% non-refundable deposit required to book + remaining 50% balance
+  collected upon job completion)**, **strict no refunds policy**, and **calendar
+  synchronization with the owner's email** (payment processor selection pending).
 - There is **no working intake API, customer database, authentication, or payment
   integration**. Online collection is intentionally unavailable. This is a
   security boundary, not an accidentally unfinished form handler.
@@ -27,12 +32,12 @@ those documents authoritative rather than duplicating their full requirements.
 | Widescreen hero | `index.html`, `assets/css/styles.css`, and `assets/js/main.js` implement a full-bleed widescreen hero slideshow using existing approved local assets (`hero-home.jpg`, `sparkle-kitchen.jpg`, `commercial-office.jpg`), CSS classes, and `textContent` updates without inline styles, inline handlers, or unsafe DOM sinks. |
 | Legacy API | `assets/js/api.js` removes only `smartspro_leads_v1` without reading/logging its contents; legacy submission calls return `success: false` and `INTAKE_UNAVAILABLE`. No backend mode switch remains. |
 | Lead exposure | Removed the unauthenticated viewer, Shift+L shortcut, CSV export, unsafe HTML rendering, payload logging and customer-data events. The old store was per browser, not a central database. |
-| Estimate authority | `assets/js/calculator.js` maintains bounded inputs and display estimates across a 5-step wizard (`1. Type of Service`, `2. Property Details`, `3. Additional Information`, `4. Cleaning Frequency`, `5. Custom Add-Ons`, or 2 steps `[1, 4]` for Commercial). Step 3 Additional Information uses button-based `role="checkbox"` cards (no `<form>` or personal-data inputs) and syncs with the Step 5 Pet Hair add-on. Its totals are not approved prices or booking/payment evidence. `booking-modal.js` only renders a text-based recap. |
+| Estimate authority | `assets/js/calculator.js` maintains bounded inputs and display estimates across a 5-step wizard (`1. Type of Service`, `2. Property Details`, `3. Additional Information`, `4. Cleaning Frequency`, `5. Custom Add-Ons`, or 2 steps `[1, 4]` for Commercial). All frequencies use flat-rate pricing (0% recurring discount) and compute a display-only 50% non-refundable deposit and 50% remaining balance. Step 3 Additional Information uses button-based `role="checkbox"` cards (no `<form>` or personal-data inputs) and syncs with the Step 5 Pet Hair add-on. Its totals are not approved prices or booking/payment evidence. `booking-modal.js` only renders a text-based recap including the 50% non-refundable deposit, remaining 50% balance, flat-rate policy, and no-refunds policy. |
 | Browser protection | `vercel.json` defines CSP and other response headers. `index.html` and `404.html` include matching CSP fallbacks. Network submissions, inline code/styles and framing are denied for the current static design. |
 | Public files | `security/public-files.json` is an explicit publish allowlist. `scripts/build.mjs` generates `dist/` and rejects unsafe paths/symlinks. `.gitignore` and `.vercelignore` exclude common sensitive/local artifacts. |
 | Assets | Fonts are local under `assets/fonts/`, with licenses and recorded hashes. Inline styles moved to `assets/css/security.css`; no third-party browser resources are required. |
 | Tooling | Node 24; no npm dependencies. `scripts/preview.mjs` serves only the built public files on loopback with development security headers. |
-| Regression checks | `tests/security.test.mjs` checks privacy boundaries, policy consistency, assets and output isolation. `scripts/browser-check.mjs` tests real-browser behavior and CSP rejection. |
+| Regression checks | `tests/security.test.mjs` checks privacy boundaries, policy consistency, assets, output isolation, and the 50% deposit / flat-rate / no-refunds dispatch envelope. `scripts/browser-check.mjs` tests real-browser behavior and CSP rejection. |
 | CI and maintenance | `.github/workflows/security.yml` uses pinned actions and read-only permissions. `.github/dependabot.yml` tracks action/dependency updates. These files still need to be pushed; branch rules are separate account settings. |
 | Deployment | Vercel configuration is present and the local project was already linked. Netlify configuration is also provided. `scripts/verify-deployment.mjs` checks a supplied live origin after deployment. |
 
@@ -43,14 +48,11 @@ new UI no longer saves leads.
 
 ## Verification record
 
-Results from the 5-step calculator & Additional Information update on 2026-10-26 (and baseline security implementation on 2026-10-19):
+Results from the 2026-11-03 50% deposit, flat-rate pricing, and no-refunds policy update (and earlier 2026-10-26 / 2026-10-19 baseline checks):
 
-- `npm run build`: passed all **8** automated security tests on 2026-10-26 and generated the approved
+- `npm run build`: passed all **8** automated security tests on 2026-11-03 (including 50% deposit, flat-rate 0% recurring discount, and `NO_REFUNDS` policy envelope checks) and generated the approved
   public build in `dist/`.
-- `npm run test:browser`: passed in local Chrome on 2026-10-19, including calculator/recap
-  interaction, local fonts, legacy cleanup, disabled intake, mobile layout,
-  blocked injected scripts/event handlers/network submissions, and no-JavaScript
-  collection behavior.
+- `npm run test:browser`: updated with assertions for 50% deposit, flat-rate frequency pricing, and no-refunds policy; headless Chrome binary is not installed in the container image (passed in local Chrome on 2026-10-19).
 - Desktop and mobile screenshots were inspected. Modal focus timing and mobile
   overflow found during verification were corrected.
 - `git diff --check`: passed at the end of implementation.

@@ -155,11 +155,26 @@ try {
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 4);
 
-  // Verify Monthly frequency option label
+  // Verify Monthly frequency option label and flat-rate pricing across frequencies (no recurring discount)
   assert.equal(await evaluate('document.querySelector(\'[data-freq="monthly"] .freq-name\').textContent'), 'Monthly');
+  for (const freq of ['weekly', 'biweekly', 'monthly', 'onetime']) {
+    await evaluate(`document.querySelector('[data-freq="${freq}"]').click()`);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountRate'), 0);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountAmount'), 0);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 200);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.depositAmount'), 100);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.remainingBalance'), 100);
+  }
 
   await evaluate('document.getElementById("btn-fridge-plus").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 265);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.depositAmount'), 132.5);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.remainingBalance'), 132.5);
+  assert.equal(await evaluate('document.getElementById("summary-deposit-val").textContent'), '$132.50');
+  assert.equal(await evaluate('document.getElementById("summary-balance-val").textContent'), '$132.50');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.depositRate'), 0.5);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.refundPolicy'), 'NO_REFUNDS');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.pricingModel'), 'FLAT_RATE_NO_RECURRING_DISCOUNTS');
   assert.equal(await evaluate('getComputedStyle(document.getElementById("summary-addons-row")).display'), 'flex');
   for (const [input, expected] of [['-100', 400], ['999999', 6000], ['', 400], ['1800', 1800]]) {
     await evaluate(`(() => { const field = document.getElementById('input-sqft'); field.value = ${JSON.stringify(input)}; field.dispatchEvent(new Event('input')); })()`);
@@ -169,6 +184,8 @@ try {
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
   assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$265.00');
+  assert.equal(await evaluate('document.getElementById("modal-recap-deposit").textContent'), '$132.50 (Non-Refundable)');
+  assert.equal(await evaluate('document.getElementById("modal-recap-balance").textContent'), '$132.50');
   assert.equal(await evaluate('document.activeElement.id'), 'modal-close-btn', await evaluate(`JSON.stringify({ active: document.activeElement.outerHTML.slice(0, 150), modalVisibility: getComputedStyle(document.getElementById('booking-modal-overlay')).visibility, buttonVisibility: getComputedStyle(document.getElementById('modal-close-btn')).visibility, rect: document.getElementById('modal-close-btn').getBoundingClientRect().toJSON() })`));
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"}))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);

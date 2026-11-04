@@ -20,7 +20,7 @@
 </head>
 <body>
 
-  <!-- TEMPORARY: Under-construction screen. Delete or comment out the div block below (and the matching rules in security.css) to relaunch. -->
+  <!-- TEMPORARY: Under-construction screen. Delete this block (and the matching rules in security.css) to relaunch. -->
   <div class="construction-screen" role="status">
     <div class="construction-card">
       <img src="assets/images/logo-transparent.png" alt="Smarts Pro Solutions" class="construction-logo">
@@ -1029,6 +1029,11 @@
                     <div class="freq-sub">Single Visit / Bid</div>
                   </label>
                 </div>
+
+                <div class="freq-policy-banner" id="step4-flat-rate-note">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <span id="step4-flat-rate-text"><strong>Flat-Rate Pricing &amp; Deposit Policy:</strong> All schedules are billed at our transparent flat price per visit (no recurring discount tiers). A <strong>50% non-refundable deposit</strong> is required to reserve your booking (strict no refunds policy).</span>
+                </div>
               </div>
 
               <!-- ============================================================
@@ -1215,6 +1220,26 @@
                   </span>
                   <span class="breakdown-value" id="summary-addons-val">+$0.00</span>
                 </div>
+
+                <div class="breakdown-row breakdown-deposit-row" id="summary-deposit-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
+                    50% Deposit (Non-Refundable)
+                  </span>
+                  <span class="breakdown-value" id="summary-deposit-val">$90.00</span>
+                </div>
+
+                <div class="breakdown-row" id="summary-balance-row">
+                  <span class="breakdown-label">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    Remaining 50% Balance
+                  </span>
+                  <span class="breakdown-value" id="summary-balance-val">$90.00</span>
+                </div>
+              </div>
+
+              <div class="quote-policy-callout" id="quote-policy-callout">
+                <strong>Booking &amp; Payment Terms:</strong> Flat-rate pricing (no recurring discounts) • <strong>50% deposit required</strong> to lock in schedule • <strong>No refunds policy</strong>.
               </div>
 
               <!-- Action Buttons -->
@@ -1238,7 +1263,7 @@
 
               <div class="quote-guarantee-note">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                <span>Transparent Pricing • Owner-Confirmed Scheduling</span>
+                <span>Flat-Rate Pricing • 50% Non-Refundable Deposit</span>
               </div>
             </div>
           </div>
@@ -1986,7 +2011,10 @@
           <div class="recap-row is-hidden" id="modal-recap-addinfo-row"><span>Additional Info:</span><strong id="modal-recap-addinfo">—</strong></div>
           <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks</strong></div>
           <div class="recap-row" id="modal-recap-addons-row"><span>Custom Add-Ons:</span><span id="modal-recap-addons">None selected</span></div>
-          <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote:</span><span id="modal-recap-total">$180.00</span></div>
+          <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote (Flat Rate):</span><span id="modal-recap-total">$180.00</span></div>
+          <div class="recap-row recap-deposit" id="modal-recap-deposit-row"><span>50% Deposit Due to Book:</span><strong id="modal-recap-deposit">$90.00 (Non-Refundable)</strong></div>
+          <div class="recap-row" id="modal-recap-balance-row"><span>Remaining 50% Balance:</span><strong id="modal-recap-balance">$90.00</strong></div>
+          <div class="recap-row recap-policy" id="modal-recap-policy-row"><span>Payment &amp; Refund Policy:</span><strong id="modal-recap-policy">Flat Rate (No Recurring Discounts) • No Refunds Policy</strong></div>
         </div>
 
         <!-- Dispatch, Calendar & Owner Confirmation Workflow Groundwork -->
@@ -1994,12 +2022,12 @@
           <div class="workflow-groundwork-header">
             <span class="workflow-groundwork-kicker" id="modal-workflow-kicker">DISPATCH &amp; CALENDAR WORKFLOW</span>
             <h4 id="modal-workflow-title">Residential Owner Review &amp; Calendar Confirmation</h4>
-            <p id="modal-workflow-summary">Owner is alerted to review property specs, confirm the tentative calendar window, and unlock online payment/deposit confirmation.</p>
+            <p id="modal-workflow-summary">Owner is alerted to review property specs, confirm the tentative calendar window, and release the 50% non-refundable deposit link.</p>
           </div>
           <ol class="workflow-stages-list" id="modal-workflow-stages">
             <li><span class="workflow-stage-badge">1</span><span id="modal-workflow-stage-1">Calendar System: Hold tentative arrival window pending owner approval</span></li>
-            <li><span class="workflow-stage-badge">2</span><span id="modal-workflow-stage-2">Owner Dispatch Alert: Send property specs &amp; hourly estimate for owner review</span></li>
-            <li><span class="workflow-stage-badge">3</span><span id="modal-workflow-stage-3">Customer Confirmation &amp; Payment: Owner confirms job &amp; releases payment link</span></li>
+            <li><span class="workflow-stage-badge">2</span><span id="modal-workflow-stage-2">Owner Dispatch Alert: Send property specs &amp; flat-rate estimate for owner review</span></li>
+            <li><span class="workflow-stage-badge">3</span><span id="modal-workflow-stage-3">50% Non-Refundable Deposit &amp; Confirmation: Owner confirms job &amp; releases 50% deposit invoice (no refunds policy)</span></li>
           </ol>
         </div>
 

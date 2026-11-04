@@ -17,8 +17,8 @@ webhook URL or privileged database key in static code.
 | Request parsing | POST JSON only; reject unsupported content types, unknown fields and oversized bodies (start at 16 KiB, including transport limit) | Oversized, malformed JSON, duplicate/unexpected fields, unsupported methods |
 | Customer fields | Normalize bounded strings; proposed limits: name 120, phone 32, email 254, optional notes 1000 characters. Require name and at least one valid contact method. Preserve international names; reject control characters where inappropriate | Unicode names accepted; long/malformed/control-character data rejected without echoing it |
 | Property inputs | Server schema: bedrooms 0–10, full baths 1–8, half baths 0–6, sqft 400–6000, integer add-ons within current UI limits; explicit service/frequency enums | Negative, fractional, nonfinite, missing, prototype-related and out-of-range values |
-| Scheduling | Server validates future dates, business timezone, service area and availability; transaction/uniqueness prevents double booking | Past/invalid dates, timezone boundaries, concurrent attempts for one slot |
-| Price and ownership | Recalculate from trusted versioned rates. Reject client totals, discounts, reference codes, owner IDs, role and status fields | Edited browser totals, forged customer IDs and discounts never change authoritative values |
+| Scheduling & calendar sync | Server validates future dates, business timezone, service area and availability; transaction/uniqueness prevents double booking. Approved bookings synchronize calendar holds/confirmations to the owner's email/calendar via server-side OAuth or signed calendar invites | Past/invalid dates, timezone boundaries, concurrent attempts for one slot, failed calendar/email sync retry |
+| Price and ownership | Recalculate from trusted versioned flat-rate rules (no recurring discounts; 50% non-refundable deposit + 50% completion balance). Reject client totals, discounts, reference codes, owner IDs, role and status fields | Edited browser totals, forged customer IDs and discounts never change authoritative values |
 | Abuse controls | Host WAF plus shared atomic rate limits, bounded queues, provider quotas and cost alerts. Start with a measured per-IP limit (for example 5 requests/10 minutes) plus global/contact limits and tune for shared networks | Concurrent requests across instances hit the same limit; outages reject safely; response uses 429 and Retry-After |
 | Bot challenge | If needed, verify token server-side with provider, checking hostname, action, freshness and replay; an optional honeypot supplements this | Missing/forged/expired/replayed tokens rejected; challenge-provider failures cannot silently bypass checks |
 | Browser boundary | Exact approved Origin/Fetch Metadata policy; cookie-authenticated mutations require CSRF tokens plus secure SameSite sessions. CORS is narrowly allowed or absent for same-origin calls | Foreign origins/preflights and cross-site cookie requests rejected; server validation still applies when Origin is spoofed/absent |
@@ -84,44 +84,59 @@ Release tests must include two independent customer/staff identities, anonymous
 direct API and database calls, cross-record ID substitution, expired/revoked
 sessions, privilege escalation, export permissions, and backup restoration.
 
-## 3. Payments and recurring charges
+## 3. Payments and two-stage job collection (50% deposit + 50% completion balance)
 
-Use a provider-hosted checkout page as the initial integration design (Stripe is
-one candidate; no provider is configured). Card entry belongs at the provider.
-Do not add card-number/CVV fields to this site, transmit them through its API, or
-store them in notes/logs. Hosted checkout reduces exposure; the business must
-still confirm its applicable merchant/PCI obligations with its provider.
-See [Stripe hosted Checkout](https://docs.stripe.com/checkout/quickstart).
+Use a provider-hosted checkout/invoicing flow as the initial integration design
+(Stripe or Square are candidates; no provider is configured yet). Card entry
+belongs at the provider. Do not add card-number/CVV fields to this site, transmit
+them through its API, or store them in notes/logs. Hosted checkout reduces
+exposure; the business must still confirm its applicable merchant/PCI obligations
+with its provider. See [Stripe hosted Checkout](https://docs.stripe.com/checkout/quickstart).
 
-1. The server creates a versioned quote from validated property/service inputs,
-   integer minor-unit prices (cents), permitted discounts/taxes, currency, expiry
-   and ownership. Business approval determines when an estimate becomes payable.
+1. **Authoritative flat-rate quote & two-stage split**: The server creates a
+   versioned quote from validated property/service inputs using integer minor-unit
+   prices (cents), flat-rate pricing (0% recurring discounts), currency, expiry,
+   and ownership. The server splits the authoritative total into two tracked
+   payment stages:
+   - **Stage A (Booking Deposit — 50%, Non-Refundable)**: Triggered after owner
+     review/approval to lock the calendar slot on the owner's email/calendar.
+   - **Stage B (Job Completion Balance — 50%)**: Triggered when the owner/staff
+     marks the job completed (either via a second hosted invoice link or an
+     authorized saved payment method consented to during Stage A).
    Never trust the calculator, copied estimates, URL parameters or browser totals.
-2. An authorized checkout request references that stored quote. The server checks
-   ownership, expiry and payable state, then creates a provider checkout session
-   with the authoritative amount and an idempotency key. Store its provider ID
-   and expected amount/currency. Use configured return destinations, not an
+2. An authorized checkout request (for Stage A deposit or Stage B completion
+   balance) references that stored quote and stage. The server checks ownership,
+   expiry and payable state, then creates a provider checkout session or invoice
+   with the authoritative stage amount and an idempotency key. Store its provider
+   ID and expected amount/currency. Use configured return destinations, not an
    arbitrary user-supplied redirect. Limit attempts to reduce card-testing abuse.
 3. A browser success redirect only displays pending/verified status retrieved
-   from the server. It never marks a booking paid or triggers fulfillment.
+   from the server. It never marks a deposit or completion balance paid or
+   triggers calendar confirmation on its own.
 4. A dedicated webhook endpoint verifies signatures over the **raw request body**
    using the official SDK, correct environment secret and timestamp tolerance.
    Limit payload size and event types. It has its own signature-based trust
    boundary, not browser CSRF/session rules. See [Stripe webhook guidance](https://docs.stripe.com/events/manage-webhook-endpoints).
-5. Resolve the provider event against the stored order and verify merchant
-   account, live/test mode, session/payment identifiers, amount, currency,
-   customer relationship and current payment state. Handle asynchronous success
-   and failure, refunds, disputes and out-of-order notifications explicitly.
+5. Resolve the provider event against the stored order stage (`DEPOSIT_50` vs.
+   `COMPLETION_50`) and verify merchant account, live/test mode, session/payment
+   identifiers, amount, currency, customer relationship and current payment state.
+   When `DEPOSIT_50` succeeds, transition the booking to confirmed and sync the
+   confirmed appointment to the owner's calendar/email. When the job is completed
+   and `COMPLETION_50` succeeds, transition the order to paid-in-full. Handle
+   asynchronous success and failure, disputes and out-of-order notifications
+   explicitly.
 6. Deduplicate event IDs durably and enforce allowed state transitions inside a
    database transaction. Retried/concurrent events cannot double-charge,
    double-credit or double-book. Return success after durable handling/queueing;
    failed persistence must remain retryable. Reconcile delayed/missed events
    against provider state; session expiry alone does not invalidate a verified
    late payment notification.
-7. Refunds, discounts, subscription changes, account changes and payout actions
-   require server-side permissions, audit records and reauthentication where
-   appropriate. Document recurrence, cancellation and refund terms, explicit
-   customer authorization and provider fraud/3DS controls before enabling charges.
+7. Charge actions (releasing the 50% deposit link, marking a job complete to
+   collect the remaining 50% balance), exceptions, account changes and payout
+   actions require server-side owner permissions, audit records and
+   reauthentication where appropriate. Clearly present the **50% non-refundable
+   deposit policy**, **strict no refunds policy**, and **remaining 50% due upon
+   completion** terms before customer authorization.
 
 Payment acceptance tests: price/currency tampering, expired and foreign quotes,
 forged redirects/signatures, altered raw bodies, wrong provider account/test mode,

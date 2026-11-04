@@ -50,7 +50,10 @@
       fridgeDouble: 75,
       oven: 80,
       pets: 35
-    }
+    },
+    depositRate: 0.5,
+    recurringDiscountsEnabled: false,
+    refundPolicy: 'No refunds policy'
   };
 
   // --- Service Scope Overviews for Step 1 ---
@@ -273,6 +276,11 @@
     summaryServiceRate: document.getElementById('summary-service-rate'),
     summaryAddonsRow: document.getElementById('summary-addons-row'),
     summaryAddonsVal: document.getElementById('summary-addons-val'),
+    summaryDepositRow: document.getElementById('summary-deposit-row'),
+    summaryDepositVal: document.getElementById('summary-deposit-val'),
+    summaryBalanceRow: document.getElementById('summary-balance-row'),
+    summaryBalanceVal: document.getElementById('summary-balance-val'),
+    quotePolicyCallout: document.getElementById('quote-policy-callout'),
     btnBookQuoteLabel: document.getElementById('btn-book-quote-label'),
 
     btnPrintQuote: document.getElementById('btn-print-quote'),
@@ -437,6 +445,8 @@
       const baseRate = cfg.hourlyRates.commercial;
       const estimatedHours = 3.0;
       const basePrice = Math.round(estimatedHours * baseRate);
+      const depositAmount = Math.round(basePrice * cfg.depositRate * 100) / 100;
+      const remainingBalance = Math.round((basePrice - depositAmount) * 100) / 100;
       return {
         isCommercial: true,
         isSpecificAreas: false,
@@ -448,6 +458,9 @@
         discountAmount: 0,
         addonsTotal: 0,
         grandTotal: basePrice,
+        depositRate: cfg.depositRate,
+        depositAmount,
+        remainingBalance,
         timeRangeText: 'On-Site Walkthrough',
         crewText: 'Commercial Team'
       };
@@ -501,6 +514,8 @@
       state.addons.pets * cfg.addons.pets;
 
     const grandTotal = basePrice + addonsTotal;
+    const depositAmount = Math.round(grandTotal * cfg.depositRate * 100) / 100;
+    const remainingBalance = Math.round((grandTotal - depositAmount) * 100) / 100;
 
     const addonHours =
       (state.addons.fridge + state.addons.fridgeDouble + state.addons.oven) * 0.5 +
@@ -534,6 +549,9 @@
       discountAmount: 0,
       addonsTotal,
       grandTotal,
+      depositRate: cfg.depositRate,
+      depositAmount,
+      remainingBalance,
       timeRangeText,
       crewText: crewSize
     };
@@ -895,16 +913,16 @@
     }
 
     const freqLabels = {
-      weekly: 'Scheduled Weekly (Every 7 Days)',
-      biweekly: 'Scheduled Bi-Weekly (Every 2 Weeks)',
-      turnover: 'Per Guest Turnover / Custom Schedule',
-      monthly: 'Scheduled Monthly',
-      onetime: 'One-Time Cleaning Estimate'
+      weekly: 'Scheduled Weekly • Flat Rate (No Recurring Discount)',
+      biweekly: 'Scheduled Bi-Weekly • Flat Rate (No Recurring Discount)',
+      turnover: 'Per Guest Turnover • Flat Rate (No Recurring Discount)',
+      monthly: 'Scheduled Monthly • Flat Rate (No Recurring Discount)',
+      onetime: 'One-Time Cleaning • Flat Rate'
     };
     if (els.quoteBillingFreq) {
       els.quoteBillingFreq.textContent = isCommercial
         ? `Commercial Walkthrough · ${freqLabels[state.frequency] || 'Custom Schedule'}`
-        : freqLabels[state.frequency] || 'Estimated Per Cleaning';
+        : freqLabels[state.frequency] || 'Estimated Per Cleaning (Flat Rate)';
     }
 
     if (els.quoteMinimumNoteText) {
@@ -913,10 +931,10 @@
           'Commercial walkthrough confirms final facility pricing';
       } else if (isSpecific) {
         els.quoteMinimumNoteText.textContent =
-          '$120 flat minimum (2 hrs) • +$45/hr up to 6 hrs';
+          '$120 flat minimum (2 hrs) • +$45/hr up to 6 hrs • 50% Deposit';
       } else {
         els.quoteMinimumNoteText.textContent =
-          '$40/hr Standard • $50/hr Deep Clean ($120 min)';
+          '$40/hr Standard • $50/hr Deep Clean • 50% Non-Refundable Deposit';
       }
     }
 
@@ -1009,6 +1027,22 @@
       } else {
         els.summaryAddonsRow.classList.add('addons-hidden');
         els.summaryAddonsRow.style.display = '';
+      }
+    }
+
+    if (els.summaryDepositRow && els.summaryDepositVal) {
+      if (isCommercial) {
+        els.summaryDepositVal.textContent = 'Set After Walkthrough';
+      } else {
+        els.summaryDepositVal.textContent = `$${calc.depositAmount.toFixed(2)}`;
+      }
+    }
+
+    if (els.summaryBalanceRow && els.summaryBalanceVal) {
+      if (isCommercial) {
+        els.summaryBalanceVal.textContent = 'Per Custom Bid';
+      } else {
+        els.summaryBalanceVal.textContent = `$${calc.remainingBalance.toFixed(2)}`;
       }
     }
 
