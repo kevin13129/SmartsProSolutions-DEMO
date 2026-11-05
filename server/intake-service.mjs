@@ -904,7 +904,8 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
     customer.notes ? customer.notes : 'No additional notes provided by customer.',
     ``,
     `==========================================================`,
-    `An iCalendar (.ics) appointment file is attached to add this booking directly to your calendar.`
+    `An iCalendar (.ics) appointment file is attached to add this booking directly to your calendar.`,
+    `Privacy, Opt-Out & Data Deletion: Customer details are used solely to service this estimate request. To opt out of follow-up emails or request immediate data deletion, reply "DELETE" or contact smartsprosolutions@gmail.com / (318) 564-4360.`
   ].join('\n');
 
   const htmlBody = `
@@ -940,6 +941,10 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
 
         <h3 style="margin: 0 0 8px; font-size: 15px; color: #0066CC; text-transform: uppercase;">4. Additional Customer Notes</h3>
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; font-size: 14px; white-space: pre-wrap;">${escapeHtml(customer.notes || 'No additional notes provided by customer.')}</div>
+
+        <p style="margin: 18px 0 0; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; line-height: 1.5;">
+          <strong>Privacy, Opt-Out &amp; Data Deletion:</strong> This email was generated from an estimate request at Smarts Pro Solutions (Shreveport &amp; Bossier City, LA). To opt out of follow-up messages or request immediate deletion of your contact &amp; estimate record, reply <strong>DELETE</strong> or contact <a href="mailto:smartsprosolutions@gmail.com">smartsprosolutions@gmail.com</a> / (318) 564-4360.
+        </p>
       </div>
     </div>
   `.trim();
@@ -961,6 +966,59 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
     icsContent,
     mailtoUrl
   };
+}
+
+/**
+ * Validates that an outbound webhook URL uses HTTPS and does not target
+ * loopback, link-local cloud metadata (169.254.169.254), or private RFC1918/IPv6 ranges (SSRF guard).
+ */
+export function isSafeWebhookUrl(urlString) {
+  if (typeof urlString !== 'string' || !urlString.trim()) return false;
+  let parsed;
+  try {
+    parsed = new URL(urlString.trim());
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== 'https:') return false;
+  if (parsed.username || parsed.password) return false;
+
+  const host = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, '');
+  if (!host) return false;
+  if (
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    host.endsWith('.internal') ||
+    host === '0.0.0.0' ||
+    host === '::1' ||
+    host === '::'
+  ) {
+    return false;
+  }
+
+  // Check IPv6 loopback / link-local / unique-local
+  if (host.includes(':')) {
+    if (
+      host.startsWith('fe80:') ||
+      host.startsWith('fc') ||
+      host.startsWith('fd') ||
+      host.startsWith('::ffff:127.') ||
+      host.startsWith('::ffff:10.') ||
+      host.startsWith('::ffff:192.168.') ||
+      host.startsWith('::ffff:169.254.')
+    ) {
+      return false;
+    }
+    return false; // Require public DNS hostname for webhook endpoints
+  }
+
+  // Check IPv4 literals (reject all raw IPv4 literals or private/metadata ranges)
+  if (/^\d{1,3}(?:\.\d{1,3}){3}$/.test(host)) {
+    return false;
+  }
+
+  return true;
 }
 
 /**
@@ -1001,6 +1059,11 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
   }
 
   if (webhookUrl) {
+    if (!isSafeWebhookUrl(webhookUrl)) {
+      throw new Error('Unsafe EMAIL_WEBHOOK_URL rejected by SSRF guard');
+    }
+
+    const timestamp = String(Math.floor(Date.now() / 1000));
     const bodyString = JSON.stringify({
       referenceCode,
       to: emailPackage.to,
@@ -1021,9 +1084,14 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
       calculation: validatedRecord.calculation
     });
 
-    const headers = { 'Content-Type': 'application/json' };
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-SmartsPro-Timestamp': timestamp
+    };
     if (webhookSecret) {
-      headers['X-SmartsPro-Signature'] = createHmac('sha256', webhookSecret).update(bodyString).digest('hex');
+      headers['X-SmartsPro-Signature'] = createHmac('sha256', webhookSecret)
+        .update(`${timestamp}.${bodyString}`)
+        .digest('hex');
     }
 
     const response = await fetch(webhookUrl, {

@@ -6,7 +6,7 @@ import { Script, createContext } from 'node:vm';
 import { createHash } from 'node:crypto';
 import { build, root, output, publicFiles, deployment, headers } from '../scripts/build.mjs';
 import { createPreviewServer } from '../scripts/preview.mjs';
-import { createIntakeService } from '../server/intake-service.mjs';
+import { createIntakeService, isSafeWebhookUrl } from '../server/intake-service.mjs';
 
 const read = file => readFile(resolve(root, file), 'utf8');
 
@@ -67,6 +67,7 @@ test('security policy denies injection, framing, third-party connections, and fo
   assert.equal(headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(headers['X-Frame-Options'], 'DENY');
   assert.equal(headers['Referrer-Policy'], 'no-referrer');
+  assert.equal(headers['Access-Control-Allow-Origin'], undefined);
   assert.match(headers['Strict-Transport-Security'], /^max-age=31536000$/);
   assert.match(headers['Permissions-Policy'], /camera=\(\).*geolocation=\(\).*microphone=\(\).*payment=\(\)/);
   const fallback = csp.replace("; frame-ancestors 'none'; upgrade-insecure-requests", '');
@@ -77,7 +78,7 @@ test('security policy denies injection, framing, third-party connections, and fo
   }
 });
 
-test('public HTML has no static personal-data forms when JS is off, no inline code, and no external executable resources', async () => {
+test('public HTML has no static personal-data forms when JS is off, no inline code, no external executable resources, valid alt text on all images, and complete legal/privacy disclosures', async () => {
   for (const file of ['index.html', '404.html']) {
     const html = await read(file);
     assert.doesNotMatch(html, /<form\b|<textarea\b|type="(?:text|email|tel|date|password|file)"/i);
@@ -87,6 +88,10 @@ test('public HTML has no static personal-data forms when JS is off, no inline co
       assert.equal(script[2].trim(), '');
       assert.match(script[1], /^ src="assets\/js\/[a-z-]+\.js"$/);
     }
+    for (const img of html.matchAll(/<img\b([^>]*)>/gi)) {
+      const altMatch = img[1].match(/\balt="([^"]*)"/i);
+      assert.ok(altMatch && altMatch[1].trim().length > 0, `Image missing descriptive alt text in ${file}: <img${img[1]}>`);
+    }
     for (const asset of html.matchAll(/(?:src|href)="(assets\/[^"?#]+)"/g)) {
       assert.ok(publicFiles.includes(asset[1]), 'Unpublished asset: ' + asset[1]);
     }
@@ -95,6 +100,14 @@ test('public HTML has no static personal-data forms when JS is off, no inline co
       assert.equal(extHref[1], 'https://builtforbusiness.net/');
     }
   }
+  const indexHtml = await read('index.html');
+  assert.match(indexHtml, /Privacy Policy/i);
+  assert.match(indexHtml, /Terms of Service/i);
+  assert.match(indexHtml, /Refund Policy/i);
+  assert.match(indexHtml, /Cookie Policy/i);
+  assert.match(indexHtml, /18 years of age or older/i);
+  assert.match(indexHtml, /Data Deletion/i);
+  assert.match(indexHtml, /smartsprosolutions@gmail\.com/);
 });
 
 test('browser scripts have no unsafe HTML sinks, credential signatures, or browser storage writes, and only api.js performs same-origin fetch calls', async () => {
@@ -113,11 +126,12 @@ test('browser scripts have no unsafe HTML sinks, credential signatures, or brows
   }
 });
 
-test('deployments publish only the explicit public manifest', async () => {
+test('deployments publish only the explicit public manifest and never expose source maps', async () => {
   assert.equal(deployment.outputDirectory, 'dist');
   assert.equal(deployment.buildCommand, 'npm run build');
   assert.match(deployment.installCommand, /--ignore-scripts/);
   assert.equal(new Set(publicFiles).size, publicFiles.length);
+  assert.equal(publicFiles.some(f => f.endsWith('.map')), false);
   await build();
   async function walk(directory, prefix = '') {
     const paths = [];
@@ -129,7 +143,9 @@ test('deployments publish only the explicit public manifest', async () => {
     }
     return paths;
   }
-  assert.deepEqual((await walk(output)).sort(), [...publicFiles, '_headers'].sort());
+  const builtFiles = (await walk(output)).sort();
+  assert.deepEqual(builtFiles, [...publicFiles, '_headers'].sort());
+  assert.equal(builtFiles.some(f => f.endsWith('.map')), false);
   const hostHeaders = await readFile(resolve(output, '_headers'), 'utf8');
   for (const [key, value] of Object.entries(headers)) assert.ok(hostHeaders.includes(`${key}: ${value}`));
 });
@@ -423,6 +439,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     });
     assert.equal(validRes.status, 200);
     assert.equal(validRes.headers.get('cache-control'), 'no-store');
+    assert.equal(validRes.headers.get('access-control-allow-origin'), null);
     const validData = await validRes.json();
     assert.equal(validData.success, true);
     assert.match(validData.referenceCode, /^SPS-[0-9A-F]{10}$/);
@@ -436,8 +453,20 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.match(sentEmails[0].emailPackage.textBody, /José García-López/);
     assert.match(sentEmails[0].emailPackage.textBody, /\(318\) 555-0142/);
     assert.match(sentEmails[0].emailPackage.textBody, /Friendly golden retriever in backyard/);
+    assert.match(sentEmails[0].emailPackage.textBody, /Privacy, Opt-Out & Data Deletion/i);
+    assert.match(sentEmails[0].emailPackage.htmlBody, /Privacy, Opt-Out &amp; Data Deletion/i);
     assert.match(sentEmails[0].emailPackage.icsContent, /BEGIN:VCALENDAR/);
     assert.match(sentEmails[0].emailPackage.icsContent, /DTSTART;TZID=America\/Chicago:20261106T080000/);
+
+    // 8b. SSRF webhook URL guard blocks non-HTTPS, localhost, cloud metadata (169.254.169.254), and private IP literals
+    assert.equal(isSafeWebhookUrl('https://script.google.com/macros/s/example/exec'), true);
+    assert.equal(isSafeWebhookUrl('http://script.google.com/macros/s/example/exec'), false);
+    assert.equal(isSafeWebhookUrl('https://localhost/webhook'), false);
+    assert.equal(isSafeWebhookUrl('https://127.0.0.1/webhook'), false);
+    assert.equal(isSafeWebhookUrl('https://169.254.169.254/latest/meta-data/'), false);
+    assert.equal(isSafeWebhookUrl('https://10.0.0.1/webhook'), false);
+    assert.equal(isSafeWebhookUrl('https://192.168.1.1/webhook'), false);
+    assert.equal(isSafeWebhookUrl('https://[::1]/webhook'), false);
 
     // 9. Idempotent retry with same key and payload returns cached 200 without sending duplicate email
     const replayRes = await fetch(`${base}/api/estimate-request`, {

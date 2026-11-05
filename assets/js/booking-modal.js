@@ -481,6 +481,14 @@
       const postSubmitActions = createEl('div', 'intake-post-actions is-hidden');
       postSubmitActions.id = 'intake-post-actions';
 
+      // Explicit Form Consent, 18+ Age & Zero-Cookie / Data Deletion Disclosure
+      const consentNote = createEl(
+        'p',
+        'intake-consent-note',
+        'By sending this request, you confirm you are 18+ and agree to our Privacy, Terms & No-Refunds Policy. Zero online payment or tracking cookies are used, and you may request data deletion anytime at smartsprosolutions@gmail.com.'
+      );
+      consentNote.id = 'intake-consent-note';
+
       // Submit Button
       const submitBtn = createEl(
         'button',
@@ -498,6 +506,7 @@
         honeyWrap,
         statusBanner,
         postSubmitActions,
+        consentNote,
         submitBtn
       );
       intakeMount.append(intakeSection);

@@ -89,7 +89,18 @@ body:has(.construction-screen) { overflow: hidden; }
 .intake-status-banner.status-error { background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B; }
 
 .intake-post-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.9rem; }
+.intake-consent-note { margin: 0 0 0.75rem; font-size: 0.82rem; line-height: 1.45; color: #475569; }
 .intake-submit-btn { width: 100%; justify-content: center; white-space: normal; text-align: center; font-size: 1.02rem; padding: 0.9rem 1.25rem; }
+
+.footer-policy-link { color: #CBD5E1; font-size: 0.88rem; text-decoration: underline; }
+.footer-policy-link:hover { color: #FFFFFF; }
+.footer-legal-drawer { margin: 1.5rem 0 0.5rem; padding: 0.85rem 1.1rem; border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.14); background: rgba(255, 255, 255, 0.04); color: #CBD5E1; }
+.footer-legal-summary { cursor: pointer; font-size: 0.88rem; font-weight: 700; color: #E2E8F0; list-style: none; }
+.footer-legal-summary:hover { color: #FFFFFF; }
+.footer-legal-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-top: 0.9rem; padding-top: 0.9rem; border-top: 1px solid rgba(255, 255, 255, 0.12); }
+.footer-legal-item h5 { margin: 0 0 0.3rem; font-size: 0.86rem; font-weight: 700; color: #FFFFFF; }
+.footer-legal-item p { margin: 0; font-size: 0.8rem; line-height: 1.5; color: #CBD5E1; }
+.footer-legal-item a { color: #7CC544; text-decoration: underline; }
 
 @media (max-width: 640px) {
   .intake-fields-grid { grid-template-columns: 1fr; }
