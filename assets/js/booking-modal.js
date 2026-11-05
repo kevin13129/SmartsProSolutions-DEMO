@@ -1097,6 +1097,7 @@
     if (modalOverlay) {
       modalOverlay.classList.add('open');
       document.body.classList.add('modal-open');
+      void modalOverlay.offsetWidth;
       if (btnCloseModal) btnCloseModal.focus();
     }
   }
