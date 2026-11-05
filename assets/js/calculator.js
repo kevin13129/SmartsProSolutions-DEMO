@@ -51,9 +51,8 @@
       oven: 80,
       pets: 35
     },
-    depositRate: 0.5,
     recurringDiscountsEnabled: false,
-    refundPolicy: 'No refunds policy'
+    onlinePaymentsEnabled: false
   };
 
   // --- Service Scope Overviews for Step 1 ---
@@ -252,12 +251,6 @@
     btnOvenPlus: document.getElementById('btn-oven-plus'),
     cardOven: document.getElementById('addon-item-oven'),
 
-    valPets: document.getElementById('val-addon-pets'),
-    btnPetsMinus: document.getElementById('btn-pets-minus'),
-    btnPetsPlus: document.getElementById('btn-pets-plus'),
-    cardPets: document.getElementById('addon-item-pets'),
-    addonPetsLockNote: document.getElementById('addon-pets-lock-note'),
-
     // Summary Output Elements
     quoteTotalAmount: document.getElementById('quote-total-amount'),
     quoteBillingFreq: document.getElementById('quote-billing-freq'),
@@ -276,14 +269,13 @@
     summaryServiceRate: document.getElementById('summary-service-rate'),
     summaryAddonsRow: document.getElementById('summary-addons-row'),
     summaryAddonsVal: document.getElementById('summary-addons-val'),
-    summaryDepositRow: document.getElementById('summary-deposit-row'),
-    summaryDepositVal: document.getElementById('summary-deposit-val'),
-    summaryBalanceRow: document.getElementById('summary-balance-row'),
-    summaryBalanceVal: document.getElementById('summary-balance-val'),
+    summaryDispatchVal: document.getElementById('summary-dispatch-val'),
+    summaryOnlinePaymentVal: document.getElementById('summary-online-payment-val'),
     quotePolicyCallout: document.getElementById('quote-policy-callout'),
     btnBookQuoteLabel: document.getElementById('btn-book-quote-label'),
 
     btnPrintQuote: document.getElementById('btn-print-quote'),
+    btnShareQuote: document.getElementById('btn-share-quote'),
     btnResetCalc: document.getElementById('btn-reset-calc')
   };
 
@@ -445,8 +437,6 @@
       const baseRate = cfg.hourlyRates.commercial;
       const estimatedHours = 3.0;
       const basePrice = Math.round(estimatedHours * baseRate);
-      const depositAmount = Math.round(basePrice * cfg.depositRate * 100) / 100;
-      const remainingBalance = Math.round((basePrice - depositAmount) * 100) / 100;
       return {
         isCommercial: true,
         isSpecificAreas: false,
@@ -458,9 +448,7 @@
         discountAmount: 0,
         addonsTotal: 0,
         grandTotal: basePrice,
-        depositRate: cfg.depositRate,
-        depositAmount,
-        remainingBalance,
+        onlinePaymentsEnabled: false,
         timeRangeText: 'On-Site Walkthrough',
         crewText: 'Commercial Team'
       };
@@ -514,8 +502,6 @@
       state.addons.pets * cfg.addons.pets;
 
     const grandTotal = basePrice + addonsTotal;
-    const depositAmount = Math.round(grandTotal * cfg.depositRate * 100) / 100;
-    const remainingBalance = Math.round((grandTotal - depositAmount) * 100) / 100;
 
     const addonHours =
       (state.addons.fridge + state.addons.fridgeDouble + state.addons.oven) * 0.5 +
@@ -549,9 +535,7 @@
       discountAmount: 0,
       addonsTotal,
       grandTotal,
-      depositRate: cfg.depositRate,
-      depositAmount,
-      remainingBalance,
+      onlinePaymentsEnabled: false,
       timeRangeText,
       crewText: crewSize
     };
@@ -782,11 +766,8 @@
    * Update DOM UI to reflect current state and calculations
    */
   function updateUI() {
-    // Enforce Pet Add-On lock if customer chose "No pets" in Additional Information
-    const choseNoPets = state.additionalInfo.hasPets === 'no';
-    if (choseNoPets && state.addons.pets !== 0) {
-      state.addons.pets = 0;
-    }
+    // Sync flat $35 Pet Hair & Detailing fee directly with Step 3 answer
+    state.addons.pets = state.additionalInfo.hasPets === 'yes' ? 1 : 0;
 
     const calc = calculateQuote();
     const isSpecific = calc.isSpecificAreas;
@@ -886,21 +867,6 @@
     if (els.btnOvenMinus) els.btnOvenMinus.disabled = state.addons.oven <= 0;
     if (els.cardOven) els.cardOven.classList.toggle('has-quantity', state.addons.oven > 0);
 
-    if (els.valPets) els.valPets.textContent = state.addons.pets;
-    if (els.cardPets) {
-      els.cardPets.classList.toggle('is-disabled-addon', choseNoPets);
-      els.cardPets.classList.toggle('has-quantity', !choseNoPets && state.addons.pets > 0);
-    }
-    if (els.addonPetsLockNote) {
-      els.addonPetsLockNote.classList.toggle('is-hidden', !choseNoPets);
-    }
-    if (els.btnPetsMinus) {
-      els.btnPetsMinus.disabled = choseNoPets || state.addons.pets <= 0;
-    }
-    if (els.btnPetsPlus) {
-      els.btnPetsPlus.disabled = choseNoPets || state.addons.pets >= 5;
-    }
-
     // 6. Update Summary Card Outputs
     if (els.quoteTotalAmount) {
       els.quoteTotalAmount.textContent = calc.grandTotal.toFixed(2);
@@ -931,10 +897,10 @@
           'Commercial walkthrough confirms final facility pricing';
       } else if (isSpecific) {
         els.quoteMinimumNoteText.textContent =
-          '$120 flat minimum (2 hrs) • +$45/hr up to 6 hrs • 50% Deposit';
+          '$120 flat minimum (2 hrs) • +$45/hr up to 6 hrs • No Online Payment';
       } else {
         els.quoteMinimumNoteText.textContent =
-          '$40/hr Standard • $50/hr Deep Clean • 50% Non-Refundable Deposit';
+          '$40/hr Standard • $50/hr Deep Clean • No Online Payment Required';
       }
     }
 
@@ -1020,36 +986,28 @@
     if (els.summaryAddonsRow) {
       if (calc.addonsTotal > 0) {
         els.summaryAddonsRow.classList.remove('addons-hidden', 'is-hidden');
-        els.summaryAddonsRow.style.display = 'flex';
         if (els.summaryAddonsVal) {
           els.summaryAddonsVal.textContent = `+$${calc.addonsTotal.toFixed(2)}`;
         }
       } else {
         els.summaryAddonsRow.classList.add('addons-hidden');
-        els.summaryAddonsRow.style.display = '';
       }
     }
 
-    if (els.summaryDepositRow && els.summaryDepositVal) {
-      if (isCommercial) {
-        els.summaryDepositVal.textContent = 'Set After Walkthrough';
-      } else {
-        els.summaryDepositVal.textContent = `$${calc.depositAmount.toFixed(2)}`;
-      }
+    if (els.summaryDispatchVal) {
+      els.summaryDispatchVal.textContent = isCommercial
+        ? 'Walkthrough Slot + Email'
+        : 'Calendar Slot + Email';
     }
 
-    if (els.summaryBalanceRow && els.summaryBalanceVal) {
-      if (isCommercial) {
-        els.summaryBalanceVal.textContent = 'Per Custom Bid';
-      } else {
-        els.summaryBalanceVal.textContent = `$${calc.remainingBalance.toFixed(2)}`;
-      }
+    if (els.summaryOnlinePaymentVal) {
+      els.summaryOnlinePaymentVal.textContent = 'None Required';
     }
 
     if (els.btnBookQuoteLabel) {
       els.btnBookQuoteLabel.textContent = isCommercial
-        ? 'Request Commercial Walkthrough'
-        : 'Review Estimate & Next Steps';
+        ? 'Schedule Walkthrough & Email Bid'
+        : 'Complete Estimate & Schedule';
     }
 
     updateWizardUI();
@@ -1300,13 +1258,9 @@
 
         state.additionalInfo[group] = val;
 
-        // Sync Pets answer with Step 5 Pet Hair & Detailing Add-On ($35)
+        // Sync Pets answer with flat $35 Pet Hair & Detailing fee
         if (group === 'hasPets') {
-          if (val === 'yes') {
-            state.addons.pets = Math.max(1, state.addons.pets);
-          } else if (val === 'no') {
-            state.addons.pets = 0;
-          }
+          state.addons.pets = val === 'yes' ? 1 : 0;
         }
 
         const block = btn.closest('.addinfo-question-block');
@@ -1385,25 +1339,6 @@
       els.btnOvenPlus.addEventListener('click', () => {
         if (state.addons.oven < 5) {
           state.addons.oven++;
-          updateUI();
-        }
-      });
-    }
-
-    if (els.btnPetsMinus) {
-      els.btnPetsMinus.addEventListener('click', () => {
-        if (state.additionalInfo.hasPets === 'no') return;
-        if (state.addons.pets > 0) {
-          state.addons.pets--;
-          updateUI();
-        }
-      });
-    }
-    if (els.btnPetsPlus) {
-      els.btnPetsPlus.addEventListener('click', () => {
-        if (state.additionalInfo.hasPets === 'no') return;
-        if (state.addons.pets < 5) {
-          state.addons.pets++;
           updateUI();
         }
       });
