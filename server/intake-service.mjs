@@ -822,7 +822,7 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
     'CALSCALE:GREGORIAN',
     'METHOD:REQUEST',
     'BEGIN:VEVENT',
-    `UID:${referenceCode}@smartsprosolutions.local`,
+    `UID:${referenceCode}@smartsprosolutions.com`,
     `DTSTAMP:${nowStamp}`,
     `DTSTART;TZID=${BUSINESS_TIMEZONE}:${startStr}`,
     `DTEND;TZID=${BUSINESS_TIMEZONE}:${endStr}`,
@@ -1130,6 +1130,50 @@ export function createIntakeService({
     return null;
   }
 
+  /**
+   * Syncs booked cleaning windows from the owner's Google Calendar Apps Script webhook (when configured)
+   * so stateless Vercel serverless invocations reflect live Google Calendar bookings with zero customer PII.
+   */
+  async function syncCalendarFromWebhook() {
+    if (mailTransport) return; // Skip external network calls during isolated unit tests
+    const webhookUrl = process.env.EMAIL_WEBHOOK_URL;
+    if (!webhookUrl || !isSafeWebhookUrl(webhookUrl)) return;
+
+    try {
+      const targetUrl = new URL(webhookUrl.trim());
+      targetUrl.searchParams.set('action', 'availability');
+      const res = await fetch(targetUrl.toString(), {
+        method: 'GET',
+        headers: { Accept: 'application/json' },
+        signal: AbortSignal.timeout(3500)
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!data || !Array.isArray(data.bookedSlots)) return;
+
+      const validSlotIds = new Set(ARRIVAL_WINDOWS.map((w) => w.id));
+      for (const item of data.bookedSlots) {
+        if (!item || typeof item !== 'object') continue;
+        const date = typeof item.date === 'string' ? item.date.trim() : '';
+        const slotId = typeof item.slotId === 'string' ? item.slotId.trim() : '';
+        if (/^\d{4}-\d{2}-\d{2}$/.test(date) && validSlotIds.has(slotId)) {
+          const key = `${date}|${slotId}`;
+          if (!bookedSlots.has(key)) {
+            bookedSlots.set(key, {
+              date,
+              slotId,
+              serviceLabel: 'Booked · Cleaning Appointment',
+              status: 'BOOKED',
+              referenceCode: 'GCAL-SYNC'
+            });
+          }
+        }
+      }
+    } catch {
+      // Fail-open to in-memory schedule if webhook does not implement doGet yet or times out
+    }
+  }
+
   function getCalendarAvailability() {
     const now = nowFn();
     const todayIso = getBusinessTodayIso(now);
@@ -1413,6 +1457,7 @@ export function createIntakeService({
     }
 
     // 9. Calendar slot conflict check (prevent double-booking)
+    await syncCalendarFromWebhook();
     const todayIso = getBusinessTodayIso(now);
     const dayDiff = Math.round(
       (Date.parse(`${record.appointment.preferredDate}T12:00:00Z`) - Date.parse(`${todayIso}T12:00:00Z`)) /
@@ -1558,8 +1603,14 @@ export function createIntakeService({
     };
   }
 
+  async function getCalendarAvailabilityAsync() {
+    await syncCalendarFromWebhook();
+    return getCalendarAvailability();
+  }
+
   return Object.freeze({
     getCalendarAvailability,
+    getCalendarAvailabilityAsync,
     processEstimateRequest
   });
 }

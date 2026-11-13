@@ -85,6 +85,7 @@ try {
     await new Promise(resolve => setTimeout(resolve, 100));
   }
   await evaluate('document.fonts.ready.then(() => true)');
+  await evaluate('document.querySelector(".construction-screen")?.remove()');
   assert.deepEqual(await evaluate('window.__violations'), [], 'Legitimate page triggered CSP');
   assert.deepEqual(exceptions, [], 'Runtime errors');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 180);

@@ -53,7 +53,10 @@ export function createPreviewServer({ allowFraming = false, intakeService = defa
         res.end(JSON.stringify({ success: false, code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed' }));
         return;
       }
-      const data = JSON.stringify(intakeService.getCalendarAvailability());
+      const availabilityPayload = intakeService.getCalendarAvailabilityAsync
+        ? await intakeService.getCalendarAvailabilityAsync()
+        : intakeService.getCalendarAvailability();
+      const data = JSON.stringify(availabilityPayload);
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
       res.end(req.method === 'HEAD' ? undefined : data);
       return;
