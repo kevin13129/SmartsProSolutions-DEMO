@@ -8,6 +8,10 @@ import { build, root, output, publicFiles, deployment, headers } from '../script
 import { createPreviewServer } from '../scripts/preview.mjs';
 import { createIntakeService, isSafeWebhookUrl } from '../server/intake-service.mjs';
 
+// Keep build-time unit tests hermetic even when EMAIL_WEBHOOK_URL or RESEND_API_KEY is set in Vercel build environment
+delete process.env.EMAIL_WEBHOOK_URL;
+delete process.env.RESEND_API_KEY;
+
 const read = file => readFile(resolve(root, file), 'utf8');
 
 test('the browser boundary cleans legacy storage, rejects unvalidated legacy submitBooking, and models no-online-payment email/calendar dispatch', async () => {
