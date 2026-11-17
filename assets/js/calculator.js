@@ -1419,6 +1419,123 @@
     }
   };
 
+  /**
+   * Public helper to allow the Booking Modal's "Edit Request" panel to adjust
+   * hours, service scope, additional home info, or appliance add-ons and
+   * immediately recalculate the live flat-rate estimate.
+   */
+  function applyQuoteAdjustments(patch) {
+    if (!patch || typeof patch !== 'object') {
+      return window.SmartsProCurrentQuote;
+    }
+
+    if (patch.scopeMode === 'full' || patch.scopeMode === 'specific') {
+      state.scopeMode = patch.scopeMode;
+      state.step2ResidentialFulfilled = true;
+    }
+
+    if (
+      patch.serviceType === 'standard' ||
+      patch.serviceType === 'deep' ||
+      patch.serviceType === 'moveinout' ||
+      patch.serviceType === 'airbnb'
+    ) {
+      state.serviceType = patch.serviceType;
+      state.step2ResidentialFulfilled = true;
+    }
+
+    if (patch.specificHours !== undefined) {
+      const h = parseInt(patch.specificHours, 10);
+      if (!Number.isNaN(h)) {
+        state.specificHours = Math.min(
+          PRICING_CONFIG.specificAreas.maxHours,
+          Math.max(PRICING_CONFIG.specificAreas.minHours, h)
+        );
+        state.step2ResidentialFulfilled = true;
+      }
+    }
+
+    if (typeof patch.specificAreasText === 'string') {
+      state.specificAreasText = patch.specificAreasText.slice(0, 400);
+      if (els.inputSpecificAreas) {
+        els.inputSpecificAreas.value = state.specificAreasText;
+      }
+    }
+
+    if (patch.bedrooms !== undefined) {
+      const b = parseInt(patch.bedrooms, 10);
+      if (!Number.isNaN(b)) {
+        state.bedrooms = Math.min(8, Math.max(1, b));
+        state.step2ResidentialFulfilled = true;
+      }
+    }
+
+    if (patch.fullBaths !== undefined) {
+      const fb = parseInt(patch.fullBaths, 10);
+      if (!Number.isNaN(fb)) {
+        state.fullBaths = Math.min(6, Math.max(1, fb));
+        state.step2ResidentialFulfilled = true;
+      }
+    }
+
+    if (patch.halfBaths !== undefined) {
+      const hb = parseInt(patch.halfBaths, 10);
+      if (!Number.isNaN(hb)) {
+        state.halfBaths = Math.min(4, Math.max(0, hb));
+        state.step2ResidentialFulfilled = true;
+      }
+    }
+
+    if (patch.sqft !== undefined) {
+      const sq = parseInt(patch.sqft, 10);
+      if (!Number.isNaN(sq)) {
+        state.sqft = Math.min(6000, Math.max(400, sq));
+        state.step2ResidentialFulfilled = true;
+        if (els.sliderSqft) els.sliderSqft.value = state.sqft;
+        if (els.inputSqft) els.inputSqft.value = state.sqft;
+      }
+    }
+
+    if (patch.additionalInfo && typeof patch.additionalInfo === 'object') {
+      const infoPatch = patch.additionalInfo;
+      if (infoPatch.hasPets === 'yes' || infoPatch.hasPets === 'no') {
+        state.additionalInfo.hasPets = infoPatch.hasPets;
+        state.addons.pets = infoPatch.hasPets === 'yes' ? 1 : 0;
+      }
+      if (typeof infoPatch.lastCleaned === 'string' && infoPatch.lastCleaned) {
+        state.additionalInfo.lastCleaned = infoPatch.lastCleaned;
+      }
+      if (typeof infoPatch.occupancy === 'string' && infoPatch.occupancy) {
+        state.additionalInfo.occupancy = infoPatch.occupancy;
+      }
+      if (typeof infoPatch.condition === 'string' && infoPatch.condition) {
+        state.additionalInfo.condition = infoPatch.condition;
+      }
+    }
+
+    if (patch.addons && typeof patch.addons === 'object') {
+      if (patch.addons.fridge !== undefined) {
+        const f = parseInt(patch.addons.fridge, 10);
+        if (!Number.isNaN(f)) state.addons.fridge = Math.min(5, Math.max(0, f));
+      }
+      if (patch.addons.fridgeDouble !== undefined) {
+        const fd = parseInt(patch.addons.fridgeDouble, 10);
+        if (!Number.isNaN(fd)) state.addons.fridgeDouble = Math.min(5, Math.max(0, fd));
+      }
+      if (patch.addons.oven !== undefined) {
+        const ov = parseInt(patch.addons.oven, 10);
+        if (!Number.isNaN(ov)) state.addons.oven = Math.min(5, Math.max(0, ov));
+      }
+    }
+
+    updateUI();
+    return window.SmartsProCurrentQuote;
+  }
+
+  window.SmartsProCalculator = Object.freeze({
+    applyQuoteAdjustments
+  });
+
   // Initialize on DOM ready
   document.addEventListener('DOMContentLoaded', () => {
     initCalculatorEvents();

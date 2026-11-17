@@ -91,6 +91,51 @@ body:has(.construction-screen) { overflow: hidden; }
 .intake-post-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.9rem; }
 .intake-consent-note { margin: 0 0 0.75rem; font-size: 0.82rem; line-height: 1.45; color: #475569; }
 .intake-submit-btn { width: 100%; justify-content: center; white-space: normal; text-align: center; font-size: 1.02rem; padding: 0.9rem 1.25rem; }
+.intake-submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Post-Submit Confirmation Card & Inline Edit / Auto-Adjust Price Panel */
+.modal-confirmation-card,
+.modal-edit-adjuster-card { margin-top: 1.15rem; padding: 1.25rem; border: 1.5px solid #CBD5E1; border-radius: var(--radius-md); background: #FFFFFF; }
+.modal-edit-adjuster-card { border-color: var(--blue-primary); background: #F8FAFC; }
+
+.intake-confirmation-banner { padding: 1rem 1.15rem; border-radius: 12px; margin-bottom: 1rem; }
+.intake-confirmation-banner.is-success { background: #ECFDF5; border: 1.5px solid #6EE7B7; color: #065F46; }
+.intake-confirmation-banner.is-warning { background: #FFFBEB; border: 1.5px solid #FCD34D; color: #92400E; }
+.intake-confirmation-kicker { display: inline-block; font-size: 0.74rem; font-weight: 800; letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 0.3rem; padding: 0.2rem 0.55rem; border-radius: 6px; background: rgba(255, 255, 255, 0.75); }
+.intake-confirmation-title { margin: 0 0 0.35rem; font-size: 1.15rem; font-weight: 800; color: inherit; }
+.intake-confirmation-copy { margin: 0; font-size: 0.92rem; line-height: 1.45; }
+
+.intake-confirmation-details { padding: 1rem 1.1rem; border-radius: 10px; background: #F8FAFC; border: 1px solid #E2E8F0; margin-bottom: 0.9rem; }
+.intake-confirmation-details-title { margin: 0 0 0.65rem; font-size: 0.96rem; font-weight: 800; color: var(--navy-dark); }
+.intake-confirmation-grid { display: flex; flex-direction: column; gap: 0.55rem; }
+.intake-confirmation-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.35rem 1rem; padding-bottom: 0.5rem; border-bottom: 1px dashed #E2E8F0; font-size: 0.9rem; }
+.intake-confirmation-row:last-child { border-bottom: none; padding-bottom: 0; }
+.intake-confirmation-row.is-highlight { padding-top: 0.35rem; font-size: 1rem; }
+.intake-confirmation-label { color: #475569; font-weight: 600; }
+.intake-confirmation-value { color: var(--navy-dark); font-weight: 700; text-align: right; }
+.intake-confirmation-row.is-highlight .intake-confirmation-value { color: var(--green-dark); font-size: 1.08rem; font-weight: 800; }
+
+.intake-confirmation-edit-hint { margin: 0 0 0.95rem; font-size: 0.85rem; line-height: 1.45; color: #475569; background: #EFF6FF; border: 1px solid #BFDBFE; padding: 0.7rem 0.9rem; border-radius: 8px; }
+.intake-confirmation-actions { display: flex; flex-wrap: wrap; gap: 0.65rem; align-items: center; }
+.intake-edit-request-btn { width: 100%; justify-content: center; text-align: center; white-space: normal; font-weight: 800; }
+
+.edit-adjuster-header { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.85rem; padding-bottom: 0.75rem; border-bottom: 1px solid #E2E8F0; }
+.edit-adjuster-title-wrap { flex: 1 1 260px; }
+.edit-live-price-badge { padding: 0.5rem 0.85rem; border-radius: 8px; background: #ECFDF5; border: 1.5px solid #6EE7B7; color: #065F46; font-size: 0.92rem; font-weight: 800; white-space: nowrap; }
+.edit-adjuster-group { margin-bottom: 0.85rem; }
+.edit-chip-grid { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.edit-option-chip { padding: 0.55rem 0.85rem; border-radius: 8px; border: 1.5px solid #CBD5E1; background: #FFFFFF; color: var(--navy-dark); font-family: inherit; font-size: 0.88rem; font-weight: 700; cursor: pointer; transition: border-color 0.15s ease, background-color 0.15s ease; }
+.edit-option-chip:hover { border-color: var(--blue-primary); background: #EFF6FF; }
+.edit-option-chip.active { border-color: var(--blue-primary); background: var(--blue-primary); color: #FFFFFF; }
+
+.edit-rooms-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(175px, 1fr)); gap: 0.6rem; }
+.edit-addon-box { display: flex; flex-direction: column; gap: 0.35rem; padding: 0.6rem 0.75rem; border-radius: 8px; background: #FFFFFF; border: 1px solid #CBD5E1; }
+.edit-addon-name { font-size: 0.82rem; font-weight: 700; color: #475569; }
+.edit-stepper-row { display: inline-flex; align-items: center; justify-content: space-between; gap: 0.55rem; padding: 0.35rem 0.55rem; border-radius: 8px; background: #FFFFFF; border: 1.5px solid #CBD5E1; }
+.edit-stepper-btn { padding: 0.35rem 0.65rem; border-radius: 6px; border: 1px solid #CBD5E1; background: #F8FAFC; color: var(--navy-dark); font-family: inherit; font-size: 0.86rem; font-weight: 800; cursor: pointer; }
+.edit-stepper-btn:hover { border-color: var(--blue-primary); background: #EFF6FF; }
+.edit-stepper-val { font-size: 0.9rem; font-weight: 800; color: var(--navy-dark); min-width: 2.2rem; text-align: center; }
+.edit-cancel-row { margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid #E2E8F0; display: flex; justify-content: flex-end; }
 
 .footer-policy-link { color: #CBD5E1; font-size: 0.88rem; text-decoration: underline; }
 .footer-policy-link:hover { color: #FFFFFF; }
@@ -106,4 +151,6 @@ body:has(.construction-screen) { overflow: hidden; }
   .intake-fields-grid { grid-template-columns: 1fr; }
   .calendar-date-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .calendar-slot-grid { grid-template-columns: 1fr; }
+  .intake-confirmation-row { flex-direction: column; align-items: flex-start; }
+  .intake-confirmation-value { text-align: left; }
 }

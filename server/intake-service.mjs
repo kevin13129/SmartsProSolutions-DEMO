@@ -1456,19 +1456,22 @@ export function createIntakeService({
       };
     }
 
-    // 9. Calendar slot conflict check (prevent double-booking)
+    // 9. Calendar slot conflict check (prevent double-booking by different customers; allow same customer to update their estimate)
     await syncCalendarFromWebhook();
     const todayIso = getBusinessTodayIso(now);
     const dayDiff = Math.round(
       (Date.parse(`${record.appointment.preferredDate}T12:00:00Z`) - Date.parse(`${todayIso}T12:00:00Z`)) /
         (24 * 60 * 60 * 1000)
     );
+    const requesterEmailHash = createHash('sha256')
+      .update(record.customer.email, 'utf8')
+      .digest('hex');
     const existingBooking = isSlotBooked(
       record.appointment.preferredDate,
       record.appointment.preferredWindow,
       dayDiff
     );
-    if (existingBooking) {
+    if (existingBooking && existingBooking.customerEmailHash !== requesterEmailHash) {
       return {
         status: 409,
         headers: { 'Cache-Control': 'no-store' },
@@ -1563,7 +1566,8 @@ export function createIntakeService({
       slotId: record.appointment.preferredWindow,
       serviceLabel: serviceBadge,
       status: 'BOOKED',
-      referenceCode
+      referenceCode,
+      customerEmailHash: requesterEmailHash
     });
 
     const responseBody = {

@@ -520,6 +520,26 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(doubleBookRes.status, 409);
     assert.equal(doubleBookRes.body.code, 'SLOT_ALREADY_BOOKED');
 
+    // 11b. Same customer (matching email) can edit their confirmed request (e.g., longer hours or additional info/add-ons) and receive auto-adjusted server total
+    const editedSameCustomerRes = await intakeService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...validPayload,
+        quote: {
+          ...validPayload.quote,
+          scopeMode: 'specific',
+          specificHours: 4, // 2 hrs ($120) + 2 extra hrs ($90) = $210 base + $65 fridge + $35 pets = $310
+          specificAreasText: 'Kitchen, living room, and master bath'
+        }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.51'
+    });
+    assert.equal(editedSameCustomerRes.status, 200);
+    assert.equal(editedSameCustomerRes.body.success, true);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.basePrice, 210);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.addonsTotal, 100);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 310);
+
     // 12. Verify GET /api/calendar-availability now shows the slot as BOOKED with zero customer PII
     const availAfter = await (await fetch(`${base}/api/calendar-availability`)).json();
     const bookedEntry = availAfter.upcomingBookings.find(

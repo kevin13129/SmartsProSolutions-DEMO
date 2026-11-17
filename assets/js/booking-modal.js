@@ -75,6 +75,8 @@
     selectedDate: '',
     selectedWindow: '',
     isSubmitting: false,
+    viewMode: 'form', // 'form' | 'confirmed' | 'editing'
+    confirmedSubmission: null,
     mounted: false,
     refs: {}
   };
@@ -94,14 +96,6 @@
     const [y, m, d] = isoDate.split('-').map(Number);
     const dt = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
     return formatYmdLocal(dt.getUTCFullYear(), dt.getUTCMonth() + 1, dt.getUTCDate());
-  }
-
-  function addOneMonthYmd(isoDate) {
-    const [y, m, d] = isoDate.split('-').map(Number);
-    const targetYear = m === 12 ? y + 1 : y;
-    const targetMonth = m === 12 ? 1 : m + 1;
-    const maxDays = new Date(Date.UTC(targetYear, targetMonth, 0, 12, 0, 0)).getUTCDate();
-    return formatYmdLocal(targetYear, targetMonth, Math.min(d, maxDays));
   }
 
   function getLastDayOfMonthYmd(year, month) {
@@ -175,6 +169,229 @@
   function getHolidayNameUtc(isoDate) {
     const year = Number(isoDate.slice(0, 4));
     return getUsHolidayMapUtc(year).get(isoDate) || null;
+  }
+
+  /**
+   * Builds a normalized quote payload from the current calculator state.
+   */
+  function buildCurrentQuotePayload() {
+    const currentQuote = window.SmartsProCurrentQuote || { state: {}, calculation: {} };
+    const rawState = currentQuote.state || {};
+    const rawAddInfo = rawState.additionalInfo || {};
+    const isCommercial = rawState.serviceCategory === 'commercial';
+
+    const normalizedAdditionalInfo = isCommercial
+      ? { hasPets: '', lastCleaned: '', occupancy: '', condition: '' }
+      : {
+          hasPets: rawAddInfo.hasPets || (rawState.addons?.pets > 0 ? 'yes' : 'no'),
+          lastCleaned: rawAddInfo.lastCleaned || '1-3 Months ago',
+          occupancy: rawAddInfo.occupancy || 'Occupied, we live there',
+          condition: rawAddInfo.condition || 'Average, normal use'
+        };
+
+    return {
+      serviceCategory: rawState.serviceCategory || 'residential',
+      serviceType: rawState.serviceType || 'standard',
+      propertyType:
+        rawState.serviceCategory === 'moveinout'
+          ? rawState.propertyType || 'House'
+          : rawState.propertyType || '',
+      scopeMode: rawState.scopeMode || 'full',
+      specificAreasText:
+        rawState.scopeMode === 'specific'
+          ? rawState.specificAreasText || 'General priority rooms'
+          : rawState.specificAreasText || '',
+      specificHours: Number(rawState.specificHours) || 2,
+      bedrooms: Number(rawState.bedrooms) || 3,
+      fullBaths: Number(rawState.fullBaths) || 2,
+      halfBaths: Number(rawState.halfBaths) || 0,
+      sqft: Number(rawState.sqft) || 1800,
+      additionalInfo: normalizedAdditionalInfo,
+      frequency: rawState.frequency || 'biweekly',
+      addons: {
+        fridge: Number(rawState.addons?.fridge) || 0,
+        fridgeDouble: Number(rawState.addons?.fridgeDouble) || 0,
+        oven: Number(rawState.addons?.oven) || 0,
+        pets: normalizedAdditionalInfo.hasPets === 'yes' ? 1 : Number(rawState.addons?.pets) || 0
+      }
+    };
+  }
+
+  /**
+   * Computes a deterministic snapshot key to detect whether a customer
+   * has modified any estimate/appointment/contact option since confirming.
+   */
+  function computeCurrentSnapshotKey() {
+    const refs = schedulerState.refs;
+    const quotePayload = buildCurrentQuotePayload();
+    return JSON.stringify({
+      date: schedulerState.selectedDate || '',
+      window: schedulerState.selectedWindow || '',
+      firstName: refs.firstInput ? refs.firstInput.value.trim() : '',
+      lastName: refs.lastInput ? refs.lastInput.value.trim() : '',
+      phone: refs.phoneInput ? refs.phoneInput.value.trim() : '',
+      email: refs.emailInput ? refs.emailInput.value.trim().toLowerCase() : '',
+      notes: refs.notesInput ? refs.notesInput.value.trim() : '',
+      quote: quotePayload
+    });
+  }
+
+  /**
+   * Updates the top Estimate Recap Card inside the modal whenever the quote changes.
+   */
+  function refreshModalRecapUI() {
+    const quote = window.SmartsProCurrentQuote;
+    if (!quote) return;
+
+    const isCommercial = quote.state.serviceCategory === 'commercial';
+    const isSpecific = quote.calculation.isSpecificAreas;
+
+    if (modalBookingTitle) {
+      modalBookingTitle.textContent = isCommercial
+        ? 'Schedule Commercial Walkthrough & Send Bid Request'
+        : 'Complete Your Estimate & Request Cleaning Appointment';
+    }
+
+    if (recapService) {
+      if (isCommercial) {
+        recapService.textContent = serviceLabels.commercial;
+      } else if (isSpecific) {
+        recapService.textContent = `Specific Areas (${quote.state.specificHours} Hours Booked)`;
+      } else {
+        recapService.textContent =
+          serviceLabels[quote.state.serviceType] || 'Residential Standard Clean ($40/hr)';
+      }
+    }
+
+    if (recapPropTypeRow && recapPropType) {
+      if (
+        (quote.state.serviceCategory === 'moveinout' ||
+          quote.state.serviceCategory === 'airbnb') &&
+        quote.state.propertyType
+      ) {
+        recapPropTypeRow.classList.remove('is-hidden');
+        recapPropType.textContent = quote.state.propertyType;
+      } else {
+        recapPropTypeRow.classList.add('is-hidden');
+      }
+    }
+
+    if (isCommercial) {
+      if (recapSpecsLabel) recapSpecsLabel.textContent = 'Facility Assessment:';
+      if (recapSpecs) recapSpecs.textContent = 'On-Site Owner Walkthrough & Custom Scope';
+      if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
+      if (recapAddinfoRow) recapAddinfoRow.classList.add('is-hidden');
+      if (recapAddonsRow) recapAddonsRow.classList.add('is-hidden');
+      if (recapTotalLabel) recapTotalLabel.textContent = 'Commercial Walkthrough Baseline:';
+    } else if (isSpecific) {
+      if (recapSpecsLabel) recapSpecsLabel.textContent = 'Booked Time:';
+      if (recapSpecs) {
+        const extraH = Math.max(0, quote.state.specificHours - 2);
+        recapSpecs.textContent =
+          extraH > 0
+            ? `${quote.state.specificHours} Hours ($120 2-hr min + ${extraH} × $45/hr)`
+            : '2 Hours ($120 Flat Minimum)';
+      }
+      if (recapAreasRow) recapAreasRow.classList.remove('is-hidden');
+      if (recapAreas) {
+        const customText = (quote.state.specificAreasText || '').trim();
+        recapAreas.textContent = customText || 'General priority rooms';
+      }
+      if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
+      if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote (Flat Rate):';
+    } else {
+      if (recapSpecsLabel) recapSpecsLabel.textContent = 'Property Specs:';
+      if (recapSpecs) {
+        recapSpecs.textContent = `${quote.state.bedrooms} Bed, ${quote.state.fullBaths} Full, ${quote.state.halfBaths} Half / ${quote.state.sqft.toLocaleString()} sq ft`;
+      }
+      if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
+      if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
+      if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote (Flat Rate):';
+    }
+
+    if (recapAddinfoRow && recapAddinfo) {
+      const info = quote.state.additionalInfo || {};
+      const petsLabel =
+        info.hasPets === 'yes' || quote.state.addons.pets > 0
+          ? 'Pets: Yes (+$35)'
+          : info.hasPets === 'no'
+            ? 'Pets: No'
+            : '';
+      const infoParts = [];
+      if (petsLabel) infoParts.push(petsLabel);
+      if (info.lastCleaned) infoParts.push(`Last Cleaned: ${info.lastCleaned}`);
+      if (info.occupancy) infoParts.push(`Occupancy: ${info.occupancy}`);
+      if (info.condition) infoParts.push(`Condition: ${info.condition}`);
+
+      if (!isCommercial && infoParts.length > 0) {
+        recapAddinfoRow.classList.remove('is-hidden');
+        recapAddinfo.textContent = infoParts.join(' • ');
+      } else {
+        recapAddinfoRow.classList.add('is-hidden');
+      }
+    }
+
+    if (recapFreq) {
+      recapFreq.textContent = freqLabels[quote.state.frequency] || 'One-Time Service • Flat Rate';
+    }
+
+    const addonParts = [];
+    if (quote.state.addons.fridge > 0) {
+      addonParts.push(`${quote.state.addons.fridge}x Single Fridge ($65)`);
+    }
+    if (quote.state.addons.fridgeDouble > 0) {
+      addonParts.push(`${quote.state.addons.fridgeDouble}x Double Fridge ($75)`);
+    }
+    if (quote.state.addons.oven > 0) {
+      addonParts.push(`${quote.state.addons.oven}x Inside Oven ($80)`);
+    }
+    if (quote.state.addons.pets > 0) {
+      addonParts.push('Pet Hair & Detailing ($35 flat fee)');
+    }
+    if (recapAddons) {
+      if (
+        quote.state.additionalInfo &&
+        quote.state.additionalInfo.hasPets === 'no' &&
+        addonParts.length === 0
+      ) {
+        recapAddons.textContent = 'None selected (No pets)';
+      } else {
+        recapAddons.textContent = addonParts.length > 0 ? addonParts.join(', ') : 'None selected';
+      }
+    }
+
+    if (recapTotal) {
+      recapTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
+    }
+
+    if (recapPolicyRow && recapPolicy) {
+      recapPolicy.textContent = isCommercial
+        ? 'Custom Facility Proposal • No Online Payment Required • 10% Bounced Check Fee'
+        : 'Flat Rate • No Online Payment Required • 10% Bounced Check Fee';
+    }
+
+    if (
+      window.SmartsProDispatchFramework &&
+      typeof window.SmartsProDispatchFramework.getWorkflowPlan === 'function'
+    ) {
+      const plan = window.SmartsProDispatchFramework.getWorkflowPlan(quote.state);
+      if (workflowKicker) {
+        workflowKicker.textContent = isCommercial
+          ? 'COMMERCIAL WALKTHROUGH & AUTOMATED EMAIL DISPATCH'
+          : 'AUTOMATED ESTIMATE EMAIL & CALENDAR APPOINTMENT DISPATCH';
+      }
+      if (workflowTitle) workflowTitle.textContent = plan.label;
+      if (workflowSummary) workflowSummary.textContent = plan.summary;
+      if (workflowStage1 && plan.stages[0]) {
+        workflowStage1.textContent = `${plan.stages[0].title}: ${plan.stages[0].detail}`;
+      }
+      if (workflowStage2 && plan.stages[1]) {
+        workflowStage2.textContent = `${plan.stages[1].title}: ${plan.stages[1].detail}`;
+      }
+      if (workflowStage3 && plan.stages[2]) {
+        workflowStage3.textContent = `${plan.stages[2].title}: ${plan.stages[2].detail}`;
+      }
+    }
   }
 
   /**
@@ -286,7 +503,329 @@
   }
 
   /**
-   * Mounts the Progressive-Enhanced Calendar Picker & Customer Contact Form
+   * Applies an adjustment to the calculator state and refreshes both the top modal recap
+   * and the inline Edit Request panel controls.
+   */
+  function handleModalQuoteAdjustment(patch) {
+    if (
+      window.SmartsProCalculator &&
+      typeof window.SmartsProCalculator.applyQuoteAdjustments === 'function'
+    ) {
+      window.SmartsProCalculator.applyQuoteAdjustments(patch);
+    }
+    refreshModalRecapUI();
+    syncEditAdjusterUI();
+    updateSubmitButtonLockState();
+  }
+
+  /**
+   * Synchronizes the Inline Edit Request Panel controls with the live calculator quote.
+   */
+  function syncEditAdjusterUI() {
+    const refs = schedulerState.refs;
+    const quote = window.SmartsProCurrentQuote;
+    if (!quote || !refs.editAdjusterSection) return;
+
+    const st = quote.state;
+    const calc = quote.calculation;
+    const isSpecific = st.scopeMode === 'specific';
+
+    if (refs.editLivePriceBadge) {
+      refs.editLivePriceBadge.textContent = `Auto-Adjusted Total: $${calc.grandTotal.toFixed(2)} (${calc.estimatedHours} hrs est.)`;
+    }
+
+    if (refs.modeBtnStandard) {
+      const active = st.scopeMode === 'full' && st.serviceType === 'standard';
+      refs.modeBtnStandard.classList.toggle('active', active);
+      refs.modeBtnStandard.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+    if (refs.modeBtnDeep) {
+      const active = st.scopeMode === 'full' && st.serviceType === 'deep';
+      refs.modeBtnDeep.classList.toggle('active', active);
+      refs.modeBtnDeep.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+    if (refs.modeBtnSpecific) {
+      const active = st.scopeMode === 'specific';
+      refs.modeBtnSpecific.classList.toggle('active', active);
+      refs.modeBtnSpecific.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+
+    if (refs.editHourlyRow) {
+      refs.editHourlyRow.classList.toggle('is-hidden', !isSpecific);
+    }
+    if (refs.editRoomsRow) {
+      refs.editRoomsRow.classList.toggle('is-hidden', isSpecific);
+    }
+
+    if (refs.editHoursVal) {
+      const extraH = Math.max(0, (Number(st.specificHours) || 2) - 2);
+      const hourlyCost = 120 + extraH * 45;
+      refs.editHoursVal.textContent = `${st.specificHours} Hours ($${hourlyCost})`;
+    }
+    if (refs.editBedVal) {
+      refs.editBedVal.textContent = `${st.bedrooms} Bed`;
+    }
+    if (refs.editBathVal) {
+      refs.editBathVal.textContent = `${st.fullBaths} Full Bath`;
+    }
+
+    const hasPetsYes = st.additionalInfo?.hasPets === 'yes' || st.addons?.pets > 0;
+    if (refs.petsBtnNo) {
+      refs.petsBtnNo.classList.toggle('active', !hasPetsYes);
+      refs.petsBtnNo.setAttribute('aria-pressed', !hasPetsYes ? 'true' : 'false');
+    }
+    if (refs.petsBtnYes) {
+      refs.petsBtnYes.classList.toggle('active', hasPetsYes);
+      refs.petsBtnYes.setAttribute('aria-pressed', hasPetsYes ? 'true' : 'false');
+    }
+
+    const activeCondition = st.additionalInfo?.condition || 'Average, normal use';
+    if (refs.conditionButtons) {
+      refs.conditionButtons.forEach((btn) => {
+        const val = btn.getAttribute('data-edit-condition');
+        const isSelected = val === activeCondition;
+        btn.classList.toggle('active', isSelected);
+        btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      });
+    }
+
+    if (refs.editFridgeVal) {
+      refs.editFridgeVal.textContent = `${st.addons.fridge || 0}`;
+    }
+    if (refs.editFridgeDoubleVal) {
+      refs.editFridgeDoubleVal.textContent = `${st.addons.fridgeDouble || 0}`;
+    }
+    if (refs.editOvenVal) {
+      refs.editOvenVal.textContent = `${st.addons.oven || 0}`;
+    }
+  }
+
+  /**
+   * Anti-spam guard for the Submit button:
+   * - In 'editing' mode, keeps the submit button disabled until the customer actually
+   *   changes hours, additional info, add-ons, appointment time, or contact notes.
+   */
+  function updateSubmitButtonLockState() {
+    const refs = schedulerState.refs;
+    if (!refs.submitBtn || schedulerState.isSubmitting) return;
+
+    const quote = window.SmartsProCurrentQuote;
+    const grandTotal = Number(quote?.calculation?.grandTotal || 0);
+
+    if (schedulerState.viewMode === 'editing' && schedulerState.confirmedSubmission) {
+      const currentKey = computeCurrentSnapshotKey();
+      const hasChanges = currentKey !== schedulerState.confirmedSubmission.snapshotKey;
+      refs.submitBtn.disabled = !hasChanges;
+      refs.submitBtn.textContent = hasChanges
+        ? `Send Updated Estimate ($${grandTotal.toFixed(2)}) & Appointment Request`
+        : 'Adjust Hours, Additional Info, or Time Above to Send Update';
+    } else {
+      refs.submitBtn.disabled = false;
+      refs.submitBtn.textContent = 'Send Estimate & Request Appointment';
+    }
+  }
+
+  /**
+   * Switches the modal to the locked Confirmation View after a successful submission,
+   * preventing repeat-click spam while displaying full details and an "Edit Request" button.
+   */
+  function enterConfirmedView() {
+    const refs = schedulerState.refs;
+    const confirmed = schedulerState.confirmedSubmission;
+    if (!confirmed || !refs.confirmationSection) return;
+
+    schedulerState.viewMode = 'confirmed';
+
+    if (refs.calSection) refs.calSection.classList.add('is-hidden');
+    if (refs.editAdjusterSection) refs.editAdjusterSection.classList.add('is-hidden');
+    if (refs.intakeSection) refs.intakeSection.classList.add('is-hidden');
+    refs.confirmationSection.classList.remove('is-hidden');
+
+    refs.confirmationSection.replaceChildren();
+
+    // 1. Confirmation Header Banner
+    const topBadge = createEl(
+      'div',
+      `intake-confirmation-banner ${confirmed.statusType === 'warning' ? 'is-warning' : 'is-success'}`
+    );
+    const kicker = createEl(
+      'span',
+      'intake-confirmation-kicker',
+      confirmed.isUpdated
+        ? 'UPDATED REQUEST CONFIRMED • DUPLICATE SPAM PROTECTION ACTIVE'
+        : 'REQUEST CONFIRMED • DUPLICATE SPAM PROTECTION ACTIVE'
+    );
+    const heading = createEl('h4', 'intake-confirmation-title', confirmed.headingText);
+    const subcopy = createEl('p', 'intake-confirmation-copy', confirmed.detailText);
+    topBadge.append(kicker, heading, subcopy);
+
+    // 2. Submitted Request Details Card
+    const detailsCard = createEl('div', 'intake-confirmation-details');
+    const detailsHeading = createEl(
+      'h5',
+      'intake-confirmation-details-title',
+      'Submitted Estimate & Appointment Summary'
+    );
+    const list = createEl('div', 'intake-confirmation-grid');
+
+    const addDetailRow = (label, value, highlight) => {
+      const row = createEl(
+        'div',
+        `intake-confirmation-row${highlight ? ' is-highlight' : ''}`
+      );
+      const lbl = createEl('span', 'intake-confirmation-label', label);
+      const val = createEl('strong', 'intake-confirmation-value', value);
+      row.append(lbl, val);
+      list.append(row);
+    };
+
+    if (confirmed.referenceCode) {
+      addDetailRow('Reference ID:', confirmed.referenceCode, false);
+    }
+    addDetailRow(
+      'Customer Contact:',
+      `${confirmed.customer.firstName} ${confirmed.customer.lastName} • ${confirmed.customer.phone} • ${confirmed.customer.email}`,
+      false
+    );
+    addDetailRow(
+      'Requested Cleaning Window:',
+      `${confirmed.appointmentDateFormatted} • ${confirmed.appointmentWindowLabel}`,
+      false
+    );
+
+    const q = confirmed.quote;
+    const isSpecific = q.scopeMode === 'specific';
+    const isCommercial = q.serviceCategory === 'commercial';
+    if (isCommercial) {
+      addDetailRow('Service Scope:', 'Commercial & Offices (On-Site Walkthrough)', false);
+    } else if (isSpecific) {
+      addDetailRow(
+        'Service & Booked Hours:',
+        `Specific Areas / Hourly Booking • ${q.specificHours} Hours Booked (${q.specificAreasText || 'General priority rooms'})`,
+        false
+      );
+    } else {
+      const tierLabel = serviceLabels[q.serviceType] || 'Residential Standard Clean ($40/hr)';
+      addDetailRow(
+        'Service & Property Scope:',
+        `${tierLabel} • ${q.bedrooms} Bed, ${q.fullBaths} Full Bath, ${q.halfBaths} Half Bath (${Number(q.sqft).toLocaleString()} sq ft • Est. ${confirmed.verifiedEstimate.estimatedHours} hrs)`,
+        false
+      );
+    }
+
+    if (!isCommercial && q.additionalInfo) {
+      const info = q.additionalInfo;
+      const petsText =
+        info.hasPets === 'yes' || q.addons?.pets > 0 ? 'Yes (+$35 Pet Detailing)' : 'No Pets';
+      addDetailRow(
+        'Additional Home Info:',
+        `Pets: ${petsText} • Condition: ${info.condition || 'Average, normal use'} • Last Cleaned: ${info.lastCleaned || '1-3 Months ago'}`,
+        false
+      );
+    }
+
+    const addonItems = [];
+    if (q.addons?.fridge > 0) addonItems.push(`${q.addons.fridge}x Single Fridge ($65)`);
+    if (q.addons?.fridgeDouble > 0) addonItems.push(`${q.addons.fridgeDouble}x Double Fridge ($75)`);
+    if (q.addons?.oven > 0) addonItems.push(`${q.addons.oven}x Inside Oven ($80)`);
+    if (q.addons?.pets > 0) addonItems.push('Pet Hair & Detailing ($35 flat fee)');
+    addDetailRow(
+      'Selected Add-Ons:',
+      addonItems.length > 0 ? addonItems.join(', ') : 'None selected',
+      false
+    );
+
+    if (confirmed.customer.notes) {
+      addDetailRow('Additional Notes:', confirmed.customer.notes, false);
+    }
+
+    addDetailRow(
+      'Verified Flat-Rate Estimate:',
+      `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (No Online Payment Required)`,
+      true
+    );
+
+    detailsCard.append(detailsHeading, list);
+
+    // 3. Edit Explanation Callout
+    const editHint = createEl(
+      'p',
+      'intake-confirmation-edit-hint',
+      'To prevent duplicate spam, repeat submissions are locked. Need longer hours, additional home information, or extra appliance add-ons? Click "Edit Request" below and your flat-rate price will auto-adjust.'
+    );
+
+    // 4. Action Buttons Row
+    const actionsRow = createEl('div', 'intake-confirmation-actions');
+
+    const editBtn = createEl(
+      'button',
+      'btn btn-primary intake-edit-request-btn',
+      'Edit Request (Adjust Hours, Additional Info or Add-Ons)'
+    );
+    editBtn.type = 'button';
+    editBtn.id = 'btn-edit-confirmed-request';
+    editBtn.addEventListener('click', enterEditRequestView);
+    actionsRow.append(editBtn);
+
+    if (confirmed.fallbackMailtoUrl) {
+      const mailLink = createEl(
+        'a',
+        'btn btn-outline btn-sm',
+        'Open Pre-Filled Email to smartsprosolutions@gmail.com'
+      );
+      mailLink.href = confirmed.fallbackMailtoUrl;
+      actionsRow.append(mailLink);
+    }
+
+    if (confirmed.icsContent) {
+      const icsBtn = createEl(
+        'button',
+        'btn btn-outline btn-sm',
+        'Download Calendar Appointment (.ics)'
+      );
+      icsBtn.type = 'button';
+      icsBtn.addEventListener('click', () => {
+        triggerIcsDownload(confirmed.icsContent, confirmed.icsFilename);
+      });
+      actionsRow.append(icsBtn);
+    }
+
+    const doneBtn = createEl('button', 'btn btn-outline btn-sm', 'Done / Close Window');
+    doneBtn.type = 'button';
+    doneBtn.id = 'btn-close-confirmed-modal';
+    doneBtn.addEventListener('click', closeBookingModal);
+    actionsRow.append(doneBtn);
+
+    refs.confirmationSection.append(topBadge, detailsCard, editHint, actionsRow);
+  }
+
+  /**
+   * Switches from the Confirmation View into Edit Request mode, revealing the
+   * Auto-Adjust Price Panel, Calendar Picker, and Contact/Notes form while keeping
+   * the submit button locked until the user modifies at least one option.
+   */
+  function enterEditRequestView() {
+    const refs = schedulerState.refs;
+    schedulerState.viewMode = 'editing';
+
+    if (refs.confirmationSection) refs.confirmationSection.classList.add('is-hidden');
+    if (refs.editAdjusterSection) refs.editAdjusterSection.classList.remove('is-hidden');
+    if (refs.calSection) refs.calSection.classList.remove('is-hidden');
+    if (refs.intakeSection) refs.intakeSection.classList.remove('is-hidden');
+    if (refs.statusBanner) refs.statusBanner.classList.add('is-hidden');
+    if (refs.postSubmitActions) refs.postSubmitActions.classList.add('is-hidden');
+
+    if (refs.intakeTitle) {
+      refs.intakeTitle.textContent = '3. Review Contact Details & Send Updated Request';
+    }
+
+    syncEditAdjusterUI();
+    updateSubmitButtonLockState();
+  }
+
+  /**
+   * Mounts the Progressive-Enhanced Calendar Picker, Confirmation View,
+   * Inline Edit & Auto-Adjust Price Panel, and Customer Contact Form
    * using safe DOM APIs (zero raw HTML sinks).
    */
   function ensureMountedUI() {
@@ -296,6 +835,7 @@
     // 1. Build Simple, Senior-Friendly Calendar Section (Mon-Fri, 8:00 AM - 5:30 PM)
     if (calendarMount) {
       const calSection = createEl('section', 'modal-scheduler-card');
+      calSection.id = 'modal-scheduler-card';
       calSection.setAttribute('aria-label', 'Choose Cleaning Day and Time');
 
       const headerWrap = createEl('div', 'scheduler-header-wrap');
@@ -367,6 +907,7 @@
       );
       calendarMount.append(calSection);
 
+      schedulerState.refs.calSection = calSection;
       schedulerState.refs.monthTabs = monthTabs;
       schedulerState.refs.advanceLimitNote = advanceLimitNote;
       schedulerState.refs.upcomingList = upcomingList;
@@ -375,9 +916,277 @@
       schedulerState.refs.selectedSummary = selectedSummary;
     }
 
-    // 2. Build Simple Customer Contact & Additional Notes Section
+    // 2. Build Confirmation View, Inline Edit & Auto-Adjust Price Panel, and Contact Form
     if (intakeMount) {
+      // 2A. Post-Submit Confirmation Card (hidden until estimate is submitted)
+      const confirmationSection = createEl('section', 'modal-confirmation-card is-hidden');
+      confirmationSection.id = 'intake-confirmation-card';
+      confirmationSection.setAttribute('aria-live', 'polite');
+
+      // 2B. Inline Edit & Auto-Adjust Price Panel (shown when user clicks "Edit Request")
+      const editAdjusterSection = createEl('section', 'modal-edit-adjuster-card is-hidden');
+      editAdjusterSection.id = 'intake-edit-adjuster-card';
+      editAdjusterSection.setAttribute('aria-label', 'Edit Estimate Hours and Additional Information');
+
+      const editHeaderRow = createEl('div', 'edit-adjuster-header');
+      const editTitleWrap = createEl('div', 'edit-adjuster-title-wrap');
+      const editTitle = createEl(
+        'h4',
+        'scheduler-title',
+        'Edit Request: Adjust Hours, Additional Info & Add-Ons'
+      );
+      const editSub = createEl(
+        'p',
+        'scheduler-subtitle',
+        'Any changes below automatically recalculate your flat-rate price in real time.'
+      );
+      editTitleWrap.append(editTitle, editSub);
+
+      const editLivePriceBadge = createEl(
+        'div',
+        'edit-live-price-badge',
+        'Auto-Adjusted Total: $140.00'
+      );
+      editLivePriceBadge.id = 'edit-live-price-badge';
+      editHeaderRow.append(editTitleWrap, editLivePriceBadge);
+
+      // Control Group 1: Service Tier / Hourly Mode
+      const modeGroup = createEl('div', 'edit-adjuster-group');
+      const modeLabel = createEl(
+        'div',
+        'scheduler-step-label',
+        'Service Type & Hourly Booking Mode:'
+      );
+      const modeBtnGrid = createEl('div', 'edit-chip-grid');
+
+      const modeBtnStandard = createEl(
+        'button',
+        'edit-option-chip',
+        'Full Home Standard ($40/hr)'
+      );
+      modeBtnStandard.type = 'button';
+      modeBtnStandard.addEventListener('click', () => {
+        handleModalQuoteAdjustment({ scopeMode: 'full', serviceType: 'standard' });
+      });
+
+      const modeBtnDeep = createEl(
+        'button',
+        'edit-option-chip',
+        'Full Home Deep Clean ($50/hr)'
+      );
+      modeBtnDeep.type = 'button';
+      modeBtnDeep.addEventListener('click', () => {
+        handleModalQuoteAdjustment({ scopeMode: 'full', serviceType: 'deep' });
+      });
+
+      const modeBtnSpecific = createEl(
+        'button',
+        'edit-option-chip',
+        'Hourly / Specific Areas ($120 2-hr min + $45/hr)'
+      );
+      modeBtnSpecific.type = 'button';
+      modeBtnSpecific.addEventListener('click', () => {
+        handleModalQuoteAdjustment({ scopeMode: 'specific' });
+      });
+
+      modeBtnGrid.append(modeBtnStandard, modeBtnDeep, modeBtnSpecific);
+      modeGroup.append(modeLabel, modeBtnGrid);
+
+      // Control Group 1B: Booked Hours Stepper (for Specific Areas / Hourly Mode)
+      const editHourlyRow = createEl('div', 'edit-adjuster-group');
+      const hoursLabel = createEl(
+        'div',
+        'scheduler-step-label',
+        'Adjust Booked Cleaning Hours (2 to 6 Hours — Auto-Adjusts +$45/hr):'
+      );
+      const hoursStepperWrap = createEl('div', 'edit-stepper-row');
+      const btnHoursMinus = createEl('button', 'edit-stepper-btn', '− 1 Hr');
+      btnHoursMinus.type = 'button';
+      btnHoursMinus.id = 'btn-edit-hours-minus';
+      btnHoursMinus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 2;
+        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(2, cur - 1) });
+      });
+      const editHoursVal = createEl('strong', 'edit-stepper-val', '2 Hours ($120)');
+      editHoursVal.id = 'edit-hours-val';
+      const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Hr (+$45)');
+      btnHoursPlus.type = 'button';
+      btnHoursPlus.id = 'btn-edit-hours-plus';
+      btnHoursPlus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 2;
+        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.min(6, cur + 1) });
+      });
+      hoursStepperWrap.append(btnHoursMinus, editHoursVal, btnHoursPlus);
+      editHourlyRow.append(hoursLabel, hoursStepperWrap);
+
+      // Control Group 1C: Bedrooms / Baths / Switch to Longer Hours (for Full Home Mode)
+      const editRoomsRow = createEl('div', 'edit-adjuster-group');
+      const roomsLabel = createEl(
+        'div',
+        'scheduler-step-label',
+        'Adjust Rooms or Switch to Custom Booked Hours:'
+      );
+      const roomsStepperGrid = createEl('div', 'edit-rooms-grid');
+
+      // Bedrooms Stepper
+      const bedControl = createEl('div', 'edit-stepper-row');
+      const btnBedMinus = createEl('button', 'edit-stepper-btn', '−');
+      btnBedMinus.type = 'button';
+      btnBedMinus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.bedrooms) || 3;
+        handleModalQuoteAdjustment({ bedrooms: Math.max(1, cur - 1) });
+      });
+      const editBedVal = createEl('strong', 'edit-stepper-val', '3 Bed');
+      editBedVal.id = 'edit-bed-val';
+      const btnBedPlus = createEl('button', 'edit-stepper-btn', '+');
+      btnBedPlus.type = 'button';
+      btnBedPlus.id = 'btn-edit-bed-plus';
+      btnBedPlus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.bedrooms) || 3;
+        handleModalQuoteAdjustment({ bedrooms: Math.min(8, cur + 1) });
+      });
+      bedControl.append(btnBedMinus, editBedVal, btnBedPlus);
+
+      // Full Baths Stepper
+      const bathControl = createEl('div', 'edit-stepper-row');
+      const btnBathMinus = createEl('button', 'edit-stepper-btn', '−');
+      btnBathMinus.type = 'button';
+      btnBathMinus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.fullBaths) || 2;
+        handleModalQuoteAdjustment({ fullBaths: Math.max(1, cur - 1) });
+      });
+      const editBathVal = createEl('strong', 'edit-stepper-val', '2 Full Bath');
+      editBathVal.id = 'edit-bath-val';
+      const btnBathPlus = createEl('button', 'edit-stepper-btn', '+');
+      btnBathPlus.type = 'button';
+      btnBathPlus.id = 'btn-edit-bath-plus';
+      btnBathPlus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.fullBaths) || 2;
+        handleModalQuoteAdjustment({ fullBaths: Math.min(6, cur + 1) });
+      });
+      bathControl.append(btnBathMinus, editBathVal, btnBathPlus);
+
+      roomsStepperGrid.append(bedControl, bathControl);
+      editRoomsRow.append(roomsLabel, roomsStepperGrid);
+
+      // Control Group 2: Additional Information (Pets & Home Condition)
+      const addInfoGroup = createEl('div', 'edit-adjuster-group');
+      const petsLabel = createEl(
+        'div',
+        'scheduler-step-label',
+        'Additional Info — Pets in Home (Auto-Adjusts $35 Pet Hair & Detailing Fee):'
+      );
+      const petsGrid = createEl('div', 'edit-chip-grid');
+      const petsBtnNo = createEl('button', 'edit-option-chip', 'No Pets ($0)');
+      petsBtnNo.type = 'button';
+      petsBtnNo.id = 'btn-edit-pets-no';
+      petsBtnNo.addEventListener('click', () => {
+        handleModalQuoteAdjustment({ additionalInfo: { hasPets: 'no' } });
+      });
+      const petsBtnYes = createEl(
+        'button',
+        'edit-option-chip',
+        'Yes, Pets in Home (+$35 Flat Fee)'
+      );
+      petsBtnYes.type = 'button';
+      petsBtnYes.id = 'btn-edit-pets-yes';
+      petsBtnYes.addEventListener('click', () => {
+        handleModalQuoteAdjustment({ additionalInfo: { hasPets: 'yes' } });
+      });
+      petsGrid.append(petsBtnNo, petsBtnYes);
+
+      const condLabel = createEl(
+        'div',
+        'scheduler-step-label',
+        'Additional Info — Current Home Condition:'
+      );
+      const condGrid = createEl('div', 'edit-chip-grid');
+      const conditionOptions = [
+        'Well maintained',
+        'Average, normal use',
+        'Needs extra attention',
+        'Heavy buildup'
+      ];
+      const conditionButtons = conditionOptions.map((condText) => {
+        const btn = createEl('button', 'edit-option-chip', condText);
+        btn.type = 'button';
+        btn.setAttribute('data-edit-condition', condText);
+        btn.addEventListener('click', () => {
+          handleModalQuoteAdjustment({ additionalInfo: { condition: condText } });
+        });
+        condGrid.append(btn);
+        return btn;
+      });
+      addInfoGroup.append(petsLabel, petsGrid, condLabel, condGrid);
+
+      // Control Group 3: Appliance Add-Ons
+      const addonsGroup = createEl('div', 'edit-adjuster-group');
+      const addonsLabel = createEl(
+        'div',
+        'scheduler-step-label',
+        'Custom Appliance Add-Ons (Auto-Adjusts Flat Rate):'
+      );
+      const addonsGrid = createEl('div', 'edit-rooms-grid');
+
+      const buildAddonStepper = (titleText, key, valId) => {
+        const wrap = createEl('div', 'edit-addon-box');
+        const nameSpan = createEl('span', 'edit-addon-name', titleText);
+        const stepRow = createEl('div', 'edit-stepper-row');
+        const minusBtn = createEl('button', 'edit-stepper-btn', '−');
+        minusBtn.type = 'button';
+        minusBtn.addEventListener('click', () => {
+          const cur = Number(window.SmartsProCurrentQuote?.state?.addons?.[key]) || 0;
+          handleModalQuoteAdjustment({ addons: { [key]: Math.max(0, cur - 1) } });
+        });
+        const valEl = createEl('strong', 'edit-stepper-val', '0');
+        valEl.id = valId;
+        const plusBtn = createEl('button', 'edit-stepper-btn', '+');
+        plusBtn.type = 'button';
+        plusBtn.id = `btn-${valId}-plus`;
+        plusBtn.addEventListener('click', () => {
+          const cur = Number(window.SmartsProCurrentQuote?.state?.addons?.[key]) || 0;
+          handleModalQuoteAdjustment({ addons: { [key]: Math.min(5, cur + 1) } });
+        });
+        stepRow.append(minusBtn, valEl, plusBtn);
+        wrap.append(nameSpan, stepRow);
+        addonsGrid.append(wrap);
+        return valEl;
+      };
+
+      const editFridgeVal = buildAddonStepper('Single Fridge (+$65)', 'fridge', 'edit-fridge-val');
+      const editFridgeDoubleVal = buildAddonStepper(
+        'Double Fridge (+$75)',
+        'fridgeDouble',
+        'edit-fridge-double-val'
+      );
+      const editOvenVal = buildAddonStepper('Inside Oven (+$80)', 'oven', 'edit-oven-val');
+      addonsGroup.append(addonsLabel, addonsGrid);
+
+      // Cancel Edit Button (return to Confirmation Card without resending)
+      const cancelEditRow = createEl('div', 'edit-cancel-row');
+      const cancelEditBtn = createEl(
+        'button',
+        'btn btn-outline btn-sm',
+        'Cancel Edit & Return to Confirmed Summary'
+      );
+      cancelEditBtn.type = 'button';
+      cancelEditBtn.id = 'btn-cancel-edit-request';
+      cancelEditBtn.addEventListener('click', enterConfirmedView);
+      cancelEditRow.append(cancelEditBtn);
+
+      editAdjusterSection.append(
+        editHeaderRow,
+        modeGroup,
+        editHourlyRow,
+        editRoomsRow,
+        addInfoGroup,
+        addonsGroup,
+        cancelEditRow
+      );
+
+      // 2C. Customer Contact & Additional Notes Section
       const intakeSection = createEl('section', 'modal-intake-card');
+      intakeSection.id = 'modal-intake-card';
       intakeSection.setAttribute('aria-label', 'Your Contact Details');
 
       const headerWrap = createEl('div', 'scheduler-header-wrap');
@@ -402,6 +1211,7 @@
       firstInput.required = true;
       firstInput.autocomplete = 'given-name';
       firstInput.placeholder = 'First name';
+      firstInput.addEventListener('input', updateSubmitButtonLockState);
       firstWrap.append(firstLabel, firstInput);
 
       // Last Name
@@ -415,6 +1225,7 @@
       lastInput.required = true;
       lastInput.autocomplete = 'family-name';
       lastInput.placeholder = 'Last name';
+      lastInput.addEventListener('input', updateSubmitButtonLockState);
       lastWrap.append(lastLabel, lastInput);
 
       // Phone Number
@@ -428,6 +1239,7 @@
       phoneInput.required = true;
       phoneInput.autocomplete = 'tel';
       phoneInput.placeholder = '(318) 555-0199';
+      phoneInput.addEventListener('input', updateSubmitButtonLockState);
       phoneWrap.append(phoneLabel, phoneInput);
 
       // Email Address
@@ -441,6 +1253,7 @@
       emailInput.required = true;
       emailInput.autocomplete = 'email';
       emailInput.placeholder = 'you@example.com';
+      emailInput.addEventListener('input', updateSubmitButtonLockState);
       emailWrap.append(emailLabel, emailInput);
 
       fieldsGrid.append(firstWrap, lastWrap, phoneWrap, emailWrap);
@@ -459,6 +1272,7 @@
       notesInput.maxLength = 1000;
       notesInput.placeholder =
         'Any helpful notes about your home, pets, or preferred rooms...';
+      notesInput.addEventListener('input', updateSubmitButtonLockState);
       notesWrap.append(notesLabel, notesInput);
 
       // Honeypot field (hidden via CSS class)
@@ -509,8 +1323,27 @@
         consentNote,
         submitBtn
       );
-      intakeMount.append(intakeSection);
+      intakeMount.append(confirmationSection, editAdjusterSection, intakeSection);
 
+      schedulerState.refs.confirmationSection = confirmationSection;
+      schedulerState.refs.editAdjusterSection = editAdjusterSection;
+      schedulerState.refs.editLivePriceBadge = editLivePriceBadge;
+      schedulerState.refs.modeBtnStandard = modeBtnStandard;
+      schedulerState.refs.modeBtnDeep = modeBtnDeep;
+      schedulerState.refs.modeBtnSpecific = modeBtnSpecific;
+      schedulerState.refs.editHourlyRow = editHourlyRow;
+      schedulerState.refs.editRoomsRow = editRoomsRow;
+      schedulerState.refs.editHoursVal = editHoursVal;
+      schedulerState.refs.editBedVal = editBedVal;
+      schedulerState.refs.editBathVal = editBathVal;
+      schedulerState.refs.petsBtnNo = petsBtnNo;
+      schedulerState.refs.petsBtnYes = petsBtnYes;
+      schedulerState.refs.conditionButtons = conditionButtons;
+      schedulerState.refs.editFridgeVal = editFridgeVal;
+      schedulerState.refs.editFridgeDoubleVal = editFridgeDoubleVal;
+      schedulerState.refs.editOvenVal = editOvenVal;
+      schedulerState.refs.intakeSection = intakeSection;
+      schedulerState.refs.intakeTitle = title;
       schedulerState.refs.firstInput = firstInput;
       schedulerState.refs.lastInput = lastInput;
       schedulerState.refs.phoneInput = phoneInput;
@@ -527,6 +1360,9 @@
     const { monthTabs, advanceLimitNote, upcomingList, dateGrid, slotGrid, selectedSummary } =
       schedulerState.refs;
     if (!dateGrid || !slotGrid) return;
+
+    const confirmedDate = schedulerState.confirmedSubmission?.appointment?.preferredDate || '';
+    const confirmedWindow = schedulerState.confirmedSubmission?.appointment?.preferredWindow || '';
 
     // 1. Render subtle Upcoming Bookings summary chips
     if (upcomingList) {
@@ -566,7 +1402,6 @@
     if (months.length > 0) {
       const hasActiveMonth = months.some((m) => m.monthKey === schedulerState.activeMonthKey);
       if (!hasActiveMonth) {
-        // Default to Current Month if it has remaining days, otherwise Next Month
         const currentMonthWithDays = months.find((m) => m.days && m.days.length > 0) || months[0];
         schedulerState.activeMonthKey = currentMonthWithDays.monthKey;
       }
@@ -589,7 +1424,6 @@
         tabBtn.setAttribute('data-cal-month', mObj.monthKey);
         tabBtn.addEventListener('click', () => {
           schedulerState.activeMonthKey = mObj.monthKey;
-          // If the new month has a selectable open date and current selectedDate is in another month, keep or select first open in that month
           const firstSelectableInMonth = (mObj.days || []).find(
             (d) => d.withinAdvanceWindow !== false && !d.holidayName && d.openSlotCount > 0
           );
@@ -597,6 +1431,7 @@
             schedulerState.selectedDate = firstSelectableInMonth.date;
           }
           renderCalendarUI();
+          updateSubmitButtonLockState();
         });
         monthTabs.append(tabBtn);
       });
@@ -613,15 +1448,22 @@
     const activeDateObj = dates.find((d) => d.date === schedulerState.selectedDate) || dates[0];
     if (activeDateObj) {
       const currentSlot = activeDateObj.slots.find(
-        (s) => s.slotId === schedulerState.selectedWindow && s.status === 'AVAILABLE'
+        (s) =>
+          s.slotId === schedulerState.selectedWindow &&
+          (s.status === 'AVAILABLE' ||
+            (activeDateObj.date === confirmedDate && s.slotId === confirmedWindow))
       );
       if (!currentSlot) {
-        const firstOpenSlot = activeDateObj.slots.find((s) => s.status === 'AVAILABLE');
+        const firstOpenSlot = activeDateObj.slots.find(
+          (s) =>
+            s.status === 'AVAILABLE' ||
+            (activeDateObj.date === confirmedDate && s.slotId === confirmedWindow)
+        );
         schedulerState.selectedWindow = firstOpenSlot ? firstOpenSlot.slotId : '';
       }
     }
 
-    // 2. Render All Weekday Date Buttons for Active Month (all the way to end of month, e.g., Nov 30)
+    // 2. Render All Weekday Date Buttons for Active Month
     dateGrid.replaceChildren();
     const activeMonthObj = months.find((m) => m.monthKey === schedulerState.activeMonthKey);
     const daysToRender =
@@ -632,7 +1474,9 @@
     daysToRender.forEach((dayObj) => {
       const isHoliday = Boolean(dayObj.holidayName);
       const isBeyondLimit = dayObj.withinAdvanceWindow === false && !isHoliday;
-      const isFull = !isHoliday && !isBeyondLimit && dayObj.openSlotCount === 0;
+      const hasCustomerOwnSlot = dayObj.date === confirmedDate && Boolean(confirmedWindow);
+      const isFull =
+        !isHoliday && !isBeyondLimit && dayObj.openSlotCount === 0 && !hasCustomerOwnSlot;
       const isDisabled = isHoliday || isBeyondLimit || isFull;
       const isSelected = !isDisabled && dayObj.date === schedulerState.selectedDate;
 
@@ -664,6 +1508,7 @@
         btn.addEventListener('click', () => {
           schedulerState.selectedDate = dayObj.date;
           renderCalendarUI();
+          updateSubmitButtonLockState();
         });
       }
 
@@ -674,7 +1519,9 @@
     slotGrid.replaceChildren();
     if (activeDateObj) {
       activeDateObj.slots.forEach((slot) => {
-        const isBooked = slot.status !== 'AVAILABLE';
+        const isCustomerOwnSlot =
+          activeDateObj.date === confirmedDate && slot.slotId === confirmedWindow;
+        const isBooked = slot.status !== 'AVAILABLE' && !isCustomerOwnSlot;
         const isSelected = !isBooked && slot.slotId === schedulerState.selectedWindow;
         const btn = createEl(
           'button',
@@ -689,7 +1536,13 @@
         const statusRow = createEl(
           'span',
           'cal-slot-status',
-          isBooked ? 'Booked' : isSelected ? 'Selected ✓' : 'Available — Tap to Choose'
+          isBooked
+            ? 'Booked'
+            : isCustomerOwnSlot && isSelected
+              ? 'Your Current Slot ✓'
+              : isSelected
+                ? 'Selected ✓'
+                : 'Available — Tap to Choose'
         );
         btn.append(titleRow, statusRow);
 
@@ -697,6 +1550,7 @@
           btn.addEventListener('click', () => {
             schedulerState.selectedWindow = slot.slotId;
             renderCalendarUI();
+            updateSubmitButtonLockState();
           });
         }
 
@@ -810,6 +1664,16 @@
     const refs = schedulerState.refs;
     if (!refs.firstInput || !refs.lastInput || !refs.phoneInput || !refs.emailInput) return;
 
+    // Anti-spam check: if already confirmed and nothing changed in Edit Mode, show Confirmation View
+    const currentSnapshotKey = computeCurrentSnapshotKey();
+    if (
+      schedulerState.confirmedSubmission &&
+      schedulerState.confirmedSubmission.snapshotKey === currentSnapshotKey
+    ) {
+      enterConfirmedView();
+      return;
+    }
+
     const firstName = refs.firstInput.value.trim();
     const lastName = refs.lastInput.value.trim();
     const phone = refs.phoneInput.value.trim();
@@ -847,21 +1711,7 @@
       return;
     }
 
-    const currentQuote = window.SmartsProCurrentQuote || { state: {}, calculation: {} };
-    const rawState = currentQuote.state || {};
-    const rawAddInfo = rawState.additionalInfo || {};
-    const isCommercial = rawState.serviceCategory === 'commercial';
-
-    // Ensure Additional Info has valid values if the user opened the scheduler before completing Step 3
-    const normalizedAdditionalInfo = isCommercial
-      ? { hasPets: '', lastCleaned: '', occupancy: '', condition: '' }
-      : {
-          hasPets: rawAddInfo.hasPets || (rawState.addons?.pets > 0 ? 'yes' : 'no'),
-          lastCleaned: rawAddInfo.lastCleaned || '1-3 Months ago',
-          occupancy: rawAddInfo.occupancy || 'Occupied, we live there',
-          condition: rawAddInfo.condition || 'Average, normal use'
-        };
-
+    const quotePayload = buildCurrentQuotePayload();
     const payload = {
       customer: {
         firstName,
@@ -874,69 +1724,88 @@
         preferredDate: schedulerState.selectedDate,
         preferredWindow: schedulerState.selectedWindow
       },
-      quote: {
-        serviceCategory: rawState.serviceCategory || 'residential',
-        serviceType: rawState.serviceType || 'standard',
-        propertyType:
-          rawState.serviceCategory === 'moveinout'
-            ? rawState.propertyType || 'House'
-            : rawState.propertyType || '',
-        scopeMode: rawState.scopeMode || 'full',
-        specificAreasText:
-          rawState.scopeMode === 'specific'
-            ? rawState.specificAreasText || 'General priority rooms'
-            : rawState.specificAreasText || '',
-        specificHours: Number(rawState.specificHours) || 2,
-        bedrooms: Number(rawState.bedrooms) || 3,
-        fullBaths: Number(rawState.fullBaths) || 2,
-        halfBaths: Number(rawState.halfBaths) || 0,
-        sqft: Number(rawState.sqft) || 1800,
-        additionalInfo: normalizedAdditionalInfo,
-        frequency: rawState.frequency || 'biweekly',
-        addons: {
-          fridge: Number(rawState.addons?.fridge) || 0,
-          fridgeDouble: Number(rawState.addons?.fridgeDouble) || 0,
-          oven: Number(rawState.addons?.oven) || 0,
-          pets: Number(rawState.addons?.pets) || 0
-        }
-      },
+      quote: quotePayload,
       companyWebsite
     };
 
+    const isUpdate = Boolean(schedulerState.confirmedSubmission);
     schedulerState.isSubmitting = true;
     if (refs.submitBtn) {
       refs.submitBtn.disabled = true;
-      refs.submitBtn.textContent = 'Sending Estimate & Calendar Request...';
+      refs.submitBtn.textContent = isUpdate
+        ? 'Sending Updated Estimate & Calendar Request...'
+        : 'Sending Estimate & Calendar Request...';
     }
 
     try {
       const result = await window.SmartsProBackend.submitEstimateRequest(payload);
 
+      const dates = schedulerState.availableDates || [];
+      const dateObj = dates.find((d) => d.date === schedulerState.selectedDate);
+      const slotObj = dateObj?.slots?.find((s) => s.slotId === schedulerState.selectedWindow);
+      const dateFormatted =
+        result?.appointment?.preferredDateFormatted ||
+        dateObj?.dateFormatted ||
+        formatFullDateUtc(schedulerState.selectedDate);
+      const windowLabel =
+        result?.appointment?.preferredWindowLabel ||
+        slotObj?.label ||
+        schedulerState.selectedWindow;
+
+      const currentCalc = window.SmartsProCurrentQuote?.calculation || {};
+      const verifiedEstimate = result?.verifiedEstimate || {
+        grandTotal: currentCalc.grandTotal || 0,
+        basePrice: currentCalc.basePrice || 0,
+        addonsTotal: currentCalc.addonsTotal || 0,
+        estimatedHours: currentCalc.estimatedHours || 2
+      };
+
       if (result && result.success) {
-        showIntakeStatus(
-          'success',
-          `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
-          `${result.message} Estimated Flat-Rate Total: $${Number(result.verifiedEstimate?.grandTotal || 0).toFixed(2)} (No online payment required).`,
-          {
-            icsContent: result.icsContent,
-            icsFilename: result.icsFilename
-          }
-        );
+        schedulerState.confirmedSubmission = {
+          isUpdated: isUpdate,
+          statusType: 'success',
+          referenceCode: result.referenceCode || '',
+          headingText: isUpdate
+            ? `Updated Estimate & Appointment Sent! (Ref: ${result.referenceCode})`
+            : `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
+          detailText: `${result.message} Verified Flat-Rate Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (No online payment required).`,
+          icsContent: result.icsContent || '',
+          icsFilename: result.icsFilename || '',
+          fallbackMailtoUrl: '',
+          customer: payload.customer,
+          appointment: payload.appointment,
+          appointmentDateFormatted: dateFormatted,
+          appointmentWindowLabel: windowLabel,
+          quote: quotePayload,
+          verifiedEstimate,
+          snapshotKey: computeCurrentSnapshotKey()
+        };
         await loadCalendarSchedule();
+        enterConfirmedView();
       } else if (
         result &&
         (result.code === 'EMAIL_PROVIDER_UNCONFIGURED' || result.code === 'EMAIL_DISPATCH_FAILED')
       ) {
-        showIntakeStatus(
-          'warning',
-          'Estimate Validated — Complete Email Dispatch Below',
-          result.message,
-          {
-            fallbackMailtoUrl: result.fallbackMailtoUrl,
-            icsContent: result.icsContent,
-            icsFilename: result.icsFilename
-          }
-        );
+        schedulerState.confirmedSubmission = {
+          isUpdated: isUpdate,
+          statusType: 'warning',
+          referenceCode: result.referenceCode || '',
+          headingText: isUpdate
+            ? 'Updated Estimate Validated — Complete Email Dispatch Below'
+            : 'Estimate Validated — Complete Email Dispatch Below',
+          detailText: result.message,
+          icsContent: result.icsContent || '',
+          icsFilename: result.icsFilename || '',
+          fallbackMailtoUrl: result.fallbackMailtoUrl || '',
+          customer: payload.customer,
+          appointment: payload.appointment,
+          appointmentDateFormatted: dateFormatted,
+          appointmentWindowLabel: windowLabel,
+          quote: quotePayload,
+          verifiedEstimate,
+          snapshotKey: computeCurrentSnapshotKey()
+        };
+        enterConfirmedView();
       } else {
         showIntakeStatus(
           'error',
@@ -949,150 +1818,24 @@
       }
     } finally {
       schedulerState.isSubmitting = false;
-      if (refs.submitBtn) {
-        refs.submitBtn.disabled = false;
-        refs.submitBtn.textContent = 'Send Estimate & Request Appointment';
-      }
+      updateSubmitButtonLockState();
     }
   }
 
   function openBookingModal() {
     ensureMountedUI();
+    refreshModalRecapUI();
+    loadCalendarSchedule();
 
-    const quote = window.SmartsProCurrentQuote;
-    if (quote) {
-      const isCommercial = quote.state.serviceCategory === 'commercial';
-      const isSpecific = quote.calculation.isSpecificAreas;
-
-      if (modalBookingTitle) {
-        modalBookingTitle.textContent = isCommercial
-          ? 'Schedule Commercial Walkthrough & Send Bid Request'
-          : 'Complete Your Estimate & Request Cleaning Appointment';
-      }
-
-      if (recapService) {
-        if (isCommercial) {
-          recapService.textContent = serviceLabels.commercial;
-        } else if (isSpecific) {
-          recapService.textContent = `Specific Areas (${quote.state.specificHours} Hours Booked)`;
-        } else {
-          recapService.textContent =
-            serviceLabels[quote.state.serviceType] || 'Residential Standard Clean ($40/hr)';
-        }
-      }
-
-      // Property Type Row (Move-In/Out or Airbnb)
-      if (recapPropTypeRow && recapPropType) {
-        if (
-          (quote.state.serviceCategory === 'moveinout' ||
-            quote.state.serviceCategory === 'airbnb') &&
-          quote.state.propertyType
-        ) {
-          recapPropTypeRow.classList.remove('is-hidden');
-          recapPropType.textContent = quote.state.propertyType;
-        } else {
-          recapPropTypeRow.classList.add('is-hidden');
-        }
-      }
-
-      if (isCommercial) {
-        if (recapSpecsLabel) recapSpecsLabel.textContent = 'Facility Assessment:';
-        if (recapSpecs) recapSpecs.textContent = 'On-Site Owner Walkthrough & Custom Scope';
-        if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
-        if (recapAddinfoRow) recapAddinfoRow.classList.add('is-hidden');
-        if (recapAddonsRow) recapAddonsRow.classList.add('is-hidden');
-        if (recapTotalLabel) recapTotalLabel.textContent = 'Commercial Walkthrough Baseline:';
-      } else if (isSpecific) {
-        if (recapSpecsLabel) recapSpecsLabel.textContent = 'Booked Time:';
-        if (recapSpecs) {
-          const extraH = Math.max(0, quote.state.specificHours - 2);
-          recapSpecs.textContent =
-            extraH > 0
-              ? `${quote.state.specificHours} Hours ($120 2-hr min + ${extraH} × $45/hr)`
-              : '2 Hours ($120 Flat Minimum)';
-        }
-        if (recapAreasRow) recapAreasRow.classList.remove('is-hidden');
-        if (recapAreas) {
-          const customText = (quote.state.specificAreasText || '').trim();
-          recapAreas.textContent = customText || 'To be confirmed';
-        }
-        if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
-        if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote (Flat Rate):';
+    // If a request was already confirmed in this session and calculator options match, keep Confirmed View locked
+    if (schedulerState.confirmedSubmission) {
+      const currentKey = computeCurrentSnapshotKey();
+      if (currentKey === schedulerState.confirmedSubmission.snapshotKey) {
+        enterConfirmedView();
       } else {
-        if (recapSpecsLabel) recapSpecsLabel.textContent = 'Property Specs:';
-        if (recapSpecs) {
-          recapSpecs.textContent = `${quote.state.bedrooms} Bed, ${quote.state.fullBaths} Full, ${quote.state.halfBaths} Half / ${quote.state.sqft.toLocaleString()} sq ft`;
-        }
-        if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
-        if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
-        if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote (Flat Rate):';
-      }
-
-      // Additional Information Row (Step 3 answers for Owner Review)
-      if (recapAddinfoRow && recapAddinfo) {
-        const info = quote.state.additionalInfo || {};
-        if (!isCommercial && (info.hasPets || info.lastCleaned || info.occupancy || info.condition)) {
-          const infoParts = [];
-          if (info.hasPets) infoParts.push(info.hasPets === 'yes' ? 'Pets: Yes' : 'Pets: No');
-          if (info.lastCleaned) infoParts.push(`Last Cleaned: ${info.lastCleaned}`);
-          if (info.occupancy) infoParts.push(`Occupancy: ${info.occupancy}`);
-          if (info.condition) infoParts.push(`Condition: ${info.condition}`);
-          recapAddinfoRow.classList.remove('is-hidden');
-          recapAddinfo.textContent = infoParts.join(' • ');
-        } else {
-          recapAddinfoRow.classList.add('is-hidden');
-        }
-      }
-
-      if (recapFreq) recapFreq.textContent = freqLabels[quote.state.frequency] || 'One-Time Service • Flat Rate';
-
-      const addonParts = [];
-      if (quote.state.addons.fridge > 0) addonParts.push(`${quote.state.addons.fridge}x Single Fridge ($65)`);
-      if (quote.state.addons.fridgeDouble > 0) addonParts.push(`${quote.state.addons.fridgeDouble}x Double Fridge ($75)`);
-      if (quote.state.addons.oven > 0) addonParts.push(`${quote.state.addons.oven}x Inside Oven ($80)`);
-      if (quote.state.addons.pets > 0) addonParts.push('Pet Hair & Detailing ($35 flat fee)');
-      if (recapAddons) {
-        if (quote.state.additionalInfo && quote.state.additionalInfo.hasPets === 'no' && addonParts.length === 0) {
-          recapAddons.textContent = 'None selected (No pets)';
-        } else {
-          recapAddons.textContent = addonParts.length > 0 ? addonParts.join(', ') : 'None selected';
-        }
-      }
-
-      if (recapTotal) recapTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
-
-      if (recapPolicyRow && recapPolicy) {
-        recapPolicy.textContent = isCommercial
-          ? 'Custom Facility Proposal • No Online Payment Required • 10% Bounced Check Fee'
-          : 'Flat Rate • No Online Payment Required • 10% Bounced Check Fee';
-      }
-
-      // Populate Automated Email & Calendar Workflow Summary
-      if (
-        window.SmartsProDispatchFramework &&
-        typeof window.SmartsProDispatchFramework.getWorkflowPlan === 'function'
-      ) {
-        const plan = window.SmartsProDispatchFramework.getWorkflowPlan(quote.state);
-        if (workflowKicker) {
-          workflowKicker.textContent = isCommercial
-            ? 'COMMERCIAL WALKTHROUGH & AUTOMATED EMAIL DISPATCH'
-            : 'AUTOMATED ESTIMATE EMAIL & CALENDAR APPOINTMENT DISPATCH';
-        }
-        if (workflowTitle) workflowTitle.textContent = plan.label;
-        if (workflowSummary) workflowSummary.textContent = plan.summary;
-        if (workflowStage1 && plan.stages[0]) {
-          workflowStage1.textContent = `${plan.stages[0].title}: ${plan.stages[0].detail}`;
-        }
-        if (workflowStage2 && plan.stages[1]) {
-          workflowStage2.textContent = `${plan.stages[1].title}: ${plan.stages[1].detail}`;
-        }
-        if (workflowStage3 && plan.stages[2]) {
-          workflowStage3.textContent = `${plan.stages[2].title}: ${plan.stages[2].detail}`;
-        }
+        enterEditRequestView();
       }
     }
-
-    loadCalendarSchedule();
 
     if (modalOverlay) {
       modalOverlay.classList.add('open');
