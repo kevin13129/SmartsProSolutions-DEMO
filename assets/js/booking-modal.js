@@ -485,7 +485,7 @@
       const consentNote = createEl(
         'p',
         'intake-consent-note',
-        'By sending this request, you confirm you are 18+ and agree to our Privacy, Terms & No-Refunds Policy. Zero online payment or tracking cookies are used, and you may request data deletion anytime at smartsprosolutions@gmail.com.'
+        'By sending this request, you confirm you are 18+ and agree to our Privacy, Terms & No-Refunds Policy (checks that bounce incur a 10% fee). Zero online payment or tracking cookies are used, and you may request data deletion anytime at smartsprosolutions@gmail.com.'
       );
       consentNote.id = 'intake-consent-note';
 
@@ -1063,8 +1063,8 @@
 
       if (recapPolicyRow && recapPolicy) {
         recapPolicy.textContent = isCommercial
-          ? 'Custom Facility Proposal • No Online Payment Required • Emailed to Owner'
-          : 'Flat Rate (No Recurring Discounts) • No Online Payment Required • Emailed to Owner';
+          ? 'Custom Facility Proposal • No Online Payment Required • 10% Bounced Check Fee'
+          : 'Flat Rate • No Online Payment Required • 10% Bounced Check Fee';
       }
 
       // Populate Automated Email & Calendar Workflow Summary

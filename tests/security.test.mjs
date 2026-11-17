@@ -108,6 +108,7 @@ test('public HTML has no static personal-data forms when JS is off, no inline co
   assert.match(indexHtml, /Privacy Policy/i);
   assert.match(indexHtml, /Terms of Service/i);
   assert.match(indexHtml, /Refund Policy/i);
+  assert.match(indexHtml, /10% fee/i);
   assert.match(indexHtml, /Cookie Policy/i);
   assert.match(indexHtml, /18 years of age or older/i);
   assert.match(indexHtml, /Data Deletion/i);
