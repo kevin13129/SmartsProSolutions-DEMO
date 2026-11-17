@@ -14,7 +14,7 @@
 (function () {
   'use strict';
 
-  // --- Pricing Configuration ($40-$50/hr customer valuation) ---
+  // --- Pricing Configuration (Flat-rate property valuation) ---
   const PRICING_CONFIG = {
     minimumJobCharge: 120,
     specificAreas: {
@@ -62,7 +62,7 @@
       title: 'What Each Service Category Includes',
       desc: 'Select one of the 4 service categories above to view its full room-by-room checklist and unlock the next step.',
       items: [
-        'Residential Homes: Kitchens, baths, floors & dusting ($40/hr Standard, $50/hr Deep, or Specific Areas $120 min)',
+        'Residential Homes: Kitchens, baths, floors & dusting (Standard Clean, Deep Clean, or Specific Areas $120 min)',
         'Commercial & Offices: Lobbies, desks, restrooms, breakrooms & custom facility walkthrough schedule',
         'Move-In / Move-Out: Inside empty cabinets, drawers, closets, hand-wiped baseboards & lease inspection prep',
         'Airbnb / STR Turnover: Linen change, bathroom & kitchen sanitization, restock check & guest-ready presentation'
@@ -70,13 +70,13 @@
     },
     residential: {
       kicker: 'RESIDENTIAL HOMES OVERVIEW',
-      title: 'Complete Home Care ($40/hr Standard · $50/hr Deep · $120 Specific Areas Min)',
-      desc: 'Customizable cleaning built for houses, apartments, and family homes across Shreveport & Bossier City. Choose full-property Standard/Deep cleaning or target Specific Areas by the hour.',
+      title: 'Complete Home Care (Standard Clean · Deep Clean · Specific Areas from $120)',
+      desc: 'Customizable cleaning built for houses, apartments, and family homes across Shreveport & Bossier City. Choose full-property Standard or Deep cleaning, or target Specific Areas with a 2 to 6 hour flat-rate package.',
       items: [
         'Kitchens: Countertops, sink scrubbing, stovetop degreasing, microwave interior & cabinet faces',
         'Bathrooms: Showers, tubs, toilets, mirrors, chrome fixtures & hospital-grade surface sanitization',
         'Bedrooms & Living Spaces: Ceiling fans, window sills, baseboards, furniture dusting & pet-friendly floor care',
-        'Flexible Options: Choose Standard ($40/hr), Deep Clean ($50/hr), or Specific Areas ($120 2-hr minimum)'
+        'Flexible Options: Choose Standard Clean, Deep Clean, or Specific Areas ($120 2-hr minimum)'
       ]
     },
     commercial: {
@@ -92,7 +92,7 @@
     },
     moveinout: {
       kicker: 'MOVE-IN / MOVE-OUT OVERVIEW',
-      title: 'Empty-Property Reset for Leases, Closings & Relocations ($50/hr)',
+      title: 'Empty-Property Reset for Leases, Closings & Relocations',
       desc: 'Inspection-ready restoration for houses, apartments, condos, and townhomes. Designed to satisfy landlord move-out checklists and prepare empty residences for new occupants.',
       items: [
         'Inside Cabinets, Drawers & Closets: Full interior wipe-down of empty kitchen, bath & storage cabinetry',
@@ -103,7 +103,7 @@
     },
     airbnb: {
       kicker: 'AIRBNB / STR TURNOVER OVERVIEW',
-      title: '5-Star Guest-Ready Short-Term Rental Turnover ($45/hr)',
+      title: '5-Star Guest-Ready Short-Term Rental Turnover',
       desc: 'Fast, checklist-driven hospitality resets between guest check-out and check-in so your listing earns spotless reviews every stay.',
       items: [
         'Hotel-Standard Bed & Linen Reset: Fresh linen staging, towel folding & guest-ready bedroom presentation',
@@ -684,7 +684,7 @@
       }
       if (els.step2HeadingDesc) {
         els.step2HeadingDesc.textContent =
-          'Choose Standard ($40/hr), Deep Clean ($50/hr), or Specific Areas ($120 2-hr min), then set your home size';
+          'Choose Standard Clean, Deep Clean, or Specific Areas ($120 2-hr min), then set your home size';
       }
     }
 
@@ -897,18 +897,18 @@
           'Commercial walkthrough confirms final facility pricing';
       } else if (isSpecific) {
         els.quoteMinimumNoteText.textContent =
-          '$120 flat minimum (2 hrs) • +$45/hr up to 6 hrs • No Online Payment';
+          'Flat-rate package (2–6 hrs) • No Online Payment Required';
       } else {
         els.quoteMinimumNoteText.textContent =
-          '$40/hr Standard • $50/hr Deep Clean • No Online Payment Required';
+          'Flat-Rate Property Estimate • No Online Payment Required';
       }
     }
 
     const serviceNames = {
-      standard: 'Standard · $40/hr',
-      deep: 'Deep Clean · $50/hr',
-      moveinout: 'Move-In/Out · $50/hr',
-      airbnb: 'Airbnb Turnover · $45/hr'
+      standard: 'Standard Clean',
+      deep: 'Deep Clean',
+      moveinout: 'Move-In / Out Clean',
+      airbnb: 'Airbnb Turnover'
     };
     if (els.summaryServiceType) {
       if (isCommercial) {
@@ -917,7 +917,7 @@
         els.summaryServiceType.textContent = `Specific Areas · ${state.specificHours} hrs`;
       } else {
         els.summaryServiceType.textContent =
-          serviceNames[state.serviceType] || 'Standard · $40/hr';
+          serviceNames[state.serviceType] || 'Standard Clean';
       }
     }
     if (els.summaryServiceRate) {
@@ -940,10 +940,9 @@
         els.summaryBaseRate.textContent = 'Confirmed during owner walkthrough';
       } else if (isSpecific) {
         els.summaryScopeTitle.textContent = 'Booked Time';
-        const extraHrs = Math.max(0, state.specificHours - 2);
         els.summaryBaseRate.textContent =
-          extraHrs > 0
-            ? `${state.specificHours} hrs ($120 + ${extraHrs} × $45/hr)`
+          state.specificHours > 2
+            ? `${state.specificHours} Hours Booked (Flat-Rate Package)`
             : '2 hrs ($120 Flat Minimum)';
       } else {
         els.summaryScopeTitle.textContent = 'Property Size';
@@ -1080,7 +1079,7 @@
       });
     });
 
-    // Step 2: Residential Tier Buttons (Standard $40/hr, Deep $50/hr, Specific Areas $120 min)
+    // Step 2: Residential Tier Buttons (Standard Clean, Deep Clean, Specific Areas $120 min)
     els.residentialTierBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const tier = btn.getAttribute('data-res-tier');

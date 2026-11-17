@@ -48,11 +48,11 @@
   const workflowStage3 = document.getElementById('modal-workflow-stage-3');
 
   const serviceLabels = {
-    standard: 'Residential Standard Clean ($40/hr)',
-    deep: 'Residential Deep Clean ($50/hr)',
-    moveinout: 'Move-In / Move-Out Clean ($50/hr)',
-    airbnb: 'Airbnb / STR Turnover ($45/hr)',
-    specific: 'Specific Areas (Hourly Booking)',
+    standard: 'Residential Standard Clean',
+    deep: 'Residential Deep Clean',
+    moveinout: 'Move-In / Move-Out Clean',
+    airbnb: 'Airbnb / STR Turnover',
+    specific: 'Specific Areas (Timed Package)',
     commercial: 'Commercial & Offices (Walkthrough & Custom Bid)'
   };
 
@@ -358,7 +358,7 @@
         recapService.textContent = `Specific Areas (${quote.state.specificHours} Hours Booked)`;
       } else {
         recapService.textContent =
-          serviceLabels[quote.state.serviceType] || 'Residential Standard Clean ($40/hr)';
+          serviceLabels[quote.state.serviceType] || 'Residential Standard Clean';
       }
     }
 
@@ -385,10 +385,9 @@
     } else if (isSpecific) {
       if (recapSpecsLabel) recapSpecsLabel.textContent = 'Booked Time:';
       if (recapSpecs) {
-        const extraH = Math.max(0, quote.state.specificHours - 2);
         recapSpecs.textContent =
-          extraH > 0
-            ? `${quote.state.specificHours} Hours ($120 2-hr min + ${extraH} × $45/hr)`
+          quote.state.specificHours > 2
+            ? `${quote.state.specificHours} Hours Booked (Flat-Rate Package)`
             : '2 Hours ($120 Flat Minimum)';
       }
       if (recapAreasRow) recapAreasRow.classList.remove('is-hidden');
@@ -630,7 +629,7 @@
     const isSpecific = st.scopeMode === 'specific';
 
     if (refs.editLivePriceBadge) {
-      refs.editLivePriceBadge.textContent = `Auto-Adjusted Total: $${calc.grandTotal.toFixed(2)} (${calc.estimatedHours} hrs est.)`;
+      refs.editLivePriceBadge.textContent = `Auto-Adjusted Total: $${calc.grandTotal.toFixed(2)}`;
     }
 
     if (refs.modeBtnStandard) {
@@ -800,14 +799,14 @@
     } else if (isSpecific) {
       addDetailRow(
         'Service & Booked Hours:',
-        `Specific Areas / Hourly Booking • ${q.specificHours} Hours Booked (${q.specificAreasText || 'General priority rooms'})`,
+        `Specific Areas / Timed Package • ${q.specificHours} Hours Booked (${q.specificAreasText || 'General priority rooms'})`,
         false
       );
     } else {
-      const tierLabel = serviceLabels[q.serviceType] || 'Residential Standard Clean ($40/hr)';
+      const tierLabel = serviceLabels[q.serviceType] || 'Residential Standard Clean';
       addDetailRow(
         'Service & Property Scope:',
-        `${tierLabel} • ${q.bedrooms} Bed, ${q.fullBaths} Full Bath, ${q.halfBaths} Half Bath (${Number(q.sqft).toLocaleString()} sq ft • Est. ${confirmed.verifiedEstimate.estimatedHours} hrs)`,
+        `${tierLabel} • ${q.bedrooms} Bed, ${q.fullBaths} Full Bath, ${q.halfBaths} Half Bath (${Number(q.sqft).toLocaleString()} sq ft)`,
         false
       );
     }
@@ -1049,19 +1048,19 @@
       editLivePriceBadge.id = 'edit-live-price-badge';
       editHeaderRow.append(editTitleWrap, editLivePriceBadge);
 
-      // Control Group 1: Service Tier / Hourly Mode
+      // Control Group 1: Service Tier / Package Mode
       const modeGroup = createEl('div', 'edit-adjuster-group');
       const modeLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Service Type & Hourly Booking Mode:'
+        'Service Type & Package Mode:'
       );
       const modeBtnGrid = createEl('div', 'edit-chip-grid');
 
       const modeBtnStandard = createEl(
         'button',
         'edit-option-chip',
-        'Full Home Standard ($40/hr)'
+        'Full Home Standard Clean'
       );
       modeBtnStandard.type = 'button';
       modeBtnStandard.addEventListener('click', () => {
@@ -1071,7 +1070,7 @@
       const modeBtnDeep = createEl(
         'button',
         'edit-option-chip',
-        'Full Home Deep Clean ($50/hr)'
+        'Full Home Deep Clean'
       );
       modeBtnDeep.type = 'button';
       modeBtnDeep.addEventListener('click', () => {
@@ -1081,7 +1080,7 @@
       const modeBtnSpecific = createEl(
         'button',
         'edit-option-chip',
-        'Hourly / Specific Areas ($120 2-hr min + $45/hr)'
+        'Specific Areas ($120 2-hr min, 2–6 hrs)'
       );
       modeBtnSpecific.type = 'button';
       modeBtnSpecific.addEventListener('click', () => {
@@ -1091,12 +1090,12 @@
       modeBtnGrid.append(modeBtnStandard, modeBtnDeep, modeBtnSpecific);
       modeGroup.append(modeLabel, modeBtnGrid);
 
-      // Control Group 1B: Booked Hours Stepper (for Specific Areas / Hourly Mode)
+      // Control Group 1B: Booked Hours Stepper (for Specific Areas Mode)
       const editHourlyRow = createEl('div', 'edit-adjuster-group');
       const hoursLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Adjust Booked Cleaning Hours (2 to 6 Hours — Auto-Adjusts +$45/hr):'
+        'Adjust Booked Cleaning Hours (2 to 6 Hours — Price Auto-Adjusts):'
       );
       const hoursStepperWrap = createEl('div', 'edit-stepper-row');
       const btnHoursMinus = createEl('button', 'edit-stepper-btn', '− 1 Hr');
@@ -1108,7 +1107,7 @@
       });
       const editHoursVal = createEl('strong', 'edit-stepper-val', '2 Hours ($120)');
       editHoursVal.id = 'edit-hours-val';
-      const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Hr (+$45)');
+      const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Hr');
       btnHoursPlus.type = 'button';
       btnHoursPlus.id = 'btn-edit-hours-plus';
       btnHoursPlus.addEventListener('click', () => {

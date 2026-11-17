@@ -133,11 +133,11 @@ const FORBIDDEN_PRICE_OR_PRIVILEGE_KEYS = new Set([
 ]);
 
 const SERVICE_DISPLAY_LABELS = Object.freeze({
-  standard: 'Residential Standard Clean ($40/hr)',
-  deep: 'Residential Deep Clean ($50/hr)',
-  moveinout: 'Move-In / Move-Out Clean ($50/hr)',
-  airbnb: 'Airbnb / STR Turnover ($45/hr)',
-  specific: 'Specific Areas (Hourly Booking)',
+  standard: 'Residential Standard Clean',
+  deep: 'Residential Deep Clean',
+  moveinout: 'Move-In / Move-Out Clean',
+  airbnb: 'Airbnb / STR Turnover',
+  specific: 'Specific Areas (Timed Package)',
   commercial: 'Commercial & Offices (Walkthrough & Custom Bid)'
 });
 
