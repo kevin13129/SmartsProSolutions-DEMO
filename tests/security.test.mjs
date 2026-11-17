@@ -6,7 +6,12 @@ import { Script, createContext } from 'node:vm';
 import { createHash } from 'node:crypto';
 import { build, root, output, publicFiles, deployment, headers } from '../scripts/build.mjs';
 import { createPreviewServer } from '../scripts/preview.mjs';
-import { createIntakeService, isSafeWebhookUrl } from '../server/intake-service.mjs';
+import {
+  createIntakeService,
+  isSafeWebhookUrl,
+  validateUsPhoneNanp,
+  verifyEmailDomainHasMx
+} from '../server/intake-service.mjs';
 
 // Keep build-time unit tests hermetic even when EMAIL_WEBHOOK_URL or RESEND_API_KEY is set in Vercel build environment
 delete process.env.EMAIL_WEBHOOK_URL;
@@ -334,6 +339,49 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     });
     assert.equal(xssName.status, 400);
     assert.doesNotMatch(JSON.stringify(xssName.body), /<script>/);
+
+    // 6b. Reject phishing links in notes, disposable/typo email domains, and fake US phone numbers
+    const phishingInNotes = await intakeService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...validPayload,
+        customer: { ...validPayload.customer, notes: 'Click here https://evil-phishing-site.com/login to claim' }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.12'
+    });
+    assert.equal(phishingInNotes.status, 400);
+    assert.equal(phishingInNotes.body.code, 'PHISHING_LINK_REJECTED');
+
+    const burnerEmail = await intakeService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...validPayload,
+        customer: { ...validPayload.customer, email: 'spammer@mailinator.com' }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.12'
+    });
+    assert.equal(burnerEmail.status, 400);
+    assert.equal(burnerEmail.body.code, 'UNVERIFIED_EMAIL_DOMAIN');
+
+    assert.equal(validateUsPhoneNanp('3185644360').valid, true);
+    assert.equal(validateUsPhoneNanp('3185644360').formatted, '(318) 564-4360');
+    assert.equal(validateUsPhoneNanp('5555555555').valid, false);
+    assert.equal(validateUsPhoneNanp('3181111111').valid, false);
+    assert.equal(validateUsPhoneNanp('1234567890').valid, false);
+    assert.equal(
+      await verifyEmailDomainHasMx('user@realdomain.org', async () => [{ exchange: 'mx1.realdomain.org', priority: 10 }]),
+      true
+    );
+    assert.equal(
+      await verifyEmailDomainHasMx('user@nullmx.org', async () => [{ exchange: '.', priority: 0 }]),
+      false
+    );
+    assert.equal(
+      await verifyEmailDomainHasMx('user@nonexistent.invalid', async () => {
+        throw new Error('ENOTFOUND');
+      }),
+      false
+    );
 
     // 7. Reject past dates, dates beyond the next calendar month (e.g. Jan 2027 while in Nov 2026), weekends, holidays, and non-leap-year Feb 29
     const pastDateRes = await intakeService.processEstimateRequest({

@@ -171,6 +171,105 @@
     return getUsHolidayMapUtc(year).get(isoDate) || null;
   }
 
+  const DISPOSABLE_OR_FAKE_EMAIL_DOMAINS = new Set([
+    'mailinator.com',
+    'guerrillamail.com',
+    '10minutemail.com',
+    'tempmail.com',
+    'temp-mail.org',
+    'yopmail.com',
+    'trashmail.com',
+    'sharklasers.com',
+    'getnada.com',
+    'fakeinbox.com',
+    'throwawaymail.com',
+    'maildrop.cc',
+    'dispostable.com',
+    'mailnesia.com',
+    'mohmal.com',
+    'fake.com',
+    'test.com',
+    'testing.com',
+    'asdf.com',
+    'qwerty.com',
+    'invalid.com',
+    'none.com',
+    'noemail.com',
+    'noreply.com'
+  ]);
+
+  const COMMON_TYPO_EMAIL_DOMAINS = new Set([
+    'gmial.com',
+    'gamil.com',
+    'gmail.co',
+    'gmail.con',
+    'yaho.com',
+    'yahooo.com',
+    'yahoo.co',
+    'hotmial.com',
+    'hotmail.co',
+    'outlok.com',
+    'icloud.co'
+  ]);
+
+  function containsPhishingOrUrlLinks(str) {
+    if (typeof str !== 'string' || !str) return false;
+    return (
+      /\b(?:https?:\/\/|www\.|mailto:|javascript:|bit\.ly\/|tinyurl\.com\/|t\.me\/|wa\.me\/)/i.test(
+        str
+      ) || /\b[a-z0-9-]+\.(?:com|net|org|io|ru|cn|xyz|top|click|link|info|biz)\/\S*/i.test(str)
+    );
+  }
+
+  function validateClientUsPhone(rawPhone) {
+    let digits = String(rawPhone || '').replace(/\D/g, '');
+    if (digits.length === 11 && digits.startsWith('1')) {
+      digits = digits.slice(1);
+    }
+    if (digits.length !== 10) return { valid: false };
+
+    const areaCode = digits.slice(0, 3);
+    const exchange = digits.slice(3, 6);
+    const subscriber = digits.slice(6, 10);
+    const localSeven = digits.slice(3, 10);
+
+    if (
+      areaCode[0] === '0' ||
+      areaCode[0] === '1' ||
+      exchange[0] === '0' ||
+      exchange[0] === '1' ||
+      areaCode.endsWith('11') ||
+      exchange.endsWith('11') ||
+      areaCode === '555' ||
+      areaCode === '900' ||
+      areaCode === '999'
+    ) {
+      return { valid: false };
+    }
+
+    if (exchange === '555') {
+      const subNum = Number(subscriber);
+      if (subNum < 100 || subNum > 199) {
+        return { valid: false };
+      }
+    }
+
+    if (
+      digits === '2345678901' ||
+      digits === '9876543210' ||
+      /^(\d)\1{6}$/.test(localSeven) ||
+      /^(\d)\1{9}$/.test(digits) ||
+      subscriber === '0000'
+    ) {
+      return { valid: false };
+    }
+
+    return {
+      valid: true,
+      formatted: `(${areaCode}) ${exchange}-${subscriber}`
+    };
+  }
+
   /**
    * Builds a normalized quote payload from the current calculator state.
    */
@@ -1240,6 +1339,13 @@
       phoneInput.autocomplete = 'tel';
       phoneInput.placeholder = '(318) 555-0199';
       phoneInput.addEventListener('input', updateSubmitButtonLockState);
+      phoneInput.addEventListener('blur', () => {
+        const check = validateClientUsPhone(phoneInput.value);
+        if (check.valid) {
+          phoneInput.value = check.formatted;
+          updateSubmitButtonLockState();
+        }
+      });
       phoneWrap.append(phoneLabel, phoneInput);
 
       // Email Address
@@ -1700,13 +1806,47 @@
       refs.lastInput.focus();
       return;
     }
-    if (!phone || phone.replace(/\D/g, '').length < 10) {
-      showIntakeStatus('error', 'Phone Number Required', 'Please enter a valid 10-digit Phone Number.');
+    if (
+      containsPhishingOrUrlLinks(firstName) ||
+      containsPhishingOrUrlLinks(lastName) ||
+      containsPhishingOrUrlLinks(notes)
+    ) {
+      showIntakeStatus(
+        'error',
+        'Links Not Permitted',
+        'For security and anti-phishing protection, website links and URLs are not permitted in contact or note fields.'
+      );
+      return;
+    }
+
+    const phoneCheck = validateClientUsPhone(phone);
+    if (!phoneCheck.valid) {
+      showIntakeStatus(
+        'error',
+        'Valid US Phone Number Required',
+        'Please enter a real, active 10-digit US Phone Number (e.g., (318) 564-4360).'
+      );
       refs.phoneInput.focus();
       return;
     }
+    refs.phoneInput.value = phoneCheck.formatted;
+
     if (!email || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(email)) {
       showIntakeStatus('error', 'Email Address Required', 'Please enter a valid Email Address.');
+      refs.emailInput.focus();
+      return;
+    }
+
+    const emailDomain = email.toLowerCase().split('@')[1] || '';
+    if (
+      DISPOSABLE_OR_FAKE_EMAIL_DOMAINS.has(emailDomain) ||
+      COMMON_TYPO_EMAIL_DOMAINS.has(emailDomain)
+    ) {
+      showIntakeStatus(
+        'error',
+        'Real Email Address Required',
+        'Temporary/disposable email domains or misspelled domains (like @gmial.com) cannot be used to reserve appointments.'
+      );
       refs.emailInput.focus();
       return;
     }
@@ -1716,7 +1856,7 @@
       customer: {
         firstName,
         lastName,
-        phone,
+        phone: phoneCheck.formatted,
         email,
         notes
       },

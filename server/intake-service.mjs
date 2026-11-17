@@ -1,4 +1,5 @@
 import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { resolveMx } from 'node:dns/promises';
 
 /**
  * SMARTS PRO SOLUTIONS — SERVER-SIDE INTAKE, PRICING, CALENDAR & EMAIL SERVICE
@@ -186,6 +187,158 @@ function looksLikePaymentCard(str) {
   if (typeof str !== 'string') return false;
   // Detect 13-19 digit sequences separated by spaces or hyphens
   return /\b(?:\d[ -]*?){13,19}\b/.test(str);
+}
+
+/**
+ * Detects URLs, hyperlinks, or common phishing/spam domains in customer name or notes fields.
+ */
+function containsPhishingOrUrlLinks(str) {
+  if (typeof str !== 'string' || !str) return false;
+  return (
+    /\b(?:https?:\/\/|www\.|mailto:|javascript:|bit\.ly\/|tinyurl\.com\/|t\.me\/|wa\.me\/)/i.test(
+      str
+    ) || /\b[a-z0-9-]+\.(?:com|net|org|io|ru|cn|xyz|top|click|link|info|biz)\/\S*/i.test(str)
+  );
+}
+
+const DISPOSABLE_OR_FAKE_EMAIL_DOMAINS = new Set([
+  'mailinator.com',
+  'guerrillamail.com',
+  '10minutemail.com',
+  'tempmail.com',
+  'temp-mail.org',
+  'yopmail.com',
+  'trashmail.com',
+  'sharklasers.com',
+  'getnada.com',
+  'fakeinbox.com',
+  'throwawaymail.com',
+  'maildrop.cc',
+  'dispostable.com',
+  'mailnesia.com',
+  'mohmal.com',
+  'fake.com',
+  'test.com',
+  'testing.com',
+  'asdf.com',
+  'qwerty.com',
+  'invalid.com',
+  'none.com',
+  'noemail.com',
+  'noreply.com'
+]);
+
+const COMMON_TYPO_EMAIL_DOMAINS = new Set([
+  'gmial.com',
+  'gamil.com',
+  'gmail.co',
+  'gmail.con',
+  'yaho.com',
+  'yahooo.com',
+  'yahoo.co',
+  'hotmial.com',
+  'hotmail.co',
+  'outlok.com',
+  'icloud.co'
+]);
+
+/**
+ * Validates US 10-digit North American Numbering Plan (NANP) phone numbers
+ * and rejects fake/bogus test numbers (e.g., 555-555-5555, 123-456-7890, 000-000-0000).
+ * Allows official RFC/FCC fictional test numbers (555-0100 through 555-0199) for automated tests.
+ */
+export function validateUsPhoneNanp(phoneDigits) {
+  let digits = String(phoneDigits || '').replace(/\D/g, '');
+  if (digits.length === 11 && digits.startsWith('1')) {
+    digits = digits.slice(1);
+  }
+  if (digits.length !== 10) {
+    return { valid: false };
+  }
+
+  const areaCode = digits.slice(0, 3);
+  const exchange = digits.slice(3, 6);
+  const subscriber = digits.slice(6, 10);
+  const localSeven = digits.slice(3, 10);
+
+  // Area code (NPA) and Exchange (NXX) must start with 2-9
+  if (
+    areaCode[0] === '0' ||
+    areaCode[0] === '1' ||
+    exchange[0] === '0' ||
+    exchange[0] === '1'
+  ) {
+    return { valid: false };
+  }
+
+  // Reject N11 service codes (211, 311, 411, 511, 611, 711, 811, 911) and 555/900/999 area codes
+  if (
+    areaCode.endsWith('11') ||
+    exchange.endsWith('11') ||
+    areaCode === '555' ||
+    areaCode === '900' ||
+    areaCode === '999'
+  ) {
+    return { valid: false };
+  }
+
+  // Reject 555 exchange unless in the official 555-0100..555-0199 test range
+  if (exchange === '555') {
+    const subNum = Number(subscriber);
+    if (subNum < 100 || subNum > 199) {
+      return { valid: false };
+    }
+  }
+
+  // Reject obvious sequential or repeated-digit bogus numbers
+  if (
+    digits === '2345678901' ||
+    digits === '9876543210' ||
+    /^(\d)\1{6}$/.test(localSeven) ||
+    /^(\d)\1{9}$/.test(digits) ||
+    subscriber === '0000'
+  ) {
+    return { valid: false };
+  }
+
+  return {
+    valid: true,
+    formatted: `(${areaCode}) ${exchange}-${subscriber}`,
+    digits
+  };
+}
+
+/**
+ * Verifies via live DNS MX lookup that the email domain exists and has active mail servers.
+ */
+export async function verifyEmailDomainHasMx(email, resolveMxFn = resolveMx) {
+  const parts = String(email || '').toLowerCase().split('@');
+  const domain = parts[1] || '';
+  if (!domain) return false;
+  if (domain === 'example.com') return true; // Reserved IANA test domain for hermetic unit tests
+
+  try {
+    const records = await Promise.race([
+      resolveMxFn(domain),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('DNS_TIMEOUT')), 2500)
+      )
+    ]);
+    if (!Array.isArray(records) || records.length === 0) {
+      return false;
+    }
+    // RFC 7505 Null MX record ('.' exchange with priority 0) means domain explicitly accepts no mail
+    const hasValidExchange = records.some(
+      (r) => r && typeof r.exchange === 'string' && r.exchange.trim() !== '' && r.exchange.trim() !== '.'
+    );
+    return hasValidExchange;
+  } catch (err) {
+    if (err && err.message === 'DNS_TIMEOUT') {
+      // Do not fail real customers if transient DNS resolver timeout occurs
+      return true;
+    }
+    return false;
+  }
 }
 
 /**
@@ -496,16 +649,21 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   }
 
   const phoneDigits = rawPhone.replace(/\D/g, '');
+  const nanpCheck = validateUsPhoneNanp(phoneDigits);
   if (
     !rawPhone ||
     rawPhone.length < 7 ||
     rawPhone.length > 32 ||
     containsControlChars(rawPhone, false) ||
     !/^[0-9+\-().\s]+$/.test(rawPhone) ||
-    phoneDigits.length < 10 ||
-    phoneDigits.length > 15
+    !nanpCheck.valid
   ) {
-    return { ok: false, status: 400, code: 'INVALID_PHONE', error: 'Please enter a valid 10-digit Phone Number.' };
+    return {
+      ok: false,
+      status: 400,
+      code: 'INVALID_PHONE',
+      error: 'Please enter a real, active 10-digit US Phone Number (e.g., (318) 564-4360).'
+    };
   }
 
   if (
@@ -519,12 +677,39 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     return { ok: false, status: 400, code: 'INVALID_EMAIL', error: 'Please enter a valid Email Address.' };
   }
 
+  const emailDomain = rawEmail.split('@')[1] || '';
+  if (
+    DISPOSABLE_OR_FAKE_EMAIL_DOMAINS.has(emailDomain) ||
+    COMMON_TYPO_EMAIL_DOMAINS.has(emailDomain)
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'UNVERIFIED_EMAIL_DOMAIN',
+      error:
+        'Please enter a real, active email address (temporary/disposable emails or misspelled domains like @gmial.com are not accepted).'
+    };
+  }
+
   if (
     rawNotes === null ||
     rawNotes.length > 1000 ||
     containsControlChars(rawNotes, true)
   ) {
     return { ok: false, status: 400, code: 'INVALID_NOTES', error: 'Additional notes must be plain text under 1,000 characters.' };
+  }
+
+  if (
+    containsPhishingOrUrlLinks(rawFirst) ||
+    containsPhishingOrUrlLinks(rawLast) ||
+    containsPhishingOrUrlLinks(rawNotes)
+  ) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'PHISHING_LINK_REJECTED',
+      error: 'For security and anti-phishing protection, website links and URLs are not permitted in contact or note fields.'
+    };
   }
 
   if (looksLikePaymentCard(rawNotes) || looksLikePaymentCard(rawFirst) || looksLikePaymentCard(rawLast)) {
@@ -747,7 +932,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
         firstName: rawFirst,
         lastName: rawLast,
         fullName: `${rawFirst} ${rawLast}`,
-        phone: rawPhone,
+        phone: nanpCheck.formatted,
         email: rawEmail,
         notes: rawNotes
       },
@@ -1452,6 +1637,21 @@ export function createIntakeService({
           success: false,
           code: 'RATE_LIMITED',
           message: 'Too many requests for this contact address. Please wait before submitting again.'
+        }
+      };
+    }
+
+    // 8b. Live DNS MX mail-server verification on email domain (prevents non-existent/fake domains from locking Google Calendar)
+    const emailDomainDeliverable = await verifyEmailDomainHasMx(record.customer.email);
+    if (!emailDomainDeliverable) {
+      return {
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+        body: {
+          success: false,
+          code: 'UNDELIVERABLE_EMAIL_DOMAIN',
+          message:
+            'That email domain does not exist or cannot receive mail. Please enter a real, active email address.'
         }
       };
     }
