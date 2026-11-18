@@ -118,8 +118,8 @@ body:has(.construction-screen) { overflow: hidden; }
 .intake-confirmation-row { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0.35rem 1rem; padding-bottom: 0.5rem; border-bottom: 1px dashed #E2E8F0; font-size: 0.9rem; }
 .intake-confirmation-row:last-child { border-bottom: none; padding-bottom: 0; }
 .intake-confirmation-row.is-highlight { padding-top: 0.35rem; font-size: 1rem; }
-.intake-confirmation-label { color: #475569; font-weight: 600; }
-.intake-confirmation-value { color: var(--navy-dark); font-weight: 700; text-align: right; }
+.intake-confirmation-label { color: #475569; font-weight: 600; flex-shrink: 0; }
+.intake-confirmation-value { color: var(--navy-dark); font-weight: 700; text-align: right; min-width: 0; max-width: 100%; flex: 1 1 200px; overflow-wrap: anywhere; word-break: break-word; }
 .intake-confirmation-row.is-highlight .intake-confirmation-value { color: var(--green-dark); font-size: 1.08rem; font-weight: 800; }
 
 .intake-confirmation-edit-hint { margin: 0 0 0.95rem; font-size: 0.85rem; line-height: 1.45; color: #475569; background: #EFF6FF; border: 1px solid #BFDBFE; padding: 0.7rem 0.9rem; border-radius: 8px; }
@@ -177,6 +177,6 @@ body:has(.construction-screen) { overflow: hidden; }
   .calendar-date-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .calendar-slot-grid { grid-template-columns: 1fr; }
   .intake-confirmation-row { flex-direction: column; align-items: flex-start; }
-  .intake-confirmation-value { text-align: left; }
+  .intake-confirmation-value { flex: 0 0 auto; width: 100%; text-align: left; }
   .finish-early-card { padding: 1.35rem 1.1rem; }
 }

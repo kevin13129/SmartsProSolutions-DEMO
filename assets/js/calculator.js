@@ -120,7 +120,9 @@
     serviceCategory: 'residential', // 'residential' | 'commercial' | 'moveinout' | 'airbnb'
     step1Fulfilled: false,
     step2ResidentialFulfilled: false,
+    step2AirbnbConfirmed: false,
     step4FrequencyFulfilled: false,
+    step5Visited: false,
     propertyType: '', // 'House' | 'Apartment' | 'Condo' | 'Townhome'
     scopeMode: 'full', // 'full' | 'specific'
     specificAreasText: '',
@@ -359,11 +361,16 @@
       if (state.serviceCategory === 'residential') {
         if (!state.step2ResidentialFulfilled) {
           showValidationError(
-            'Please select your Residential Cleaning Tier (Standard Clean or Deep Clean) or adjust your property details to continue.',
-            [els.residentialTierGroup]
+            'Please select your Cleaning Tier (Standard Clean or Deep Clean) and select your house details below before moving forward.',
+            [els.residentialTierGroup, els.scopePanelFull]
           );
           return false;
         }
+        return true;
+      }
+
+      if (state.serviceCategory === 'airbnb') {
+        state.step2AirbnbConfirmed = true;
         return true;
       }
     }
@@ -740,6 +747,10 @@
       }
     }
 
+    if (state.wizardStep === 5) {
+      state.step5Visited = true;
+    }
+
     if (
       window.SmartsProCurrentQuote &&
       window.SmartsProCurrentQuote.state
@@ -813,7 +824,7 @@
     els.residentialTierBtns.forEach((btn) => {
       const tier = btn.getAttribute('data-res-tier');
       const currentTier = state.scopeMode === 'specific' ? 'specific' : state.serviceType;
-      const isActive = tier === currentTier;
+      const isActive = state.step2ResidentialFulfilled && tier === currentTier;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
@@ -1077,6 +1088,8 @@
     if (!['residential', 'commercial', 'moveinout', 'airbnb'].includes(category)) return;
     state.serviceCategory = category;
     state.step1Fulfilled = true;
+    state.step2AirbnbConfirmed = false;
+    state.step5Visited = false;
     clearValidationErrors();
 
     if (category === 'residential') {
@@ -1217,6 +1230,8 @@
           state.bedrooms--;
           state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
           updateUI();
         }
       });
@@ -1227,6 +1242,8 @@
           state.bedrooms++;
           state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
           updateUI();
         }
       });
@@ -1239,6 +1256,8 @@
           state.fullBaths--;
           state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
           updateUI();
         }
       });
@@ -1249,6 +1268,8 @@
           state.fullBaths++;
           state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
           updateUI();
         }
       });
@@ -1261,6 +1282,8 @@
           state.halfBaths--;
           state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
           updateUI();
         }
       });
@@ -1271,6 +1294,8 @@
           state.halfBaths++;
           state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
           updateUI();
         }
       });
@@ -1283,6 +1308,8 @@
         state.sqft = Math.min(6000, Math.max(400, val));
         state.scopeMode = 'full';
         state.step2ResidentialFulfilled = true;
+        state.step2AirbnbConfirmed = true;
+        clearValidationErrors();
         if (els.inputSqft) els.inputSqft.value = state.sqft;
         updateUI();
       });
@@ -1296,6 +1323,8 @@
         state.sqft = Math.min(6000, Math.max(400, val));
         state.scopeMode = 'full';
         state.step2ResidentialFulfilled = true;
+        state.step2AirbnbConfirmed = true;
+        clearValidationErrors();
         if (els.sliderSqft) els.sliderSqft.value = state.sqft;
         updateUI();
       });
@@ -1420,7 +1449,9 @@
         state.serviceCategory = 'residential';
         state.step1Fulfilled = false;
         state.step2ResidentialFulfilled = false;
+        state.step2AirbnbConfirmed = false;
         state.step4FrequencyFulfilled = false;
+        state.step5Visited = false;
         state.propertyType = '';
         state.scopeMode = 'full';
         state.specificAreasText = '';
@@ -1594,8 +1625,122 @@
     return window.SmartsProCurrentQuote;
   }
 
+  function scrollWizardIntoView() {
+    const shell = document.getElementById('calc-wizard-shell') || document.getElementById('calculator');
+    if (shell && typeof shell.scrollIntoView === 'function') {
+      shell.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  /**
+   * Ensures all active evaluation steps (1-5 for Residential/Move-In-Out/Airbnb, or 1 & 4 for Commercial)
+   * have been completed before opening the Estimate & Schedule modal. If any step is incomplete, jumps to
+   * that step, highlights missing fields in red, and instructs the user.
+   */
+  function validateAllStepsBeforeBooking() {
+    if (!state.step1Fulfilled) {
+      state.wizardStep = 1;
+      updateWizardUI();
+      showValidationError(
+        'Please select your Type of Service below and complete your house details across all 5 steps before clicking Complete Estimate & Schedule.',
+        [els.step1ServiceGrid]
+      );
+      scrollWizardIntoView();
+      return false;
+    }
+
+    const sequence = getActiveStepSequence();
+
+    if (sequence.includes(2)) {
+      if (state.serviceCategory === 'moveinout' && !state.propertyType) {
+        state.wizardStep = 2;
+        updateWizardUI();
+        validateStepFulfillment(2);
+        scrollWizardIntoView();
+        return false;
+      }
+      if (state.serviceCategory === 'residential' && !state.step2ResidentialFulfilled) {
+        state.wizardStep = 2;
+        updateWizardUI();
+        showValidationError(
+          'Please select your Cleaning Tier (Standard Clean or Deep Clean) and select your house details below before completing your estimate.',
+          [els.residentialTierGroup, els.scopePanelFull]
+        );
+        scrollWizardIntoView();
+        return false;
+      }
+      if (state.serviceCategory === 'airbnb' && !state.step2AirbnbConfirmed) {
+        state.wizardStep = 2;
+        updateWizardUI();
+        showValidationError(
+          'Please review and confirm your Airbnb house details (bedrooms, bathrooms, square footage) below before completing your estimate.',
+          [els.scopePanelFull]
+        );
+        scrollWizardIntoView();
+        return false;
+      }
+    }
+
+    if (sequence.includes(3)) {
+      const hasMissingAddInfo =
+        !state.additionalInfo.hasPets ||
+        !state.additionalInfo.lastCleaned ||
+        !state.additionalInfo.occupancy ||
+        !state.additionalInfo.condition;
+      if (hasMissingAddInfo) {
+        state.wizardStep = 3;
+        updateWizardUI();
+        validateStepFulfillment(3);
+        scrollWizardIntoView();
+        return false;
+      }
+    }
+
+    if (!state.step4FrequencyFulfilled) {
+      state.wizardStep = 4;
+      updateWizardUI();
+      validateStepFulfillment(4);
+      scrollWizardIntoView();
+      return false;
+    }
+
+    if (sequence.includes(5)) {
+      if (!state.step5Visited) {
+        state.wizardStep = 5;
+        updateWizardUI();
+        showValidationError(
+          'Almost done! Please review Step 5 (Custom Add-Ons & Specific Areas) — choose any optional add-ons or click Review Estimate / Complete Estimate & Schedule to continue.',
+          [document.getElementById('calc-step-5')]
+        );
+        scrollWizardIntoView();
+        return false;
+      }
+      if (!validateStepFulfillment(5)) {
+        state.wizardStep = 5;
+        updateWizardUI();
+        scrollWizardIntoView();
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  /**
+   * Jumps directly to Property Details (Step 2, or Step 1 for Commercial) when the customer clicks
+   * "Edit Details" inside the Estimate & Schedule modal header.
+   */
+  function goToDetailsStepFromModal() {
+    clearValidationErrors();
+    state.wizardStep = state.serviceCategory === 'commercial' ? 1 : 2;
+    updateWizardUI();
+    scrollWizardIntoView();
+  }
+
   window.SmartsProCalculator = Object.freeze({
-    applyQuoteAdjustments
+    applyQuoteAdjustments,
+    validateAllStepsBeforeBooking,
+    goToDetailsStepFromModal
   });
 
   // Initialize on DOM ready

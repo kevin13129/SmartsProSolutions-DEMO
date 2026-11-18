@@ -97,6 +97,11 @@ try {
   assert.equal(await evaluate('typeof SmartsProModal.openLeadsViewer'), 'undefined');
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"L", shiftKey:true}))');
   assert.equal(await evaluate('document.querySelectorAll(".modal-overlay.open").length'), 0);
+  // Clicking Complete Estimate & Schedule before selecting Type of Service pops Step 1 red and stays closed
+  await evaluate('document.getElementById("btn-book-quote-now").click()');
+  assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);
+  assert.equal(await evaluate('document.getElementById("step1-service-grid").classList.contains("wizard-field-missing")'), true);
+
   // Step 1 validation: cannot advance until a Type of Service is selected
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
@@ -122,10 +127,13 @@ try {
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.propertyType'), 'House');
   await evaluate('document.getElementById("btn-wizard-prev").click()');
 
-  // Residential flow: select Residential Homes, advance to Step 2, Step 3 Additional Info, and test Pet Add-On sync & modal
+  // Residential flow: select Residential Homes, advance to Step 2, verify house details red validation, then adjust beds
   await evaluate('document.getElementById("card-cat-residential").click()');
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
+  assert.equal(await evaluate('document.getElementById("residential-tier-group").classList.contains("wizard-field-missing")'), true);
   await evaluate('document.getElementById("btn-bed-plus").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 275);
 
@@ -200,11 +208,12 @@ try {
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
   assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$340.00');
   assert.match(await evaluate('document.getElementById("modal-recap-hours").textContent'), /Hours/i);
+  assert.equal(await evaluate('!!document.getElementById("modal-edit-details-btn")'), true);
   assert.equal(await evaluate('!!document.getElementById("btn-refresh-calendar")'), true);
   assert.equal(await evaluate('!!document.getElementById("calendar-date-grid")'), true);
   assert.equal(await evaluate('!!document.getElementById("calendar-slot-grid")'), true);
-  assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').disabled'), true);
-  assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').classList.contains("is-cutoff")'), true);
+  assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').disabled'), false);
+  assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').classList.contains("is-cutoff")'), false);
   assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="08:00-11:00"]\').disabled'), false);
   assert.equal(await evaluate('!!document.getElementById("upcoming-bookings-list")'), true);
   assert.equal(await evaluate('!!document.getElementById("intake-first-name")'), true);
@@ -213,6 +222,19 @@ try {
   assert.equal(await evaluate('!!document.getElementById("intake-email")'), true);
   assert.equal(await evaluate('!!document.getElementById("intake-notes")'), true);
   assert.equal(await evaluate('document.activeElement.id'), 'modal-close-btn', await evaluate(`JSON.stringify({ active: document.activeElement.outerHTML.slice(0, 150), modalVisibility: getComputedStyle(document.getElementById('booking-modal-overlay')).visibility, buttonVisibility: getComputedStyle(document.getElementById('modal-close-btn')).visibility, rect: document.getElementById('modal-close-btn').getBoundingClientRect().toJSON() })`));
+
+  // Verify Edit Details button returns from modal directly to Step 2
+  await evaluate('document.getElementById("modal-edit-details-btn").click()');
+  assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
+
+  // Re-open with long unbroken Specific Areas text and verify zero horizontal modal overflow
+  await evaluate('document.getElementById("btn-scope-specific").click()');
+  await evaluate('(() => { const el = document.getElementById("input-specific-areas"); el.value = "testing area, " + "d".repeat(140); el.dispatchEvent(new Event("input")); })()');
+  await evaluate('document.getElementById("btn-book-quote-now").click()');
+  await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  assert.equal(await evaluate('document.getElementById("booking-modal-container").scrollWidth <= document.getElementById("booking-modal-container").clientWidth + 1'), true);
+  await evaluate('document.getElementById("btn-scope-specific").click()');
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"}))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);
 

@@ -694,7 +694,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
   }
 });
 
-test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step /api/finish-early re-opening work end-to-end', async () => {
+test('open arrival windows, multi-window overlap blocking, updateToken self-edit exclusion across calendar sync, fail-closed HTML webhooks, and /api/finish-early work end-to-end', async () => {
   let activeNow = new Date('2026-11-09T14:00:00Z'); // Monday 8:00 AM CST (Nov 9, 2026)
   const sentEmails = [];
   const calendarActions = [];
@@ -702,9 +702,15 @@ test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step
   const service = createIntakeService({
     nowFn: () => activeNow,
     includeBaselineSchedule: false,
+    rateLimitMax: 20,
     finishEarlySecret: 'test-finish-early-secret-32-chars-minimum',
     mailTransport: async (emailPackage, record, referenceCode) => {
-      sentEmails.push({ emailPackage, record, referenceCode });
+      sentEmails.push({
+        emailPackage,
+        record,
+        referenceCode,
+        previousReferenceCode: record.previousReferenceCode || ''
+      });
       return { delivered: true, provider: 'test-double' };
     },
     calendarActionTransport: async (payload) => {
@@ -756,31 +762,37 @@ test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step
   });
 
   try {
-    // 1. 4:30 PM cutoff checks:
-    //    - 5.5-hour Deep Clean (2,000 sqft 3B/2B) exceeds 4:30 PM for 2:00 PM arrival (14:00 + 5.5h = 7:30 PM)
-    //    - 6.0-hour Deep Clean + Fridge exceeds 4:30 PM for 11:00 AM arrival (11:00 + 6h = 5:00 PM)
-    const lateAfternoonCutoffRes = await fetch(`${base}/api/estimate-request`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(makePayload({ appointment: { preferredDate: '2026-11-10', preferredWindow: '14:00-16:30' } }))
-    });
-    assert.equal(lateAfternoonCutoffRes.status, 400);
-    assert.equal((await lateAfternoonCutoffRes.json()).code, 'SLOT_EXCEEDS_CLOSING_TIME');
-
-    const middayCutoffRes = await fetch(`${base}/api/estimate-request`, {
+    // 1. All arrival windows remain selectable regardless of estimated hours (unless already booked)
+    const lateAfternoonDeepRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(
         makePayload({
-          appointment: { preferredDate: '2026-11-10', preferredWindow: '11:00-14:00' },
+          customer: { email: 'latewin@example.com', firstName: 'Late', lastName: 'Window', phone: '(318) 555-0166' },
+          appointment: { preferredDate: '2026-11-11', preferredWindow: '14:00-16:30' }
+        })
+      )
+    });
+    assert.equal(lateAfternoonDeepRes.status, 200);
+    const lateAfternoonData = await lateAfternoonDeepRes.json();
+    assert.equal(lateAfternoonData.appointment.preferredWindow, '14:00-16:30');
+    assert.ok(lateAfternoonData.updateToken);
+
+    const middayDeepFridgeRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        makePayload({
+          customer: { email: 'middaywin@example.com', firstName: 'Mid', lastName: 'Window', phone: '(318) 555-0167' },
+          appointment: { preferredDate: '2026-11-13', preferredWindow: '11:00-14:00' },
           quote: { addons: { fridge: 1, fridgeDouble: 0, oven: 0, pets: 0 } }
         })
       )
     });
-    assert.equal(middayCutoffRes.status, 400);
-    assert.equal((await middayCutoffRes.json()).code, 'SLOT_EXCEEDS_CLOSING_TIME');
+    assert.equal(middayDeepFridgeRes.status, 200);
 
     // 2. Book 5.5-hour Deep Clean at 08:00-11:00 (runs 8:00 AM - 1:30 PM)
+    const emailIdxBeforeMorning = sentEmails.length;
     const morningDeepRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -790,9 +802,38 @@ test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step
     const morningDeepData = await morningDeepRes.json();
     assert.equal(morningDeepData.verifiedEstimate.totalEstimatedHours, 5.5);
     assert.equal(morningDeepData.appointment.scheduledEndLabel, '1:30 PM');
-    assert.match(sentEmails[0].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261110T133000/);
+    assert.match(sentEmails[emailIdxBeforeMorning].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261110T133000/);
 
-    // 3. Another customer cannot book 11:00-14:00 on 2026-11-10 because 8:00 AM - 1:30 PM overlaps it,
+    // 2b. Edit that booking using updateToken to add a fridge (+0.5h -> 6.0 hrs, $395) on the SAME window without self-blocking
+    const morningEditRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload({ quote: { addons: { fridge: 1, fridgeDouble: 0, oven: 0, pets: 0 } } }),
+        updateToken: morningDeepData.updateToken
+      })
+    });
+    assert.equal(morningEditRes.status, 200);
+    const morningEditData = await morningEditRes.json();
+    assert.equal(morningEditData.verifiedEstimate.grandTotal, 395);
+    assert.equal(morningEditData.verifiedEstimate.totalEstimatedHours, 6);
+    assert.equal(morningEditData.appointment.scheduledEndLabel, '2:00 PM');
+    const morningEmail = sentEmails[sentEmails.length - 1];
+    assert.equal(morningEmail.previousReferenceCode, morningDeepData.referenceCode);
+
+    // Tampered updateToken must fail closed with 400 INVALID_UPDATE_TOKEN
+    const badUpdateRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload(),
+        updateToken: `${morningEditData.updateToken}tamper`
+      })
+    });
+    assert.equal(badUpdateRes.status, 400);
+    assert.equal((await badUpdateRes.json()).code, 'INVALID_UPDATE_TOKEN');
+
+    // 3. Another customer cannot book 11:00-14:00 on 2026-11-10 because 8:00 AM - 2:00 PM overlaps it,
     //    but CAN book a 2-hour Specific Areas clean at 14:00-16:30 (ends 4:00 PM <= 4:30 PM)!
     const overlapRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
@@ -823,8 +864,8 @@ test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step
     const afternoonData = await afternoonSpecificRes.json();
     assert.equal(afternoonData.appointment.scheduledEndLabel, '4:00 PM');
 
-    // 4. Two-step Finish Early verification on morning Deep Clean
-    const finishEarlyUrl = new URL(sentEmails[0].emailPackage.finishEarlyUrl);
+    // 4. Two-step Finish Early verification on updated morning Deep Clean
+    const finishEarlyUrl = new URL(morningEmail.emailPackage.finishEarlyUrl);
     const token = finishEarlyUrl.searchParams.get('token');
     assert.ok(token);
 
@@ -837,7 +878,7 @@ test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step
     assert.match(pageHtml, /btn-finish-now/);
     assert.equal(calendarActions.length, 0);
 
-    // 4b. Tampered token is rejected cleanly on both GET and POST
+    // 4b. Tampered token is rejected cleanly on POST
     const badTokenPost = await fetch(`${base}/api/finish-early`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -904,5 +945,129 @@ test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('remote Google Calendar webhook mode excludes self-booking via updateToken and fails closed on HTML error pages', async () => {
+  const webhookCalls = [];
+  let failHtmlNextPost = false;
+  const originalFetch = globalThis.fetch;
+  const remoteEvents = [
+    { date: '2026-11-19', startMinutes: 480, endMinutes: 810 } // Initial 5.5h booking
+  ];
+
+  process.env.EMAIL_WEBHOOK_URL = 'https://script.google.com/macros/s/test-deploy-id/exec';
+  globalThis.fetch = async (url, init = {}) => {
+    const urlStr = String(url);
+    if (urlStr.startsWith('https://script.google.com/')) {
+      if ((init.method || 'GET').toUpperCase() === 'GET') {
+        return new Response(JSON.stringify({ ok: true, busyIntervals: remoteEvents }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      webhookCalls.push(JSON.parse(init.body));
+      if (failHtmlNextPost) {
+        return new Response('<!DOCTYPE html><html><body>Sign in</body></html>', {
+          status: 200,
+          headers: { 'Content-Type': 'text/html' }
+        });
+      }
+      return new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    return originalFetch(url, init);
+  };
+
+  try {
+    const fixedNow = new Date('2026-11-18T15:00:00Z');
+    const webhookService = createIntakeService({
+      nowFn: () => fixedNow,
+      finishEarlySecret: 'remote-webhook-test-secret-32-chars-minimum'
+    });
+
+    const basePayload = {
+      customer: {
+        firstName: 'Kevin',
+        lastName: 'Tester',
+        phone: '(318) 555-0177',
+        email: 'kevin@example.com',
+        notes: 'testing'
+      },
+      appointment: {
+        preferredDate: '2026-11-19',
+        preferredWindow: '08:00-11:00'
+      },
+      quote: {
+        serviceCategory: 'residential',
+        serviceType: 'deep',
+        propertyType: '',
+        scopeMode: 'full',
+        specificAreasText: '',
+        specificHours: 1,
+        bedrooms: 3,
+        fullBaths: 2,
+        halfBaths: 0,
+        sqft: 2000,
+        additionalInfo: {
+          hasPets: 'no',
+          lastCleaned: '1-3 Months ago',
+          occupancy: 'Occupied, we live there',
+          condition: 'Heavy buildup'
+        },
+        frequency: 'onetime',
+        addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+      },
+      companyWebsite: ''
+    };
+
+    // Simulate editing an already-synced Google Calendar booking using updateToken from prior confirmation
+    const { createBookingUpdateToken } = await import('../server/intake-service.mjs');
+    const priorToken = createBookingUpdateToken(
+      {
+        v: 1,
+        ref: 'SPS-PRIOR12345',
+        date: '2026-11-19',
+        startMin: 480,
+        endMin: 810,
+        exp: Date.parse('2026-11-25T00:00:00Z')
+      },
+      'remote-webhook-test-secret-32-chars-minimum'
+    );
+
+    const updateRes = await webhookService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...basePayload,
+        quote: {
+          ...basePayload.quote,
+          addons: { fridge: 1, fridgeDouble: 1, oven: 0, pets: 0 }
+        },
+        updateToken: priorToken
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.88'
+    });
+    assert.equal(updateRes.status, 200);
+    assert.equal(updateRes.body.success, true);
+    assert.equal(webhookCalls.length, 1);
+    assert.equal(webhookCalls[0].previousReferenceCode, 'SPS-PRIOR12345');
+
+    // If Apps Script returns HTTP 200 HTML (e.g. "Who has access" or MailApp auth error), fail closed with 502!
+    failHtmlNextPost = true;
+    const htmlFailureRes = await webhookService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...basePayload,
+        appointment: { preferredDate: '2026-11-20', preferredWindow: '08:00-11:00' }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.89'
+    });
+    assert.equal(htmlFailureRes.status, 502);
+    assert.equal(htmlFailureRes.body.code, 'EMAIL_DISPATCH_FAILED');
+  } finally {
+    delete process.env.EMAIL_WEBHOOK_URL;
+    globalThis.fetch = originalFetch;
   }
 });

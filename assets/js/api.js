@@ -129,6 +129,10 @@
       companyWebsite: String(payload.companyWebsite || '')
     };
 
+    if (typeof payload.updateToken === 'string' && payload.updateToken.trim()) {
+      cleanBody.updateToken = payload.updateToken.trim();
+    }
+
     const idempotencyKey = customIdempotencyKey || generateIdempotencyKey();
 
     try {

@@ -16,6 +16,7 @@
   const btnOpenModal = document.getElementById('btn-book-quote-now');
   const btnContactOpenScheduler = document.getElementById('btn-contact-open-scheduler');
   const btnCloseModal = document.getElementById('modal-close-btn');
+  const btnEditDetails = document.getElementById('modal-edit-details-btn');
   const modalBookingTitle = document.getElementById('modal-booking-title');
 
   const recapService = document.getElementById('modal-recap-service');
@@ -135,7 +136,16 @@
     return startA < endB && endA > startB;
   }
 
-  function evaluateClientSlot(dayObj, slot, durationMinutes, confirmedDate, confirmedWindow, busyIntervals) {
+  function evaluateClientSlot(dayObj, slot, durationMinutes, confirmedInfo, busyIntervals) {
+    const confirmedDate = (confirmedInfo && confirmedInfo.date) || '';
+    const confirmedWindow = (confirmedInfo && confirmedInfo.window) || '';
+    const confirmedStartMinutes = confirmedInfo && Number.isFinite(confirmedInfo.startMinutes)
+      ? confirmedInfo.startMinutes
+      : null;
+    const confirmedEndMinutes = confirmedInfo && Number.isFinite(confirmedInfo.endMinutes)
+      ? confirmedInfo.endMinutes
+      : null;
+
     const timing = WINDOW_TIMINGS[slot.slotId] || {
       startMinutes: Number(slot.startMinutes) || BUSINESS_OPEN_MINUTES,
       endMinutes: Number(slot.endMinutes) || BUSINESS_OPEN_MINUTES + 180
@@ -148,6 +158,7 @@
         selectable: false,
         endMinutes: timing.endMinutes,
         endLabel: formatMinutesAsTime(timing.endMinutes),
+        exceedsClose: false,
         isFullDayExtension: false,
         reasonText: slot.serviceLabel || 'Holiday (Closed)'
       };
@@ -155,23 +166,14 @@
 
     const safeDuration = Math.max(60, Math.round(Number(durationMinutes) || 60));
     const projectedEnd = timing.startMinutes + safeDuration;
-    if (timing.startMinutes > BUSINESS_OPEN_MINUTES && projectedEnd > BUSINESS_CLOSE_MINUTES) {
-      return {
-        status: 'EXCEEDS_CLOSING',
-        selectable: false,
-        endMinutes: projectedEnd,
-        endLabel: formatMinutesAsTime(projectedEnd),
-        isFullDayExtension: false,
-        reasonText: `Needs ${formatDurationHours(safeDuration / 60)} (past 4:30 PM close)`
-      };
-    }
+    const exceedsClose = projectedEnd > BUSINESS_CLOSE_MINUTES;
 
     const effectiveEnd = Math.max(
       timing.startMinutes + 60,
       Math.min(BUSINESS_CLOSE_MINUTES, projectedEnd)
     );
     const isFullDayExtension =
-      timing.startMinutes === BUSINESS_OPEN_MINUTES && safeDuration > FULL_DAY_MINUTES;
+      timing.startMinutes === BUSINESS_OPEN_MINUTES && exceedsClose;
 
     if (!isCustomerOwnSlot) {
       if (slot.status === 'BOOKED') {
@@ -180,6 +182,7 @@
           selectable: false,
           endMinutes: effectiveEnd,
           endLabel: formatMinutesAsTime(effectiveEnd),
+          exceedsClose,
           isFullDayExtension,
           reasonText: 'Booked'
         };
@@ -188,12 +191,18 @@
       const dayBusy = (busyIntervals || []).filter((item) => item && item.date === dayObj.date);
       const ownWindowTiming = confirmedWindow ? WINDOW_TIMINGS[confirmedWindow] : null;
       const overlapsBusy = dayBusy.some((busy) => {
-        if (
-          dayObj.date === confirmedDate &&
-          ownWindowTiming &&
-          busy.startMinutes === ownWindowTiming.startMinutes
-        ) {
-          return false;
+        if (dayObj.date === confirmedDate) {
+          if (
+            confirmedStartMinutes !== null &&
+            confirmedEndMinutes !== null &&
+            busy.startMinutes === confirmedStartMinutes &&
+            busy.endMinutes === confirmedEndMinutes
+          ) {
+            return false;
+          }
+          if (ownWindowTiming && busy.startMinutes === ownWindowTiming.startMinutes) {
+            return false;
+          }
         }
         return intervalsOverlap(timing.startMinutes, effectiveEnd, busy.startMinutes, busy.endMinutes);
       });
@@ -204,10 +213,19 @@
           selectable: false,
           endMinutes: effectiveEnd,
           endLabel: formatMinutesAsTime(effectiveEnd),
+          exceedsClose,
           isFullDayExtension,
           reasonText: 'Booked / Overlaps existing job'
         };
       }
+    }
+
+    const hoursSummary = formatDurationHours(safeDuration / 60);
+    let reasonText = `Available · Est. finishes ~${formatMinutesAsTime(effectiveEnd)}`;
+    if (isFullDayExtension) {
+      reasonText = `Available · Full-Day Block (${formatMinutesAsTime(timing.startMinutes)} – ${formatMinutesAsTime(effectiveEnd)})`;
+    } else if (exceedsClose) {
+      reasonText = `Available · ${hoursSummary} est. (${slot.shortLabel} arrival)`;
     }
 
     return {
@@ -215,10 +233,9 @@
       selectable: true,
       endMinutes: effectiveEnd,
       endLabel: formatMinutesAsTime(effectiveEnd),
+      exceedsClose,
       isFullDayExtension,
-      reasonText: isFullDayExtension
-        ? `Available · Full-Day Block (${formatMinutesAsTime(timing.startMinutes)} – ${formatMinutesAsTime(effectiveEnd)})`
-        : `Available · Est. finishes ~${formatMinutesAsTime(effectiveEnd)}`
+      reasonText
     };
   }
 
@@ -650,6 +667,9 @@
         recapHours.textContent = `${hoursLabel} (Est. ${startStr} – ${endStr})`;
         return;
       }
+      const startStr = formatMinutesAsTime(timing.startMinutes);
+      recapHours.textContent = `${hoursLabel} (${startStr} Arrival Window)`;
+      return;
     }
 
     recapHours.textContent = hoursLabel;
@@ -1653,8 +1673,16 @@
       schedulerState.refs;
     if (!dateGrid || !slotGrid) return;
 
-    const confirmedDate = schedulerState.confirmedSubmission?.appointment?.preferredDate || '';
-    const confirmedWindow = schedulerState.confirmedSubmission?.appointment?.preferredWindow || '';
+    const confirmedInfo = schedulerState.confirmedSubmission
+      ? {
+          date: schedulerState.confirmedSubmission.appointment?.preferredDate || '',
+          window: schedulerState.confirmedSubmission.appointment?.preferredWindow || '',
+          startMinutes: schedulerState.confirmedSubmission.confirmedStartMinutes,
+          endMinutes: schedulerState.confirmedSubmission.confirmedEndMinutes
+        }
+      : { date: '', window: '', startMinutes: null, endMinutes: null };
+    const confirmedDate = confirmedInfo.date;
+    const confirmedWindow = confirmedInfo.window;
     const durInfo = getActiveDurationInfo();
     const busyIntervals = schedulerState.busyIntervals || [];
 
@@ -1665,8 +1693,7 @@
           dayObj,
           slot,
           durInfo.durationMinutes,
-          confirmedDate,
-          confirmedWindow,
+          confirmedInfo,
           busyIntervals
         ).selectable
       ).length;
@@ -1761,8 +1788,7 @@
           activeDateObj,
           s,
           durInfo.durationMinutes,
-          confirmedDate,
-          confirmedWindow,
+          confirmedInfo,
           busyIntervals
         )
       }));
@@ -1835,14 +1861,12 @@
           activeDateObj,
           slot,
           durInfo.durationMinutes,
-          confirmedDate,
-          confirmedWindow,
+          confirmedInfo,
           busyIntervals
         );
         const isCustomerOwnSlot =
           activeDateObj.date === confirmedDate && slot.slotId === confirmedWindow;
         const isUnavailable = !evalResult.selectable;
-        const isCutoff = evalResult.status === 'EXCEEDS_CLOSING';
         const isSelected = evalResult.selectable && slot.slotId === schedulerState.selectedWindow;
         if (isSelected) {
           selectedSlotEvaluation = evalResult;
@@ -1850,7 +1874,7 @@
 
         const btn = createEl(
           'button',
-          `calendar-slot-btn${isSelected ? ' active' : ''}${isUnavailable ? ' is-booked' : ''}${isCutoff ? ' is-cutoff' : ''}`
+          `calendar-slot-btn${isSelected ? ' active' : ''}${isUnavailable ? ' is-booked' : ''}`
         );
         btn.type = 'button';
         btn.disabled = isUnavailable;
@@ -1861,11 +1885,17 @@
         let statusText = evalResult.reasonText;
         if (evalResult.selectable) {
           if (isCustomerOwnSlot && isSelected) {
-            statusText = `Your Current Slot ✓ · Est. ends ~${evalResult.endLabel}`;
+            statusText = evalResult.exceedsClose
+              ? `Your Current Slot ✓ · ${formatDurationHours(durInfo.totalEstimatedHours)} est.`
+              : `Your Current Slot ✓ · Est. ends ~${evalResult.endLabel}`;
           } else if (isSelected) {
-            statusText = evalResult.isFullDayExtension
-              ? 'Selected ✓ · Full-Day Block (Ends 4:30 PM)'
-              : `Selected ✓ · Est. ends ~${evalResult.endLabel}`;
+            if (evalResult.isFullDayExtension) {
+              statusText = 'Selected ✓ · Full-Day Block (Ends 4:30 PM)';
+            } else if (evalResult.exceedsClose) {
+              statusText = `Selected ✓ · ${formatDurationHours(durInfo.totalEstimatedHours)} est.`;
+            } else {
+              statusText = `Selected ✓ · Est. ends ~${evalResult.endLabel}`;
+            }
           }
         }
         const statusRow = createEl('span', 'cal-slot-status', statusText);
@@ -1890,9 +1920,12 @@
     if (selectedSummary) {
       if (activeDateObj && schedulerState.selectedWindow) {
         const chosenSlot = activeDateObj.slots.find((s) => s.slotId === schedulerState.selectedWindow);
-        const endSummary = selectedSlotEvaluation
-          ? ` · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)} (Ends ~${selectedSlotEvaluation.endLabel})`
-          : '';
+        let endSummary = '';
+        if (selectedSlotEvaluation) {
+          endSummary = selectedSlotEvaluation.exceedsClose
+            ? ` · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`
+            : ` · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)} (Ends ~${selectedSlotEvaluation.endLabel})`;
+        }
         selectedSummary.textContent = `Selected Time: ${activeDateObj.dateFormatted} • ${chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow}${endSummary}`;
       } else {
         selectedSummary.textContent = 'Please select an available day and time window above.';
@@ -2122,6 +2155,10 @@
     };
 
     const isUpdate = Boolean(schedulerState.confirmedSubmission);
+    if (isUpdate && schedulerState.confirmedSubmission?.updateToken) {
+      payload.updateToken = schedulerState.confirmedSubmission.updateToken;
+    }
+
     schedulerState.isSubmitting = true;
     if (refs.submitBtn) {
       refs.submitBtn.disabled = true;
@@ -2158,6 +2195,9 @@
           isUpdated: isUpdate,
           statusType: 'success',
           referenceCode: result.referenceCode || '',
+          updateToken: result.updateToken || schedulerState.confirmedSubmission?.updateToken || '',
+          confirmedStartMinutes: result?.appointment?.startMinutes,
+          confirmedEndMinutes: result?.appointment?.endMinutes,
           headingText: isUpdate
             ? `Updated Estimate & Appointment Sent! (Ref: ${result.referenceCode})`
             : `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
@@ -2247,9 +2287,31 @@
     }
   }
 
+  function handleBookingTriggerClick() {
+    if (
+      window.SmartsProCalculator &&
+      typeof window.SmartsProCalculator.validateAllStepsBeforeBooking === 'function' &&
+      !window.SmartsProCalculator.validateAllStepsBeforeBooking()
+    ) {
+      return;
+    }
+    openBookingModal();
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
-    if (btnOpenModal) btnOpenModal.addEventListener('click', openBookingModal);
-    if (btnContactOpenScheduler) btnContactOpenScheduler.addEventListener('click', openBookingModal);
+    if (btnOpenModal) btnOpenModal.addEventListener('click', handleBookingTriggerClick);
+    if (btnContactOpenScheduler) btnContactOpenScheduler.addEventListener('click', handleBookingTriggerClick);
+    if (btnEditDetails) {
+      btnEditDetails.addEventListener('click', () => {
+        closeBookingModal();
+        if (
+          window.SmartsProCalculator &&
+          typeof window.SmartsProCalculator.goToDetailsStepFromModal === 'function'
+        ) {
+          window.SmartsProCalculator.goToDetailsStepFromModal();
+        }
+      });
+    }
     if (btnCloseModal) btnCloseModal.addEventListener('click', closeBookingModal);
 
     if (modalOverlay) {

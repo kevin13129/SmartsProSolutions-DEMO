@@ -7,9 +7,9 @@ import { resolveMx } from 'node:dns/promises';
  * - Strict JSON parsing, 16 KiB transport limit, unknown-field & prototype-key rejection
  * - Bounded customer fields (First Name, Last Name, Phone, Email, Optional Notes)
  * - Authoritative server-side flat-rate price & duration recalculation (no recurring discounts, no online payments)
- * - Calendar appointment validation, 4:30 PM closing-time fit, interval overlap prevention & anonymized live feed
+ * - Calendar appointment validation, arrival window selection, interval overlap prevention & anonymized live feed
  * - Per-IP and per-contact rate limiting (429 + Retry-After) & Idempotency-Key deduplication
- * - Fail-closed automated email + matched-duration RFC 5545 .ics calendar dispatch + Finish-Early token workflow
+ * - Fail-closed automated email + matched-duration RFC 5545 .ics calendar dispatch + Finish-Early & Update token workflows
  */
 
 export const PRICING_RULES_VERSION = '2026-11-flat-rate-no-online-payment-v1';
@@ -439,17 +439,12 @@ function parseIsoToChicagoDateAndMinutes(isoString) {
 export function computeScheduledEndMinutes(windowSpec, durationMinutes) {
   const safeDuration = Math.max(60, Math.round(Number(durationMinutes) || 60));
   const projectedEnd = windowSpec.startMinutes + safeDuration;
-  if (windowSpec.startMinutes > BUSINESS_OPEN_MINUTES && projectedEnd > BUSINESS_CLOSE_MINUTES) {
-    return {
-      fits: false,
-      endMinutes: projectedEnd,
-      isFullDayExtension: false
-    };
-  }
   const cappedEnd = Math.min(BUSINESS_CLOSE_MINUTES, projectedEnd);
   return {
     fits: true,
     endMinutes: Math.max(windowSpec.startMinutes + 60, cappedEnd),
+    projectedEndMinutes: projectedEnd,
+    exceedsClosing: projectedEnd > BUSINESS_CLOSE_MINUTES,
     isFullDayExtension:
       windowSpec.startMinutes === BUSINESS_OPEN_MINUTES && safeDuration > FULL_DAY_MINUTES
   };
@@ -515,6 +510,30 @@ export function verifyFinishEarlyToken(token, secret = getFinishEarlySecret(), n
   }
 
   return { ok: true, payload: parsed };
+}
+
+export function createBookingUpdateToken(payload, secret = getFinishEarlySecret()) {
+  return createFinishEarlyToken({ ...payload, kind: 'update' }, secret);
+}
+
+export function verifyBookingUpdateToken(token, secret = getFinishEarlySecret(), nowMs = Date.now()) {
+  if (typeof token !== 'string' || !token.includes('.')) {
+    return { ok: false, code: 'INVALID_UPDATE_TOKEN', message: 'Booking update token is invalid.' };
+  }
+  const verified = verifyFinishEarlyToken(token, secret, nowMs);
+  if (!verified.ok) {
+    return {
+      ok: false,
+      code: 'INVALID_UPDATE_TOKEN',
+      message: verified.code === 'EXPIRED_TOKEN'
+        ? 'Your editing session has expired. Please refresh and submit again.'
+        : 'Booking update token could not be verified.'
+    };
+  }
+  if (verified.payload.kind !== 'update') {
+    return { ok: false, code: 'INVALID_UPDATE_TOKEN', message: 'Booking update token type is invalid.' };
+  }
+  return verified;
 }
 
 function resolvePublicSiteOrigin(headers = {}) {
@@ -815,7 +834,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     }
   }
 
-  const allowedTopKeys = new Set(['customer', 'appointment', 'quote', 'companyWebsite']);
+  const allowedTopKeys = new Set(['customer', 'appointment', 'quote', 'companyWebsite', 'updateToken']);
   if (!hasOnlyAllowedKeys(payload, allowedTopKeys)) {
     return { ok: false, status: 400, code: 'UNKNOWN_FIELDS', error: 'Request contains unrecognized fields.' };
   }
@@ -823,6 +842,16 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   // Honeypot check
   if (payload.companyWebsite !== undefined && payload.companyWebsite !== '') {
     return { ok: false, status: 400, code: 'BOT_REJECTED', error: 'Request could not be processed.' };
+  }
+
+  const rawUpdateToken =
+    payload.updateToken === undefined || payload.updateToken === null
+      ? ''
+      : typeof payload.updateToken === 'string'
+        ? payload.updateToken.trim()
+        : null;
+  if (rawUpdateToken === null || rawUpdateToken.length > 1024) {
+    return { ok: false, status: 400, code: 'INVALID_UPDATE_TOKEN', error: 'Invalid booking update token.' };
   }
 
   // 1. Validate customer fields
@@ -1140,14 +1169,6 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
 
   const authoritativeCalculation = calculateAuthoritativeQuote(normalizedQuote);
   const slotFit = computeScheduledEndMinutes(windowObj, authoritativeCalculation.durationMinutes);
-  if (!slotFit.fits) {
-    return {
-      ok: false,
-      status: 400,
-      code: 'SLOT_EXCEEDS_CLOSING_TIME',
-      error: `That service is estimated at ${formatDurationHours(authoritativeCalculation.totalEstimatedHours)} and would finish past our 4:30 PM closing time for the ${windowObj.shortLabel} arrival window. Please select an earlier arrival time window.`
-    };
-  }
 
   const startIso = getCentralIsoForDateAndMinutes(preferredDate, windowObj.startMinutes);
   const endIso = getCentralIsoForDateAndMinutes(preferredDate, slotFit.endMinutes);
@@ -1156,6 +1177,8 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   return {
     ok: true,
     value: {
+      updateToken: rawUpdateToken,
+      previousReferenceCode: '',
       customer: {
         firstName: rawFirst,
         lastName: rawLast,
@@ -1173,6 +1196,8 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
         windowSpec: windowObj,
         startMinutes: windowObj.startMinutes,
         endMinutes: slotFit.endMinutes,
+        projectedEndMinutes: slotFit.projectedEndMinutes,
+        exceedsClosing: slotFit.exceedsClosing,
         durationMinutes: authoritativeCalculation.durationMinutes,
         estimatedHours: authoritativeCalculation.totalEstimatedHours,
         scheduledEndHour: Math.floor(slotFit.endMinutes / 60),
@@ -1294,7 +1319,9 @@ export function buildAutomatedEmailContent(
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
   const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
   const endLabel = appointment.scheduledEndLabel || formatMinutesAsTime(appointment.windowSpec.endMinutes);
-  const durationSummary = `${formatDurationHours(durationHours)} (Blocked ${startLabel} – ${endLabel}${appointment.isFullDayExtension ? ' · Full-Day Team Block' : ''})`;
+  const durationSummary = appointment.exceedsClosing
+    ? `${formatDurationHours(durationHours)} (${startLabel} Arrival • Calendar Block Through ${endLabel} Close)`
+    : `${formatDurationHours(durationHours)} (Blocked ${startLabel} – ${endLabel}${appointment.isFullDayExtension ? ' · Full-Day Team Block' : ''})`;
 
   const specsLine = isCommercial
     ? 'On-Site Facility Walkthrough Requested'
@@ -1497,6 +1524,31 @@ export function isSafeWebhookUrl(urlString) {
   return true;
 }
 
+async function assertWebhookJsonSuccess(response, label) {
+  if (!response.ok) {
+    throw new Error(`${label} returned HTTP ${response.status}`);
+  }
+  const contentType = String(response.headers?.get?.('content-type') || '').toLowerCase();
+  const bodyText = typeof response.text === 'function' ? await response.text() : '';
+  const trimmed = bodyText.trim();
+  if (contentType.includes('text/html') || trimmed.startsWith('<!') || /^<html\b/i.test(trimmed)) {
+    throw new Error(
+      `${label} returned an HTML page instead of JSON (verify Apps Script "Who has access: Anyone" and permissions)`
+    );
+  }
+  if (trimmed) {
+    let parsed;
+    try {
+      parsed = JSON.parse(trimmed);
+    } catch {
+      throw new Error(`${label} returned an unexpected non-JSON response`);
+    }
+    if (parsed && (parsed.ok === false || parsed.error)) {
+      throw new Error(`${label} reported an error: ${parsed.error || 'execution failed'}`);
+    }
+  }
+}
+
 /**
  * Default server-side email transport using Resend HTTPS API or a signed Google Apps Script / Webhook URL.
  */
@@ -1543,6 +1595,7 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
     const bodyString = JSON.stringify({
       action: 'createBooking',
       referenceCode,
+      previousReferenceCode: validatedRecord.previousReferenceCode || '',
       to: emailPackage.to,
       replyTo: emailPackage.replyTo,
       subject: emailPackage.subject,
@@ -1584,9 +1637,7 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
       headers,
       body: bodyString
     });
-    if (!response.ok) {
-      throw new Error(`Email webhook returned HTTP ${response.status}`);
-    }
+    await assertWebhookJsonSuccess(response, 'Email webhook');
     return { delivered: true, provider: 'webhook' };
   }
 
@@ -1620,9 +1671,7 @@ async function defaultCalendarActionTransport(payload) {
     headers,
     body: bodyString
   });
-  if (!response.ok) {
-    throw new Error(`Calendar webhook returned HTTP ${response.status}`);
-  }
+  await assertWebhookJsonSuccess(response, 'Calendar webhook');
   return { delivered: true, provider: 'webhook' };
 }
 
@@ -1674,10 +1723,32 @@ export function createIntakeService({
     return intervals;
   }
 
-  function findConflictingBooking(isoDate, startMinutes, endMinutes, requesterEmailHash = '') {
+  function findConflictingBooking(
+    isoDate,
+    startMinutes,
+    endMinutes,
+    requesterEmailHash = '',
+    excludeBooking = null
+  ) {
     const intervals = getEffectiveBusyIntervals();
+    let skippedRemoteMatch = false;
     for (const interval of intervals) {
       if (interval.date !== isoDate) continue;
+      if (excludeBooking) {
+        if (excludeBooking.ref && interval.referenceCode && interval.referenceCode === excludeBooking.ref) {
+          continue;
+        }
+        if (
+          !skippedRemoteMatch &&
+          interval.source === 'gcal' &&
+          interval.date === excludeBooking.date &&
+          interval.startMinutes === excludeBooking.startMin &&
+          interval.endMinutes === excludeBooking.endMin
+        ) {
+          skippedRemoteMatch = true;
+          continue;
+        }
+      }
       if (requesterEmailHash && interval.customerEmailHash && interval.customerEmailHash === requesterEmailHash) {
         continue;
       }
@@ -2088,6 +2159,29 @@ export function createIntakeService({
 
     const record = validation.value;
 
+    // 7b. Verify signed update token when customer edits a confirmed booking
+    let verifiedUpdate = null;
+    if (record.updateToken) {
+      const updateCheck = verifyBookingUpdateToken(
+        record.updateToken,
+        resolveEffectiveSecret(),
+        nowMs
+      );
+      if (!updateCheck.ok) {
+        return {
+          status: 400,
+          headers: { 'Cache-Control': 'no-store' },
+          body: {
+            success: false,
+            code: updateCheck.code,
+            message: updateCheck.message
+          }
+        };
+      }
+      verifiedUpdate = updateCheck.payload;
+      record.previousReferenceCode = verifiedUpdate.ref;
+    }
+
     // 8. Per-contact rate limit
     const contactLimit = checkRateLimit(`contact:${record.customer.email}`, nowMs);
     if (!contactLimit.allowed) {
@@ -2120,7 +2214,7 @@ export function createIntakeService({
       };
     }
 
-    // 9. Duration-aware calendar interval conflict check
+    // 9. Duration-aware calendar interval conflict check (excluding prior self-booking when updating)
     await syncCalendarFromWebhook();
     const requesterEmailHash = createHash('sha256')
       .update(record.customer.email, 'utf8')
@@ -2130,7 +2224,8 @@ export function createIntakeService({
       record.appointment.preferredDate,
       record.appointment.startMinutes,
       record.appointment.endMinutes,
-      requesterEmailHash
+      requesterEmailHash,
+      verifiedUpdate
     );
     if (conflict) {
       return {
@@ -2226,6 +2321,23 @@ export function createIntakeService({
               ? 'Booked · Residential Deep Clean'
               : 'Booked · Residential Standard Clean';
 
+    if (verifiedUpdate && verifiedUpdate.ref) {
+      localBookings.delete(verifiedUpdate.ref);
+      let removedRemoteSelf = false;
+      remoteBusyIntervals = remoteBusyIntervals.filter((item) => {
+        if (
+          !removedRemoteSelf &&
+          item.date === verifiedUpdate.date &&
+          item.startMinutes === verifiedUpdate.startMin &&
+          item.endMinutes === verifiedUpdate.endMin
+        ) {
+          removedRemoteSelf = true;
+          return false;
+        }
+        return true;
+      });
+    }
+
     for (const [existingRef, existingItem] of localBookings.entries()) {
       if (
         existingItem.date === record.appointment.preferredDate &&
@@ -2247,10 +2359,24 @@ export function createIntakeService({
       syncedRemotely: deliveryResult.provider === 'webhook'
     });
 
+    const updateToken = createBookingUpdateToken(
+      {
+        v: 1,
+        kind: 'update',
+        ref: referenceCode,
+        date: record.appointment.preferredDate,
+        startMin: record.appointment.startMinutes,
+        endMin: record.appointment.endMinutes,
+        exp: Date.parse(`${record.appointment.preferredDate}T23:59:59Z`) + 2 * 24 * 60 * 60 * 1000
+      },
+      resolveEffectiveSecret()
+    );
+
     const responseBody = {
       success: true,
       code: 'ESTIMATE_DISPATCHED',
       referenceCode,
+      updateToken,
       message: `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions.`,
       verifiedEstimate: verifiedEstimateSummary,
       appointment: appointmentSummary,
