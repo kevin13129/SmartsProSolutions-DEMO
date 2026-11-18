@@ -436,18 +436,47 @@ function parseIsoToChicagoDateAndMinutes(isoString) {
   };
 }
 
-export function computeScheduledEndMinutes(windowSpec, durationMinutes) {
-  const safeDuration = Math.max(60, Math.round(Number(durationMinutes) || 60));
-  const projectedEnd = windowSpec.startMinutes + safeDuration;
-  const cappedEnd = Math.min(BUSINESS_CLOSE_MINUTES, projectedEnd);
+export function computeScheduledEndMinutes(windowSpec, _durationMinutes) {
   return {
     fits: true,
-    endMinutes: Math.max(windowSpec.startMinutes + 60, cappedEnd),
-    projectedEndMinutes: projectedEnd,
-    exceedsClosing: projectedEnd > BUSINESS_CLOSE_MINUTES,
-    isFullDayExtension:
-      windowSpec.startMinutes === BUSINESS_OPEN_MINUTES && safeDuration > FULL_DAY_MINUTES
+    endMinutes: windowSpec.endMinutes,
+    projectedEndMinutes: windowSpec.endMinutes,
+    exceedsClosing: false,
+    isFullDayExtension: false
   };
+}
+
+export function getRecurrenceForFrequency(frequency) {
+  if (frequency === 'weekly') {
+    return Object.freeze({
+      isRecurring: true,
+      frequency: 'weekly',
+      label: 'Repeats Weekly',
+      rrule: 'FREQ=WEEKLY'
+    });
+  }
+  if (frequency === 'biweekly') {
+    return Object.freeze({
+      isRecurring: true,
+      frequency: 'biweekly',
+      label: 'Repeats Every 2 Weeks',
+      rrule: 'FREQ=WEEKLY;INTERVAL=2'
+    });
+  }
+  if (frequency === 'monthly') {
+    return Object.freeze({
+      isRecurring: true,
+      frequency: 'monthly',
+      label: 'Repeats Monthly',
+      rrule: 'FREQ=MONTHLY'
+    });
+  }
+  return Object.freeze({
+    isRecurring: false,
+    frequency: frequency || 'onetime',
+    label: 'Single Appointment',
+    rrule: ''
+  });
 }
 
 function intervalsOverlap(startA, endA, startB, endB) {
@@ -1169,6 +1198,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
 
   const authoritativeCalculation = calculateAuthoritativeQuote(normalizedQuote);
   const slotFit = computeScheduledEndMinutes(windowObj, authoritativeCalculation.durationMinutes);
+  const recurrence = getRecurrenceForFrequency(frequency);
 
   const startIso = getCentralIsoForDateAndMinutes(preferredDate, windowObj.startMinutes);
   const endIso = getCentralIsoForDateAndMinutes(preferredDate, slotFit.endMinutes);
@@ -1179,6 +1209,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     value: {
       updateToken: rawUpdateToken,
       previousReferenceCode: '',
+      previousDate: '',
       customer: {
         firstName: rawFirst,
         lastName: rawLast,
@@ -1205,7 +1236,8 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
         scheduledEndLabel,
         startIso,
         endIso,
-        isFullDayExtension: slotFit.isFullDayExtension
+        isFullDayExtension: slotFit.isFullDayExtension,
+        recurrence
       },
       quote: normalizedQuote,
       calculation: authoritativeCalculation
@@ -1235,7 +1267,7 @@ function escapeHtml(str) {
 
 /**
  * Generates an RFC 5545 .ics calendar event string for the owner's calendar
- * sized to the estimated cleaning duration (capped at 4:30 PM close).
+ * locked to the selected scheduler time block (with RRULE when recurring).
  */
 export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DEFAULT_OWNER_EMAIL) {
   const { customer, appointment, quote, calculation } = validatedRecord;
@@ -1261,19 +1293,24 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
   const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
   const endLabel = appointment.scheduledEndLabel || formatMinutesAsTime(appointment.windowSpec.endMinutes);
-
-  const summary = `Smarts Pro Cleaning: ${customer.fullName} (${serviceLabel}) [${referenceCode}]`;
+  const isUpdated = Boolean(validatedRecord.previousReferenceCode);
+  const summaryPrefix = isUpdated ? '[UPDATED] ' : '';
+  const summary = `${summaryPrefix}Smarts Pro Cleaning: ${customer.fullName} (${serviceLabel}) [${referenceCode}]`;
   const descriptionLines = [
     `Reference ID: ${referenceCode}`,
+    ...(isUpdated ? [`Replaces Prior Reference ID: ${validatedRecord.previousReferenceCode}`] : []),
     `Customer: ${customer.fullName}`,
     `Phone: ${customer.phone}`,
     `Email: ${customer.email}`,
     `Service: ${serviceLabel}`,
-    `Estimated Cleaning Time: ${formatDurationHours(durationHours)} (Est. ${startLabel} – ${endLabel})`,
+    `Scheduled Window: ${startLabel} – ${endLabel}`,
+    `Est. Cleaning Time: ${formatDurationHours(durationHours)}`,
     `Schedule: ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`,
     `Estimated Total (Flat Rate): $${calculation.grandTotal.toFixed(2)}`,
     customer.notes ? `Customer Notes: ${customer.notes}` : 'Customer Notes: None provided'
   ];
+
+  const recurrence = appointment.recurrence || getRecurrenceForFrequency(quote.frequency);
 
   const lines = [
     'BEGIN:VCALENDAR',
@@ -1286,6 +1323,7 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
     `DTSTAMP:${nowStamp}`,
     `DTSTART;TZID=${BUSINESS_TIMEZONE}:${startStr}`,
     `DTEND;TZID=${BUSINESS_TIMEZONE}:${endStr}`,
+    ...(recurrence && recurrence.rrule ? [`RRULE:${recurrence.rrule}`] : []),
     `SUMMARY:${escapeIcsText(summary)}`,
     `DESCRIPTION:${escapeIcsText(descriptionLines.join('\n'))}`,
     `ORGANIZER;CN=Smarts Pro Solutions:mailto:${ownerEmail}`,
@@ -1299,7 +1337,8 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
 }
 
 /**
- * Builds the automated email subject, plain-text body, HTML body, and .ics calendar invite.
+ * Builds the automated owner notification email, the separate customer confirmation email
+ * (with zero owner-only Finish-Early links), and the .ics calendar invite.
  */
 export function buildAutomatedEmailContent(
   validatedRecord,
@@ -1309,6 +1348,7 @@ export function buildAutomatedEmailContent(
 ) {
   const { customer, appointment, quote, calculation } = validatedRecord;
   const isCommercial = quote.serviceCategory === 'commercial';
+  const isUpdated = Boolean(validatedRecord.previousReferenceCode);
   const serviceLabel = isCommercial
     ? SERVICE_DISPLAY_LABELS.commercial
     : calculation.isSpecificAreas
@@ -1316,12 +1356,9 @@ export function buildAutomatedEmailContent(
       : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
   const freqLabel = FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency;
+  const recurrence = appointment.recurrence || getRecurrenceForFrequency(quote.frequency);
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
-  const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
-  const endLabel = appointment.scheduledEndLabel || formatMinutesAsTime(appointment.windowSpec.endMinutes);
-  const durationSummary = appointment.exceedsClosing
-    ? `${formatDurationHours(durationHours)} (${startLabel} Arrival • Calendar Block Through ${endLabel} Close)`
-    : `${formatDurationHours(durationHours)} (Blocked ${startLabel} – ${endLabel}${appointment.isFullDayExtension ? ' · Full-Day Team Block' : ''})`;
+  const durationSummary = `${formatDurationHours(durationHours)} (Calendar Time Block: ${appointment.preferredWindowShort})`;
 
   const specsLine = isCommercial
     ? 'On-Site Facility Walkthrough Requested'
@@ -1340,11 +1377,15 @@ export function buildAutomatedEmailContent(
     ? 'N/A (Commercial Walkthrough)'
     : `Pets: ${quote.additionalInfo.hasPets === 'yes' ? 'Yes' : 'No'} | Last Cleaned: ${quote.additionalInfo.lastCleaned} | Occupancy: ${quote.additionalInfo.occupancy} | Condition: ${quote.additionalInfo.condition}`;
 
-  const subject = `[Smarts Pro Estimate #${referenceCode}] ${customer.fullName} — ${appointment.preferredDateFormatted} (${appointment.preferredWindowShort})`;
+  const subjectPrefix = isUpdated ? '[UPDATED] ' : '';
+  const subject = `${subjectPrefix}[Smarts Pro Estimate #${referenceCode}] ${customer.fullName} — ${appointment.preferredDateFormatted} (${appointment.preferredWindowShort})`;
 
   const textLines = [
-    `SMARTS PRO SOLUTIONS — NEW ESTIMATE & APPOINTMENT REQUEST`,
+    isUpdated
+      ? `SMARTS PRO SOLUTIONS — UPDATED ESTIMATE & APPOINTMENT REQUEST`
+      : `SMARTS PRO SOLUTIONS — NEW ESTIMATE & APPOINTMENT REQUEST`,
     `Reference ID: ${referenceCode}`,
+    ...(isUpdated ? [`Replaces Prior Reference ID: ${validatedRecord.previousReferenceCode}`] : []),
     `==========================================================`,
     ``,
     `1. CUSTOMER CONTACT INFORMATION`,
@@ -1358,7 +1399,8 @@ export function buildAutomatedEmailContent(
     `2. REQUESTED CALENDAR APPOINTMENT`,
     `---------------------------------`,
     `Preferred Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
-    `Arrival Window:    ${appointment.preferredWindowLabel}`,
+    `Time Block:        ${appointment.preferredWindowLabel}`,
+    `Recurrence:        ${recurrence.label}`,
     `Est. Cleaning Time:${durationSummary}`,
     `Business Zone:     ${BUSINESS_TIMEZONE}`,
     ``,
@@ -1382,7 +1424,7 @@ export function buildAutomatedEmailContent(
       ``,
       `5. CREW EARLY COMPLETION CONTROL (OWNER ONLY)`,
       `---------------------------------------------`,
-      `Finished early or need to release this window? Open the secure link below to shorten this calendar block and immediately re-open remaining times on smartsprosolutions.com:`,
+      `Finished early or need to release this time block? Open the link below to update Google Calendar and immediately re-open remaining times on smartsprosolutions.com:`,
       `${finishEarlyUrl}`
     );
   }
@@ -1401,18 +1443,18 @@ export function buildAutomatedEmailContent(
         <div style="margin-top: 20px; background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: 10px; padding: 16px;">
           <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #1D4ED8;">Owner Schedule Control • Finished Early?</div>
           <p style="margin: 6px 0 12px; font-size: 13px; color: #1E293B; line-height: 1.5;">
-            If your crew wraps up this cleaning early (or needs to free up the calendar window), use the button below to shorten this calendar block and re-open remaining times on <strong>smartsprosolutions.com</strong> right away.
+            If your crew wraps up early (or needs to free up the calendar block), use the button below to update the calendar block and re-open availability on <strong>smartsprosolutions.com</strong> right away.
           </p>
-          <a href="${escapeHtml(finishEarlyUrl)}" style="display: inline-block; background: #16A34A; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 14px; padding: 10px 18px; border-radius: 8px;">Finish Early &mdash; Re-Open Remaining Time</a>
+          <a href="${escapeHtml(finishEarlyUrl)}" style="display: inline-block; background: #16A34A; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 14px; padding: 10px 18px; border-radius: 8px;">Finish Early &mdash; Re-Open Calendar Time</a>
         </div>`
     : '';
 
   const htmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
       <div style="background: #0B1E3A; color: #FFFFFF; padding: 20px 24px;">
-        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">Smarts Pro Solutions • Automated Estimate Dispatch</div>
-        <h2 style="margin: 6px 0 0; font-size: 20px;">New Cleaning Estimate &amp; Appointment Request</h2>
-        <div style="margin-top: 4px; font-size: 13px; color: #CBD5E1;">Reference: <strong>${escapeHtml(referenceCode)}</strong></div>
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">Smarts Pro Solutions • ${isUpdated ? 'Updated Estimate Dispatch' : 'Automated Estimate Dispatch'}</div>
+        <h2 style="margin: 6px 0 0; font-size: 20px;">${isUpdated ? 'Updated Cleaning Estimate &amp; Appointment Request' : 'New Cleaning Estimate &amp; Appointment Request'}</h2>
+        <div style="margin-top: 4px; font-size: 13px; color: #CBD5E1;">Reference: <strong>${escapeHtml(referenceCode)}</strong>${isUpdated ? ` (Replaces ${escapeHtml(validatedRecord.previousReferenceCode)})` : ''}</div>
       </div>
       <div style="padding: 24px;">
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">1. Customer Details</h3>
@@ -1425,8 +1467,9 @@ export function buildAutomatedEmailContent(
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">2. Requested Cleaning Appointment</h3>
         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px;">
           <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
-          <div style="margin-top: 4px;"><strong>Arrival Window:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
-          <div style="margin-top: 4px;"><strong>Est. Cleaning Time:</strong> ${escapeHtml(durationSummary)}</div>
+          <div style="margin-top: 4px;"><strong>Time Block:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
+          <div style="margin-top: 4px;"><strong>Recurrence:</strong> ${escapeHtml(recurrence.label)}</div>
+          <div style="margin-top: 4px;"><strong>Est. Cleaning Time:</strong> ${escapeHtml(formatDurationHours(durationHours))}</div>
         </div>
 
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">3. Estimate Summary (Server-Verified Flat Rate)</h3>
@@ -1451,6 +1494,73 @@ export function buildAutomatedEmailContent(
     </div>
   `.trim();
 
+  // Separate customer confirmation email (never includes owner Finish-Early link)
+  const customerSubject = `${subjectPrefix}Your Smarts Pro Solutions Estimate & Appointment Request (#${referenceCode})`;
+  const customerTextLines = [
+    `Hi ${customer.firstName},`,
+    ``,
+    isUpdated
+      ? `Thank you for updating your cleaning estimate and appointment request with Smarts Pro Solutions! Here is a copy of your updated summary:`
+      : `Thank you for requesting a cleaning estimate with Smarts Pro Solutions! We have received your request and reserved your requested calendar window below:`,
+    ``,
+    `Reference ID:      ${referenceCode}`,
+    `Requested Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
+    `Time Block:        ${appointment.preferredWindowLabel}`,
+    `Schedule:          ${freqLabel} (${recurrence.label})`,
+    `Service Selected:  ${serviceLabel}`,
+    `Property Scope:    ${specsLine}`,
+    `Additional Info:   ${addInfoLine}`,
+    `Custom Add-Ons:    ${addonsLine}`,
+    `Est. Cleaning Time:${formatDurationHours(durationHours)}`,
+    `Estimated Total:   $${calculation.grandTotal.toFixed(2)} (Flat Rate • No Online Payment Required)`,
+    ...(customer.notes ? [`Your Notes:        ${customer.notes}`] : []),
+    ``,
+    `Questions or need to make a change? Call or text us at (318) 564-4360 or reply directly to smartsprosolutions@gmail.com.`,
+    ``,
+    `Privacy & Data Deletion: Customer details are used solely to service your estimate and appointment. To opt out or request data deletion anytime, reply "DELETE" or contact smartsprosolutions@gmail.com.`
+  ];
+  const customerTextBody = customerTextLines.join('\n');
+
+  const customerHtmlBody = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
+      <div style="background: #0B1E3A; color: #FFFFFF; padding: 20px 24px;">
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">Smarts Pro Solutions &bull; Shreveport &amp; Bossier City, LA</div>
+        <h2 style="margin: 6px 0 0; font-size: 20px;">${isUpdated ? 'Updated Estimate &amp; Appointment Confirmation' : 'Your Estimate &amp; Appointment Confirmation'}</h2>
+        <div style="margin-top: 4px; font-size: 13px; color: #CBD5E1;">Reference ID: <strong>${escapeHtml(referenceCode)}</strong></div>
+      </div>
+      <div style="padding: 24px;">
+        <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5; color: #1E293B;">
+          Hi <strong>${escapeHtml(customer.firstName)}</strong>, thank you for choosing Smarts Pro Solutions! We have received your ${isUpdated ? 'updated ' : ''}estimate &amp; appointment request with the details below.
+        </p>
+
+        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 14px;">
+          <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
+          <div style="margin-top: 4px;"><strong>Time Block:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
+          <div style="margin-top: 4px;"><strong>Schedule:</strong> ${escapeHtml(freqLabel)} (${escapeHtml(recurrence.label)})</div>
+        </div>
+
+        <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
+          <tr><td style="padding: 6px 0; color: #64748B; width: 155px;">Service Selected:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(serviceLabel)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">Property Scope:</td><td style="padding: 6px 0;">${escapeHtml(specsLine)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">Additional Info:</td><td style="padding: 6px 0;">${escapeHtml(addInfoLine)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">Estimated Total:</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate &bull; No Online Payment)</span></td></tr>
+        </table>
+
+        ${customer.notes ? `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 13px;"><strong>Your Notes:</strong> ${escapeHtml(customer.notes)}</div>` : ''}
+
+        <p style="margin: 0 0 14px; font-size: 14px; color: #334155; line-height: 1.5;">
+          Need to adjust anything or have a question? Call us at <strong>(318) 564-4360</strong> or reply directly to <a href="mailto:${escapeHtml(ownerEmail)}">${escapeHtml(ownerEmail)}</a>.
+        </p>
+
+        <p style="margin: 16px 0 0; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; line-height: 1.5;">
+          <strong>Privacy &amp; Data Deletion:</strong> Your details are used solely to prepare your cleaning estimate and appointment. To opt out or request data deletion, reply <strong>DELETE</strong> or contact <a href="mailto:${escapeHtml(ownerEmail)}">${escapeHtml(ownerEmail)}</a>.
+        </p>
+      </div>
+    </div>
+  `.trim();
+
   const icsContent = buildCalendarIcs(validatedRecord, referenceCode, ownerEmail);
 
   const mailtoUrl =
@@ -1467,7 +1577,14 @@ export function buildAutomatedEmailContent(
     icsFilename: `smartspro-booking-${referenceCode}.ics`,
     icsContent,
     mailtoUrl,
-    finishEarlyUrl
+    finishEarlyUrl,
+    customerConfirmation: {
+      to: customer.email,
+      replyTo: ownerEmail,
+      subject: customerSubject,
+      textBody: customerTextBody,
+      htmlBody: customerHtmlBody
+    }
   };
 }
 
@@ -1583,6 +1700,27 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
     if (!response.ok) {
       throw new Error(`Mail provider returned HTTP ${response.status}`);
     }
+    if (emailPackage.customerConfirmation && emailPackage.customerConfirmation.to) {
+      try {
+        await fetch('https://api.resend.com/emails', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${resendApiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            from: resendFrom,
+            to: [emailPackage.customerConfirmation.to],
+            reply_to: emailPackage.customerConfirmation.replyTo,
+            subject: emailPackage.customerConfirmation.subject,
+            text: emailPackage.customerConfirmation.textBody,
+            html: emailPackage.customerConfirmation.htmlBody
+          })
+        });
+      } catch {
+        // Best-effort customer copy on Resend sandbox when owner delivery already succeeded
+      }
+    }
     return { delivered: true, provider: 'resend' };
   }
 
@@ -1592,18 +1730,23 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
     }
 
     const timestamp = String(Math.floor(Date.now() / 1000));
+    const isUpdated = Boolean(validatedRecord.previousReferenceCode);
     const bodyString = JSON.stringify({
       action: 'createBooking',
       referenceCode,
       previousReferenceCode: validatedRecord.previousReferenceCode || '',
+      previousDate: validatedRecord.previousDate || '',
+      isUpdated,
       to: emailPackage.to,
       replyTo: emailPackage.replyTo,
       subject: emailPackage.subject,
       textBody: emailPackage.textBody,
       htmlBody: emailPackage.htmlBody,
+      customerEmail: emailPackage.customerConfirmation || null,
       icsFilename: emailPackage.icsFilename,
       icsContent: emailPackage.icsContent,
       finishEarlyUrl: emailPackage.finishEarlyUrl || '',
+      recurrence: validatedRecord.appointment.recurrence || getRecurrenceForFrequency(validatedRecord.quote.frequency),
       customer: validatedRecord.customer,
       appointment: {
         preferredDate: validatedRecord.appointment.preferredDate,
@@ -1693,8 +1836,40 @@ export function createIntakeService({
   const rateLimits = new Map(); // key -> { count, resetAt }
   const idempotencyStore = new Map(); // key -> { payloadHash, status, body }
 
+  function expandBookingDates(booking, horizonEndIso) {
+    const out = [booking.date];
+    const freq = booking.frequency || '';
+    if (freq === 'weekly' || freq === 'biweekly') {
+      const stepDays = freq === 'weekly' ? 7 : 14;
+      let nextDate = addDaysToIsoDate(booking.date, stepDays);
+      while (nextDate <= horizonEndIso) {
+        if (!getHolidayNameForIsoDate(nextDate)) {
+          out.push(nextDate);
+        }
+        nextDate = addDaysToIsoDate(nextDate, stepDays);
+      }
+    } else if (freq === 'monthly') {
+      const [origY, origM, origD] = booking.date.split('-').map(Number);
+      for (let mOffset = 1; mOffset <= 2; mOffset++) {
+        const totalM = origM - 1 + mOffset;
+        const targetY = origY + Math.floor(totalM / 12);
+        const targetM = (totalM % 12) + 1;
+        const maxDayInMonth = new Date(Date.UTC(targetY, targetM, 0, 12, 0, 0)).getUTCDate();
+        if (origD <= maxDayInMonth) {
+          const nextIso = `${targetY}-${String(targetM).padStart(2, '0')}-${String(origD).padStart(2, '0')}`;
+          const dow = getDayOfWeekUtc(nextIso);
+          if (nextIso <= horizonEndIso && dow >= 1 && dow <= 5 && !getHolidayNameForIsoDate(nextIso)) {
+            out.push(nextIso);
+          }
+        }
+      }
+    }
+    return out;
+  }
+
   function getEffectiveBusyIntervals() {
     const intervals = [];
+    const horizonEndIso = getEndOfNextCalendarMonthIso(getBusinessTodayIso(nowFn()));
     if (remoteSyncActive) {
       for (const item of remoteBusyIntervals) {
         intervals.push({
@@ -1710,15 +1885,18 @@ export function createIntakeService({
     for (const booking of localBookings.values()) {
       if (booking.endMinutes <= booking.startMinutes) continue;
       if (remoteSyncActive && booking.syncedRemotely) continue;
-      intervals.push({
-        date: booking.date,
-        startMinutes: booking.startMinutes,
-        endMinutes: booking.endMinutes,
-        serviceLabel: booking.serviceLabel || 'Booked · Cleaning Appointment',
-        customerEmailHash: booking.customerEmailHash || '',
-        referenceCode: booking.referenceCode,
-        source: 'intake'
-      });
+      const occurrences = expandBookingDates(booking, horizonEndIso);
+      for (const occDate of occurrences) {
+        intervals.push({
+          date: occDate,
+          startMinutes: booking.startMinutes,
+          endMinutes: booking.endMinutes,
+          serviceLabel: booking.serviceLabel || 'Booked · Cleaning Appointment',
+          customerEmailHash: booking.customerEmailHash || '',
+          referenceCode: booking.referenceCode,
+          source: 'intake'
+        });
+      }
     }
     return intervals;
   }
@@ -2180,6 +2358,7 @@ export function createIntakeService({
       }
       verifiedUpdate = updateCheck.payload;
       record.previousReferenceCode = verifiedUpdate.ref;
+      record.previousDate = verifiedUpdate.date;
     }
 
     // 8. Per-contact rate limit
@@ -2353,6 +2532,7 @@ export function createIntakeService({
       slotId: record.appointment.preferredWindow,
       startMinutes: record.appointment.startMinutes,
       endMinutes: record.appointment.endMinutes,
+      frequency: record.quote.frequency,
       serviceLabel: serviceBadge,
       status: 'BOOKED',
       customerEmailHash: requesterEmailHash,
@@ -2376,8 +2556,9 @@ export function createIntakeService({
       success: true,
       code: 'ESTIMATE_DISPATCHED',
       referenceCode,
+      isUpdated: Boolean(verifiedUpdate),
       updateToken,
-      message: `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions.`,
+      message: `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions and your email address.`,
       verifiedEstimate: verifiedEstimateSummary,
       appointment: appointmentSummary,
       icsContent: emailPackage.icsContent,

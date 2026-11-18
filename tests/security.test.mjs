@@ -567,10 +567,16 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.match(sentEmails[0].emailPackage.htmlBody, /Privacy, Opt-Out &amp; Data Deletion/i);
     assert.match(sentEmails[0].emailPackage.icsContent, /BEGIN:VCALENDAR/);
     assert.match(sentEmails[0].emailPackage.icsContent, /DTSTART;TZID=America\/Chicago:20261106T080000/);
-    assert.match(sentEmails[0].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261106T141500/);
+    assert.match(sentEmails[0].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261106T110000/);
+    assert.match(sentEmails[0].emailPackage.icsContent, /RRULE:FREQ=WEEKLY/);
     assert.match(sentEmails[0].emailPackage.finishEarlyUrl, /\/api\/finish-early\?token=/);
     assert.match(sentEmails[0].emailPackage.textBody, /Est\. Cleaning Time:/);
     assert.match(sentEmails[0].emailPackage.htmlBody, /Finish Early/);
+    assert.ok(sentEmails[0].emailPackage.customerConfirmation);
+    assert.equal(sentEmails[0].emailPackage.customerConfirmation.to, 'jose.garcia@example.com');
+    assert.match(sentEmails[0].emailPackage.customerConfirmation.htmlBody, /\$375\.00/);
+    assert.doesNotMatch(sentEmails[0].emailPackage.customerConfirmation.textBody, /finish-early/i);
+    assert.doesNotMatch(sentEmails[0].emailPackage.customerConfirmation.htmlBody, /Finish Early/i);
 
     // 8b. SSRF webhook URL guard blocks non-HTTPS, localhost, cloud metadata (169.254.169.254), and private IP literals
     assert.equal(isSafeWebhookUrl('https://script.google.com/macros/s/example/exec'), true);
@@ -649,13 +655,16 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(editedSameCustomerRes.body.verifiedEstimate.addonsTotal, 100);
     assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 300);
 
-    // 12. Verify GET /api/calendar-availability now shows the slot as BOOKED with zero customer PII
+    // 12. Verify GET /api/calendar-availability now shows the initial date AND recurring weekly dates as BOOKED with zero customer PII
     const availAfter = await (await fetch(`${base}/api/calendar-availability`)).json();
     const bookedEntry = availAfter.upcomingBookings.find(
       b => b.date === '2026-11-06' && b.slotId === '08:00-11:00'
     );
     assert.ok(bookedEntry);
     assert.equal(bookedEntry.status, 'BOOKED');
+    const nextWeekRecurring = availAfter.availableDates.find(d => d.date === '2026-11-13');
+    assert.ok(nextWeekRecurring);
+    assert.equal(nextWeekRecurring.slots.find(s => s.slotId === '08:00-11:00').status, 'BOOKED');
     assert.doesNotMatch(JSON.stringify(availAfter), /José|García|jose\.garcia|555-0142/);
 
     // 13. Rate limit check: exceeding 5 requests per window from same IP returns 429 + Retry-After
@@ -694,7 +703,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
   }
 });
 
-test('open arrival windows, multi-window overlap blocking, updateToken self-edit exclusion across calendar sync, fail-closed HTML webhooks, and /api/finish-early work end-to-end', async () => {
+test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken [UPDATED] replacement, and /api/finish-early work end-to-end', async () => {
   let activeNow = new Date('2026-11-09T14:00:00Z'); // Monday 8:00 AM CST (Nov 9, 2026)
   const sentEmails = [];
   const calendarActions = [];
@@ -791,7 +800,7 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
     });
     assert.equal(middayDeepFridgeRes.status, 200);
 
-    // 2. Book 5.5-hour Deep Clean at 08:00-11:00 (runs 8:00 AM - 1:30 PM)
+    // 2. Book 5.5-hour Deep Clean at 08:00-11:00 (fixed time block stays 8:00 AM - 11:00 AM)
     const emailIdxBeforeMorning = sentEmails.length;
     const morningDeepRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
@@ -801,10 +810,10 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
     assert.equal(morningDeepRes.status, 200);
     const morningDeepData = await morningDeepRes.json();
     assert.equal(morningDeepData.verifiedEstimate.totalEstimatedHours, 5.5);
-    assert.equal(morningDeepData.appointment.scheduledEndLabel, '1:30 PM');
-    assert.match(sentEmails[emailIdxBeforeMorning].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261110T133000/);
+    assert.equal(morningDeepData.appointment.scheduledEndLabel, '11:00 AM');
+    assert.match(sentEmails[emailIdxBeforeMorning].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261110T110000/);
 
-    // 2b. Edit that booking using updateToken to add a fridge (+0.5h -> 6.0 hrs, $395) on the SAME window without self-blocking
+    // 2b. Edit that booking using updateToken to add a fridge (+0.5h -> 6.0 hrs, $395) on the SAME fixed window without self-blocking
     const morningEditRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -815,11 +824,14 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
     });
     assert.equal(morningEditRes.status, 200);
     const morningEditData = await morningEditRes.json();
+    assert.equal(morningEditData.isUpdated, true);
     assert.equal(morningEditData.verifiedEstimate.grandTotal, 395);
     assert.equal(morningEditData.verifiedEstimate.totalEstimatedHours, 6);
-    assert.equal(morningEditData.appointment.scheduledEndLabel, '2:00 PM');
+    assert.equal(morningEditData.appointment.scheduledEndLabel, '11:00 AM');
     const morningEmail = sentEmails[sentEmails.length - 1];
     assert.equal(morningEmail.previousReferenceCode, morningDeepData.referenceCode);
+    assert.match(morningEmail.emailPackage.subject, /^\[UPDATED\] /);
+    assert.match(morningEmail.emailPackage.icsContent, /SUMMARY:\\\[UPDATED\\\] |SUMMARY:\[UPDATED\] /);
 
     // Tampered updateToken must fail closed with 400 INVALID_UPDATE_TOKEN
     const badUpdateRes = await fetch(`${base}/api/estimate-request`, {
@@ -833,21 +845,21 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
     assert.equal(badUpdateRes.status, 400);
     assert.equal((await badUpdateRes.json()).code, 'INVALID_UPDATE_TOKEN');
 
-    // 3. Another customer cannot book 11:00-14:00 on 2026-11-10 because 8:00 AM - 2:00 PM overlaps it,
-    //    but CAN book a 2-hour Specific Areas clean at 14:00-16:30 (ends 4:00 PM <= 4:30 PM)!
-    const overlapRes = await fetch(`${base}/api/estimate-request`, {
+    // 3. Another customer cannot book the SAME 08:00-11:00 slot on 2026-11-10 (409 SLOT_ALREADY_BOOKED),
+    //    but CAN book 11:00-14:00 or 14:00-16:30 because calendar blocks remain discrete!
+    const sameWindowConflictRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(
         makePayload({
           customer: { email: 'bob@example.com', firstName: 'Bob', lastName: 'Smith', phone: '(318) 555-0123' },
-          appointment: { preferredDate: '2026-11-10', preferredWindow: '11:00-14:00' },
+          appointment: { preferredDate: '2026-11-10', preferredWindow: '08:00-11:00' },
           quote: { scopeMode: 'specific', specificHours: 2, specificAreasText: 'Kitchen and 1 bath' }
         })
       )
     });
-    assert.equal(overlapRes.status, 409);
-    assert.equal((await overlapRes.json()).code, 'SLOT_ALREADY_BOOKED');
+    assert.equal(sameWindowConflictRes.status, 409);
+    assert.equal((await sameWindowConflictRes.json()).code, 'SLOT_ALREADY_BOOKED');
 
     const afternoonSpecificRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
@@ -862,7 +874,27 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
     });
     assert.equal(afternoonSpecificRes.status, 200);
     const afternoonData = await afternoonSpecificRes.json();
-    assert.equal(afternoonData.appointment.scheduledEndLabel, '4:00 PM');
+    assert.equal(afternoonData.appointment.scheduledEndLabel, '4:30 PM');
+
+    // 3b. Monthly recurring clean on 2026-11-18 emits RRULE:FREQ=MONTHLY and blocks 2026-12-18
+    const monthlyEmailIdx = sentEmails.length;
+    const monthlyRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        makePayload({
+          customer: { email: 'monthly@example.com', firstName: 'Mona', lastName: 'Ray', phone: '(318) 555-0133' },
+          appointment: { preferredDate: '2026-11-18', preferredWindow: '11:00-14:00' },
+          quote: { frequency: 'monthly' }
+        })
+      )
+    });
+    assert.equal(monthlyRes.status, 200);
+    assert.match(sentEmails[monthlyEmailIdx].emailPackage.icsContent, /RRULE:FREQ=MONTHLY/);
+    const availMonthlyCheck = await (await fetch(`${base}/api/calendar-availability`)).json();
+    const dec18 = availMonthlyCheck.availableDates.find(d => d.date === '2026-12-18');
+    assert.ok(dec18);
+    assert.equal(dec18.slots.find(s => s.slotId === '11:00-14:00').status, 'BOOKED');
 
     // 4. Two-step Finish Early verification on updated morning Deep Clean
     const finishEarlyUrl = new URL(morningEmail.emailPackage.finishEarlyUrl);
@@ -910,7 +942,7 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
     assert.ok(shortenedMorning);
     assert.equal(shortenedMorning.endMinutes, 570);
 
-    // 4e. Also verify release_all on a future weekday (Thursday 2026-11-12) restores 11:00-14:00 to AVAILABLE in availableDates
+    // 4e. Also verify release_all on a future weekday (Thursday 2026-11-12) restores 08:00-11:00 to AVAILABLE in availableDates
     const thursdayRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -925,7 +957,7 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
     const thursdayAvailBefore = await (await fetch(`${base}/api/calendar-availability`)).json();
     const thuBefore = thursdayAvailBefore.availableDates.find(d => d.date === '2026-11-12');
     assert.equal(thuBefore.slots.find(s => s.slotId === '08:00-11:00').status, 'BOOKED');
-    assert.equal(thuBefore.slots.find(s => s.slotId === '11:00-14:00').status, 'BOOKED');
+    assert.equal(thuBefore.slots.find(s => s.slotId === '11:00-14:00').status, 'AVAILABLE');
 
     const thuToken = new URL(sentEmails[sentEmails.length - 1].emailPackage.finishEarlyUrl).searchParams.get('token');
     const releaseAllRes = await fetch(`${base}/api/finish-early`, {
@@ -948,7 +980,7 @@ test('open arrival windows, multi-window overlap blocking, updateToken self-edit
   }
 });
 
-test('remote Google Calendar webhook mode excludes self-booking via updateToken and fails closed on HTML error pages', async () => {
+test('remote Google Calendar webhook mode excludes self-booking via updateToken, includes customer confirmation + recurrence + [UPDATED] metadata, and fails closed on HTML pages', async () => {
   const webhookCalls = [];
   let failHtmlNextPost = false;
   const originalFetch = globalThis.fetch;
@@ -1053,6 +1085,12 @@ test('remote Google Calendar webhook mode excludes self-booking via updateToken 
     assert.equal(updateRes.body.success, true);
     assert.equal(webhookCalls.length, 1);
     assert.equal(webhookCalls[0].previousReferenceCode, 'SPS-PRIOR12345');
+    assert.equal(webhookCalls[0].previousDate, '2026-11-19');
+    assert.equal(webhookCalls[0].isUpdated, true);
+    assert.ok(webhookCalls[0].customerEmail);
+    assert.equal(webhookCalls[0].customerEmail.to, 'kevin@example.com');
+    assert.ok(webhookCalls[0].recurrence);
+    assert.equal(webhookCalls[0].recurrence.isRecurring, false);
 
     // If Apps Script returns HTTP 200 HTML (e.g. "Who has access" or MailApp auth error), fail closed with 502!
     failHtmlNextPost = true;

@@ -164,16 +164,7 @@
       };
     }
 
-    const safeDuration = Math.max(60, Math.round(Number(durationMinutes) || 60));
-    const projectedEnd = timing.startMinutes + safeDuration;
-    const exceedsClose = projectedEnd > BUSINESS_CLOSE_MINUTES;
-
-    const effectiveEnd = Math.max(
-      timing.startMinutes + 60,
-      Math.min(BUSINESS_CLOSE_MINUTES, projectedEnd)
-    );
-    const isFullDayExtension =
-      timing.startMinutes === BUSINESS_OPEN_MINUTES && exceedsClose;
+    const effectiveEnd = timing.endMinutes;
 
     if (!isCustomerOwnSlot) {
       if (slot.status === 'BOOKED') {
@@ -182,8 +173,8 @@
           selectable: false,
           endMinutes: effectiveEnd,
           endLabel: formatMinutesAsTime(effectiveEnd),
-          exceedsClose,
-          isFullDayExtension,
+          exceedsClose: false,
+          isFullDayExtension: false,
           reasonText: 'Booked'
         };
       }
@@ -213,19 +204,11 @@
           selectable: false,
           endMinutes: effectiveEnd,
           endLabel: formatMinutesAsTime(effectiveEnd),
-          exceedsClose,
-          isFullDayExtension,
-          reasonText: 'Booked / Overlaps existing job'
+          exceedsClose: false,
+          isFullDayExtension: false,
+          reasonText: 'Booked / Unavailable'
         };
       }
-    }
-
-    const hoursSummary = formatDurationHours(safeDuration / 60);
-    let reasonText = `Available · Est. finishes ~${formatMinutesAsTime(effectiveEnd)}`;
-    if (isFullDayExtension) {
-      reasonText = `Available · Full-Day Block (${formatMinutesAsTime(timing.startMinutes)} – ${formatMinutesAsTime(effectiveEnd)})`;
-    } else if (exceedsClose) {
-      reasonText = `Available · ${hoursSummary} est. (${slot.shortLabel} arrival)`;
     }
 
     return {
@@ -233,9 +216,9 @@
       selectable: true,
       endMinutes: effectiveEnd,
       endLabel: formatMinutesAsTime(effectiveEnd),
-      exceedsClose,
-      isFullDayExtension,
-      reasonText
+      exceedsClose: false,
+      isFullDayExtension: false,
+      reasonText: 'Available'
     };
   }
 
@@ -656,19 +639,9 @@
 
     const timing = schedulerState.selectedWindow ? WINDOW_TIMINGS[schedulerState.selectedWindow] : null;
     if (timing) {
-      const projectedEnd = timing.startMinutes + dur.durationMinutes;
-      if (timing.startMinutes === BUSINESS_OPEN_MINUTES && dur.durationMinutes > FULL_DAY_MINUTES) {
-        recapHours.textContent = `${hoursLabel} (Full-Day Team Block · 8:00 AM – 4:30 PM)`;
-        return;
-      }
-      if (projectedEnd <= BUSINESS_CLOSE_MINUTES) {
-        const endStr = formatMinutesAsTime(Math.max(timing.startMinutes + 60, projectedEnd));
-        const startStr = formatMinutesAsTime(timing.startMinutes);
-        recapHours.textContent = `${hoursLabel} (Est. ${startStr} – ${endStr})`;
-        return;
-      }
       const startStr = formatMinutesAsTime(timing.startMinutes);
-      recapHours.textContent = `${hoursLabel} (${startStr} Arrival Window)`;
+      const endStr = formatMinutesAsTime(timing.endMinutes);
+      recapHours.textContent = `${hoursLabel} (Time Block: ${startStr} – ${endStr})`;
       return;
     }
 
@@ -1025,12 +998,9 @@
       confirmed.verifiedEstimate?.totalEstimatedHours ||
       confirmed.verifiedEstimate?.estimatedHours ||
       getActiveDurationInfo().totalEstimatedHours;
-    const confirmedEndLabel = confirmed.appointmentScheduledEndLabel || '';
     addDetailRow(
       'Est. Cleaning Time:',
-      confirmedEndLabel
-        ? `${formatDurationHours(confirmedDurationHrs)} (Est. finishes ~${confirmedEndLabel})`
-        : formatDurationHours(confirmedDurationHrs),
+      formatDurationHours(confirmedDurationHrs),
       false
     );
 
@@ -1885,17 +1855,9 @@
         let statusText = evalResult.reasonText;
         if (evalResult.selectable) {
           if (isCustomerOwnSlot && isSelected) {
-            statusText = evalResult.exceedsClose
-              ? `Your Current Slot ✓ · ${formatDurationHours(durInfo.totalEstimatedHours)} est.`
-              : `Your Current Slot ✓ · Est. ends ~${evalResult.endLabel}`;
+            statusText = 'Your Current Slot ✓';
           } else if (isSelected) {
-            if (evalResult.isFullDayExtension) {
-              statusText = 'Selected ✓ · Full-Day Block (Ends 4:30 PM)';
-            } else if (evalResult.exceedsClose) {
-              statusText = `Selected ✓ · ${formatDurationHours(durInfo.totalEstimatedHours)} est.`;
-            } else {
-              statusText = `Selected ✓ · Est. ends ~${evalResult.endLabel}`;
-            }
+            statusText = 'Selected ✓';
           }
         }
         const statusRow = createEl('span', 'cal-slot-status', statusText);
@@ -1920,13 +1882,7 @@
     if (selectedSummary) {
       if (activeDateObj && schedulerState.selectedWindow) {
         const chosenSlot = activeDateObj.slots.find((s) => s.slotId === schedulerState.selectedWindow);
-        let endSummary = '';
-        if (selectedSlotEvaluation) {
-          endSummary = selectedSlotEvaluation.exceedsClose
-            ? ` · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`
-            : ` · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)} (Ends ~${selectedSlotEvaluation.endLabel})`;
-        }
-        selectedSummary.textContent = `Selected Time: ${activeDateObj.dateFormatted} • ${chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow}${endSummary}`;
+        selectedSummary.textContent = `Selected Time: ${activeDateObj.dateFormatted} • ${chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow} · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`;
       } else {
         selectedSummary.textContent = 'Please select an available day and time window above.';
       }
