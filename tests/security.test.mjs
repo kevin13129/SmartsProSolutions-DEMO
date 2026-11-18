@@ -472,7 +472,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     const leapYearRes = await leapYearService.processEstimateRequest({
       rawBody: JSON.stringify({
         ...validPayload,
-        appointment: { preferredDate: '2028-02-29', preferredWindow: '14:00-16:30' }
+        appointment: { preferredDate: '2028-02-29', preferredWindow: '08:00-11:00' }
       }),
       headers: { 'content-type': 'application/json' },
       clientIp: '10.0.0.15'
@@ -514,6 +514,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
     });
     assert.equal(standard2000Quote.basePrice, 250);
+    assert.equal(standard2000Quote.totalEstimatedHours, 5);
     assert.ok(standard2000Quote.grandTotal > 200);
 
     const deep2000Quote = calculateAuthoritativeQuote({
@@ -532,6 +533,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
     });
     assert.equal(deep2000Quote.basePrice, 330);
+    assert.equal(deep2000Quote.totalEstimatedHours, 5.5);
     assert.ok(deep2000Quote.grandTotal > 275);
 
     // 8. Valid request recalculates authoritative flat-rate total ($275 base + $65 fridge + $35 pets = $375),
@@ -565,6 +567,10 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.match(sentEmails[0].emailPackage.htmlBody, /Privacy, Opt-Out &amp; Data Deletion/i);
     assert.match(sentEmails[0].emailPackage.icsContent, /BEGIN:VCALENDAR/);
     assert.match(sentEmails[0].emailPackage.icsContent, /DTSTART;TZID=America\/Chicago:20261106T080000/);
+    assert.match(sentEmails[0].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261106T141500/);
+    assert.match(sentEmails[0].emailPackage.finishEarlyUrl, /\/api\/finish-early\?token=/);
+    assert.match(sentEmails[0].emailPackage.textBody, /Est\. Cleaning Time:/);
+    assert.match(sentEmails[0].emailPackage.htmlBody, /Finish Early/);
 
     // 8b. SSRF webhook URL guard blocks non-HTTPS, localhost, cloud metadata (169.254.169.254), and private IP literals
     assert.equal(isSafeWebhookUrl('https://script.google.com/macros/s/example/exec'), true);
@@ -682,6 +688,219 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(unconfRes.body.success, false);
     assert.equal(unconfRes.body.code, 'EMAIL_PROVIDER_UNCONFIGURED');
     assert.match(unconfRes.body.fallbackMailtoUrl, /^mailto:smartsprosolutions%40gmail\.com/);
+  } finally {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+  }
+});
+
+test('duration-aware 4:30 PM cutoff, multi-window overlap blocking, and two-step /api/finish-early re-opening work end-to-end', async () => {
+  let activeNow = new Date('2026-11-09T14:00:00Z'); // Monday 8:00 AM CST (Nov 9, 2026)
+  const sentEmails = [];
+  const calendarActions = [];
+
+  const service = createIntakeService({
+    nowFn: () => activeNow,
+    includeBaselineSchedule: false,
+    finishEarlySecret: 'test-finish-early-secret-32-chars-minimum',
+    mailTransport: async (emailPackage, record, referenceCode) => {
+      sentEmails.push({ emailPackage, record, referenceCode });
+      return { delivered: true, provider: 'test-double' };
+    },
+    calendarActionTransport: async (payload) => {
+      calendarActions.push(payload);
+      return { delivered: true, provider: 'test-double' };
+    }
+  });
+
+  const server = createPreviewServer({ intakeService: service });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const base = `http://127.0.0.1:${server.address().port}`;
+
+  const makePayload = (overrides = {}) => ({
+    customer: {
+      firstName: 'Ada',
+      lastName: 'Lovelace',
+      phone: '(318) 555-0188',
+      email: 'ada@example.com',
+      notes: '',
+      ...(overrides.customer || {})
+    },
+    appointment: {
+      preferredDate: '2026-11-10', // Tuesday
+      preferredWindow: '08:00-11:00',
+      ...(overrides.appointment || {})
+    },
+    quote: {
+      serviceCategory: 'residential',
+      serviceType: 'deep',
+      propertyType: '',
+      scopeMode: 'full',
+      specificAreasText: '',
+      specificHours: 2,
+      bedrooms: 3,
+      fullBaths: 2,
+      halfBaths: 0,
+      sqft: 2000,
+      additionalInfo: {
+        hasPets: 'no',
+        lastCleaned: '1-3 Months ago',
+        occupancy: 'Occupied, we live there',
+        condition: 'Average, normal use'
+      },
+      frequency: 'onetime',
+      addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 },
+      ...(overrides.quote || {})
+    },
+    companyWebsite: ''
+  });
+
+  try {
+    // 1. 4:30 PM cutoff checks:
+    //    - 5.5-hour Deep Clean (2,000 sqft 3B/2B) exceeds 4:30 PM for 2:00 PM arrival (14:00 + 5.5h = 7:30 PM)
+    //    - 6.0-hour Deep Clean + Fridge exceeds 4:30 PM for 11:00 AM arrival (11:00 + 6h = 5:00 PM)
+    const lateAfternoonCutoffRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(makePayload({ appointment: { preferredDate: '2026-11-10', preferredWindow: '14:00-16:30' } }))
+    });
+    assert.equal(lateAfternoonCutoffRes.status, 400);
+    assert.equal((await lateAfternoonCutoffRes.json()).code, 'SLOT_EXCEEDS_CLOSING_TIME');
+
+    const middayCutoffRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        makePayload({
+          appointment: { preferredDate: '2026-11-10', preferredWindow: '11:00-14:00' },
+          quote: { addons: { fridge: 1, fridgeDouble: 0, oven: 0, pets: 0 } }
+        })
+      )
+    });
+    assert.equal(middayCutoffRes.status, 400);
+    assert.equal((await middayCutoffRes.json()).code, 'SLOT_EXCEEDS_CLOSING_TIME');
+
+    // 2. Book 5.5-hour Deep Clean at 08:00-11:00 (runs 8:00 AM - 1:30 PM)
+    const morningDeepRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(makePayload())
+    });
+    assert.equal(morningDeepRes.status, 200);
+    const morningDeepData = await morningDeepRes.json();
+    assert.equal(morningDeepData.verifiedEstimate.totalEstimatedHours, 5.5);
+    assert.equal(morningDeepData.appointment.scheduledEndLabel, '1:30 PM');
+    assert.match(sentEmails[0].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261110T133000/);
+
+    // 3. Another customer cannot book 11:00-14:00 on 2026-11-10 because 8:00 AM - 1:30 PM overlaps it,
+    //    but CAN book a 2-hour Specific Areas clean at 14:00-16:30 (ends 4:00 PM <= 4:30 PM)!
+    const overlapRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        makePayload({
+          customer: { email: 'bob@example.com', firstName: 'Bob', lastName: 'Smith', phone: '(318) 555-0123' },
+          appointment: { preferredDate: '2026-11-10', preferredWindow: '11:00-14:00' },
+          quote: { scopeMode: 'specific', specificHours: 2, specificAreasText: 'Kitchen and 1 bath' }
+        })
+      )
+    });
+    assert.equal(overlapRes.status, 409);
+    assert.equal((await overlapRes.json()).code, 'SLOT_ALREADY_BOOKED');
+
+    const afternoonSpecificRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        makePayload({
+          customer: { email: 'carol@example.com', firstName: 'Carol', lastName: 'Jones', phone: '(318) 555-0144' },
+          appointment: { preferredDate: '2026-11-10', preferredWindow: '14:00-16:30' },
+          quote: { scopeMode: 'specific', specificHours: 2, specificAreasText: 'Kitchen and 1 bath' }
+        })
+      )
+    });
+    assert.equal(afternoonSpecificRes.status, 200);
+    const afternoonData = await afternoonSpecificRes.json();
+    assert.equal(afternoonData.appointment.scheduledEndLabel, '4:00 PM');
+
+    // 4. Two-step Finish Early verification on morning Deep Clean
+    const finishEarlyUrl = new URL(sentEmails[0].emailPackage.finishEarlyUrl);
+    const token = finishEarlyUrl.searchParams.get('token');
+    assert.ok(token);
+
+    // 4a. GET /api/finish-early?token=... renders safe HTML confirmation page without any mutation
+    const getPageRes = await fetch(`${base}/api/finish-early?token=${encodeURIComponent(token)}`);
+    assert.equal(getPageRes.status, 200);
+    assert.ok(getPageRes.headers.get('content-security-policy').includes("form-action 'none'"));
+    const pageHtml = await getPageRes.text();
+    assert.doesNotMatch(pageHtml, /<form\b/i);
+    assert.match(pageHtml, /btn-finish-now/);
+    assert.equal(calendarActions.length, 0);
+
+    // 4b. Tampered token is rejected cleanly on both GET and POST
+    const badTokenPost = await fetch(`${base}/api/finish-early`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: `${token}tamper`, mode: 'now' })
+    });
+    assert.equal(badTokenPost.status, 400);
+
+    // 4c. Advance clock to 9:20 AM CST on Tuesday 2026-11-10 (15:20Z) and confirm Finished Early Now
+    activeNow = new Date('2026-11-10T15:20:00Z');
+    const finishNowRes = await fetch(`${base}/api/finish-early`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token, mode: 'now' })
+    });
+    assert.equal(finishNowRes.status, 200);
+    const finishNowData = await finishNowRes.json();
+    assert.equal(finishNowData.success, true);
+    assert.equal(finishNowData.earlyEndLabel, '9:30 AM');
+    assert.ok(finishNowData.openWindowsNow.includes('11:00 AM – 2:00 PM'));
+    assert.equal(calendarActions.length, 1);
+    assert.equal(calendarActions[0].action, 'finishEarly');
+    assert.equal(calendarActions[0].releaseAll, false);
+
+    // 4d. busyIntervals now reflects 2026-11-10 morning block shortened to 570 (9:30 AM), leaving 11:00 AM free!
+    const availAfterEarly = await (await fetch(`${base}/api/calendar-availability`)).json();
+    const shortenedMorning = availAfterEarly.busyIntervals.find(
+      b => b.date === '2026-11-10' && b.startMinutes === 480
+    );
+    assert.ok(shortenedMorning);
+    assert.equal(shortenedMorning.endMinutes, 570);
+
+    // 4e. Also verify release_all on a future weekday (Thursday 2026-11-12) restores 11:00-14:00 to AVAILABLE in availableDates
+    const thursdayRes = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(
+        makePayload({
+          customer: { email: 'dana@example.com', firstName: 'Dana', lastName: 'Lee', phone: '(318) 555-0155' },
+          appointment: { preferredDate: '2026-11-12', preferredWindow: '08:00-11:00' }
+        })
+      )
+    });
+    assert.equal(thursdayRes.status, 200);
+    const thursdayAvailBefore = await (await fetch(`${base}/api/calendar-availability`)).json();
+    const thuBefore = thursdayAvailBefore.availableDates.find(d => d.date === '2026-11-12');
+    assert.equal(thuBefore.slots.find(s => s.slotId === '08:00-11:00').status, 'BOOKED');
+    assert.equal(thuBefore.slots.find(s => s.slotId === '11:00-14:00').status, 'BOOKED');
+
+    const thuToken = new URL(sentEmails[sentEmails.length - 1].emailPackage.finishEarlyUrl).searchParams.get('token');
+    const releaseAllRes = await fetch(`${base}/api/finish-early`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: thuToken, mode: 'release_all' })
+    });
+    assert.equal(releaseAllRes.status, 200);
+    const releaseAllJson = await releaseAllRes.json();
+    assert.equal(releaseAllJson.releaseAll, true);
+    assert.equal(releaseAllJson.openWindowsNow.length, 3);
+
+    const thursdayAvailAfter = await (await fetch(`${base}/api/calendar-availability`)).json();
+    const thuAfter = thursdayAvailAfter.availableDates.find(d => d.date === '2026-11-12');
+    assert.equal(thuAfter.slots.find(s => s.slotId === '08:00-11:00').status, 'AVAILABLE');
+    assert.equal(thuAfter.slots.find(s => s.slotId === '11:00-14:00').status, 'AVAILABLE');
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));

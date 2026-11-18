@@ -172,6 +172,25 @@ try {
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.paymentPolicy'), 'NO_ONLINE_PAYMENT_REQUIRED');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.pricingModel'), 'FLAT_RATE_NO_RECURRING_DISCOUNTS');
   assert.equal(await evaluate('getComputedStyle(document.getElementById("summary-addons-row")).display'), 'flex');
+
+  // Verify Specific Areas lives inside Step 5 (Add-Ons) and not inside Step 2 (Property Details)
+  assert.equal(await evaluate('!!document.querySelector("#calc-step-2 #btn-scope-specific")'), false);
+  assert.equal(await evaluate('!!document.querySelector("#calc-step-2 #scope-panel-specific")'), false);
+  assert.equal(await evaluate('!!document.querySelector("#calc-step-5 #btn-scope-specific")'), true);
+  assert.equal(await evaluate('!!document.querySelector("#calc-step-5 #scope-panel-specific")'), true);
+
+  // Advance to Step 5, toggle Specific Areas on ($50 1hr + $65 fridge = $115), validate required text, then toggle off ($340)
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 5);
+  await evaluate('document.getElementById("btn-scope-specific").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.scopeMode'), 'specific');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 115);
+  await evaluate('document.getElementById("btn-wizard-next").click()');
+  assert.equal(await evaluate('document.getElementById("specific-areas-input-group").classList.contains("wizard-field-missing")'), true);
+  await evaluate('document.getElementById("btn-scope-specific").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.scopeMode'), 'full');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 340);
+
   for (const [input, expected] of [['-100', 400], ['999999', 6000], ['', 400], ['1800', 1800]]) {
     await evaluate(`(() => { const field = document.getElementById('input-sqft'); field.value = ${JSON.stringify(input)}; field.dispatchEvent(new Event('input')); })()`);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.state.sqft'), expected);
@@ -180,8 +199,13 @@ try {
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
   assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$340.00');
+  assert.match(await evaluate('document.getElementById("modal-recap-hours").textContent'), /Hours/i);
+  assert.equal(await evaluate('!!document.getElementById("btn-refresh-calendar")'), true);
   assert.equal(await evaluate('!!document.getElementById("calendar-date-grid")'), true);
   assert.equal(await evaluate('!!document.getElementById("calendar-slot-grid")'), true);
+  assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').disabled'), true);
+  assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').classList.contains("is-cutoff")'), true);
+  assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="08:00-11:00"]\').disabled'), false);
   assert.equal(await evaluate('!!document.getElementById("upcoming-bookings-list")'), true);
   assert.equal(await evaluate('!!document.getElementById("intake-first-name")'), true);
   assert.equal(await evaluate('!!document.getElementById("intake-last-name")'), true);
@@ -239,6 +263,13 @@ try {
   const forms = await send('DOM.querySelectorAll', { nodeId: document.root.nodeId, selector: 'form, textarea, input[type=email], input[type=tel]' });
   assert.equal(forms.nodeIds.length, 0);
   console.log('PASS no personal-data intake when JavaScript is disabled');
+
+  await send('Emulation.setScriptExecutionDisabled', { value: false });
+  await send('Page.navigate', { url: `${base}/api/finish-early?token=invalid.token` });
+  await new Promise(resolve => setTimeout(resolve, 400));
+  assert.deepEqual(await evaluate('window.__violations'), [], 'Finish-early page triggered CSP');
+  assert.equal(await evaluate('document.querySelectorAll("form").length'), 0);
+  console.log('PASS /api/finish-early strict CSP page check');
 } finally {
   if (socket) socket.close();
   browser.kill();

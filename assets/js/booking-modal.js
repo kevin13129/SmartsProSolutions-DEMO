@@ -30,6 +30,7 @@
   const recapFreq = document.getElementById('modal-recap-freq');
   const recapAddonsRow = document.getElementById('modal-recap-addons-row');
   const recapAddons = document.getElementById('modal-recap-addons');
+  const recapHours = document.getElementById('modal-recap-hours');
   const recapTotalLabel = document.getElementById('modal-recap-total-label');
   const recapTotal = document.getElementById('modal-recap-total');
   const recapPolicyRow = document.getElementById('modal-recap-policy-row');
@@ -64,6 +65,15 @@
     onetime: 'One-Time Service • Flat Rate'
   };
 
+  const BUSINESS_OPEN_MINUTES = 8 * 60; // 8:00 AM
+  const BUSINESS_CLOSE_MINUTES = 16 * 60 + 30; // 4:30 PM
+  const FULL_DAY_MINUTES = BUSINESS_CLOSE_MINUTES - BUSINESS_OPEN_MINUTES; // 510 min (8.5 hrs)
+  const WINDOW_TIMINGS = Object.freeze({
+    '08:00-11:00': { startMinutes: 8 * 60, endMinutes: 11 * 60 },
+    '11:00-14:00': { startMinutes: 11 * 60, endMinutes: 14 * 60 },
+    '14:00-16:30': { startMinutes: 14 * 60, endMinutes: 16 * 60 + 30 }
+  });
+
   // Interactive Scheduler & Intake State
   const schedulerState = {
     availableDates: [],
@@ -72,9 +82,12 @@
     maxAdvanceDate: '',
     maxAdvanceDateFormatted: '',
     upcomingBookings: [],
+    busyIntervals: [],
     selectedDate: '',
     selectedWindow: '',
     isSubmitting: false,
+    isRefreshingCalendar: false,
+    liveCalendarSyncConfigured: false,
     viewMode: 'form', // 'form' | 'confirmed' | 'editing'
     confirmedSubmission: null,
     mounted: false,
@@ -86,6 +99,127 @@
     if (className) el.className = className;
     if (text !== undefined && text !== null) el.textContent = String(text);
     return el;
+  }
+
+  function formatMinutesAsTime(totalMinutes) {
+    const safeMin = Math.max(0, Math.round(Number(totalMinutes) || 0));
+    const h24 = Math.floor(safeMin / 60);
+    const mins = safeMin % 60;
+    const ampm = h24 >= 12 ? 'PM' : 'AM';
+    const h12 = h24 % 12 || 12;
+    return `${h12}:${String(mins).padStart(2, '0')} ${ampm}`;
+  }
+
+  function formatDurationHours(hoursVal) {
+    const num = Number(hoursVal) || 0;
+    const rounded = Number(num.toFixed(2));
+    if (rounded === 1) return '1 Hour';
+    return `${rounded} Hours`;
+  }
+
+  function getActiveDurationInfo() {
+    const quote = window.SmartsProCurrentQuote || { state: {}, calculation: {} };
+    const st = quote.state || {};
+    const calc = quote.calculation || {};
+    const isCommercial = st.serviceCategory === 'commercial';
+    const rawHours = Number(calc.totalEstimatedHours || calc.estimatedHours) || 2;
+    const durationMinutes = Number(calc.durationMinutes) || Math.max(60, Math.round(rawHours * 60));
+    return {
+      isCommercial,
+      totalEstimatedHours: Number((durationMinutes / 60).toFixed(2)),
+      durationMinutes: Math.max(60, Math.round(durationMinutes))
+    };
+  }
+
+  function intervalsOverlap(startA, endA, startB, endB) {
+    return startA < endB && endA > startB;
+  }
+
+  function evaluateClientSlot(dayObj, slot, durationMinutes, confirmedDate, confirmedWindow, busyIntervals) {
+    const timing = WINDOW_TIMINGS[slot.slotId] || {
+      startMinutes: Number(slot.startMinutes) || BUSINESS_OPEN_MINUTES,
+      endMinutes: Number(slot.endMinutes) || BUSINESS_OPEN_MINUTES + 180
+    };
+    const isCustomerOwnSlot = dayObj.date === confirmedDate && slot.slotId === confirmedWindow;
+
+    if (slot.status === 'CLOSED_HOLIDAY') {
+      return {
+        status: 'CLOSED_HOLIDAY',
+        selectable: false,
+        endMinutes: timing.endMinutes,
+        endLabel: formatMinutesAsTime(timing.endMinutes),
+        isFullDayExtension: false,
+        reasonText: slot.serviceLabel || 'Holiday (Closed)'
+      };
+    }
+
+    const safeDuration = Math.max(60, Math.round(Number(durationMinutes) || 60));
+    const projectedEnd = timing.startMinutes + safeDuration;
+    if (timing.startMinutes > BUSINESS_OPEN_MINUTES && projectedEnd > BUSINESS_CLOSE_MINUTES) {
+      return {
+        status: 'EXCEEDS_CLOSING',
+        selectable: false,
+        endMinutes: projectedEnd,
+        endLabel: formatMinutesAsTime(projectedEnd),
+        isFullDayExtension: false,
+        reasonText: `Needs ${formatDurationHours(safeDuration / 60)} (past 4:30 PM close)`
+      };
+    }
+
+    const effectiveEnd = Math.max(
+      timing.startMinutes + 60,
+      Math.min(BUSINESS_CLOSE_MINUTES, projectedEnd)
+    );
+    const isFullDayExtension =
+      timing.startMinutes === BUSINESS_OPEN_MINUTES && safeDuration > FULL_DAY_MINUTES;
+
+    if (!isCustomerOwnSlot) {
+      if (slot.status === 'BOOKED') {
+        return {
+          status: 'BOOKED',
+          selectable: false,
+          endMinutes: effectiveEnd,
+          endLabel: formatMinutesAsTime(effectiveEnd),
+          isFullDayExtension,
+          reasonText: 'Booked'
+        };
+      }
+
+      const dayBusy = (busyIntervals || []).filter((item) => item && item.date === dayObj.date);
+      const ownWindowTiming = confirmedWindow ? WINDOW_TIMINGS[confirmedWindow] : null;
+      const overlapsBusy = dayBusy.some((busy) => {
+        if (
+          dayObj.date === confirmedDate &&
+          ownWindowTiming &&
+          busy.startMinutes === ownWindowTiming.startMinutes
+        ) {
+          return false;
+        }
+        return intervalsOverlap(timing.startMinutes, effectiveEnd, busy.startMinutes, busy.endMinutes);
+      });
+
+      if (overlapsBusy) {
+        return {
+          status: 'BOOKED',
+          selectable: false,
+          endMinutes: effectiveEnd,
+          endLabel: formatMinutesAsTime(effectiveEnd),
+          isFullDayExtension,
+          reasonText: 'Booked / Overlaps existing job'
+        };
+      }
+    }
+
+    return {
+      status: 'AVAILABLE',
+      selectable: true,
+      endMinutes: effectiveEnd,
+      endLabel: formatMinutesAsTime(effectiveEnd),
+      isFullDayExtension,
+      reasonText: isFullDayExtension
+        ? `Available · Full-Day Block (${formatMinutesAsTime(timing.startMinutes)} – ${formatMinutesAsTime(effectiveEnd)})`
+        : `Available · Est. finishes ~${formatMinutesAsTime(effectiveEnd)}`
+    };
   }
 
   function formatYmdLocal(year, month, day) {
@@ -462,6 +596,8 @@
       recapTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
     }
 
+    updateRecapHoursDisplay();
+
     if (recapPolicyRow && recapPolicy) {
       recapPolicy.textContent = isCommercial
         ? 'Custom Facility Proposal • No Online Payment Required • 10% Bounced Check Fee'
@@ -490,6 +626,33 @@
         workflowStage3.textContent = `${plan.stages[2].title}: ${plan.stages[2].detail}`;
       }
     }
+  }
+
+  function updateRecapHoursDisplay() {
+    if (!recapHours) return;
+    const dur = getActiveDurationInfo();
+    const hoursLabel = formatDurationHours(dur.totalEstimatedHours);
+    if (dur.isCommercial) {
+      recapHours.textContent = `${hoursLabel} (On-Site Walkthrough Estimate)`;
+      return;
+    }
+
+    const timing = schedulerState.selectedWindow ? WINDOW_TIMINGS[schedulerState.selectedWindow] : null;
+    if (timing) {
+      const projectedEnd = timing.startMinutes + dur.durationMinutes;
+      if (timing.startMinutes === BUSINESS_OPEN_MINUTES && dur.durationMinutes > FULL_DAY_MINUTES) {
+        recapHours.textContent = `${hoursLabel} (Full-Day Team Block · 8:00 AM – 4:30 PM)`;
+        return;
+      }
+      if (projectedEnd <= BUSINESS_CLOSE_MINUTES) {
+        const endStr = formatMinutesAsTime(Math.max(timing.startMinutes + 60, projectedEnd));
+        const startStr = formatMinutesAsTime(timing.startMinutes);
+        recapHours.textContent = `${hoursLabel} (Est. ${startStr} – ${endStr})`;
+        return;
+      }
+    }
+
+    recapHours.textContent = hoursLabel;
   }
 
   /**
@@ -601,8 +764,8 @@
   }
 
   /**
-   * Applies an adjustment to the calculator state and refreshes both the top modal recap
-   * and the inline Edit Request panel controls.
+   * Applies an adjustment to the calculator state and refreshes both the top modal recap,
+   * live calendar duration eligibility, and the inline Edit Request panel controls.
    */
   function handleModalQuoteAdjustment(patch) {
     if (
@@ -612,6 +775,7 @@
       window.SmartsProCalculator.applyQuoteAdjustments(patch);
     }
     refreshModalRecapUI();
+    renderCalendarUI();
     syncEditAdjusterUI();
     updateSubmitButtonLockState();
   }
@@ -837,6 +1001,19 @@
       addDetailRow('Additional Notes:', confirmed.customer.notes, false);
     }
 
+    const confirmedDurationHrs =
+      confirmed.verifiedEstimate?.totalEstimatedHours ||
+      confirmed.verifiedEstimate?.estimatedHours ||
+      getActiveDurationInfo().totalEstimatedHours;
+    const confirmedEndLabel = confirmed.appointmentScheduledEndLabel || '';
+    addDetailRow(
+      'Est. Cleaning Time:',
+      confirmedEndLabel
+        ? `${formatDurationHours(confirmedDurationHrs)} (Est. finishes ~${confirmedEndLabel})`
+        : formatDurationHours(confirmedDurationHrs),
+      false
+    );
+
     addDetailRow(
       'Verified Flat-Rate Estimate:',
       `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (No Online Payment Required)`,
@@ -945,20 +1122,29 @@
       );
       headerWrap.append(title, subtitle);
 
-      // Month Switcher Bar (Current Month vs. Next Month)
+      // Month Switcher Bar (Current Month vs. Next Month) + Refresh Live Calendar Control
       const monthNavWrap = createEl('div', 'calendar-month-nav');
       monthNavWrap.id = 'calendar-month-nav';
       const monthTabs = createEl('div', 'calendar-month-tabs');
       monthTabs.id = 'calendar-month-tabs';
       monthTabs.setAttribute('role', 'tablist');
       monthTabs.setAttribute('aria-label', 'Select Calendar Month');
+
+      const syncControlsWrap = createEl('div', 'calendar-sync-controls');
       const advanceLimitNote = createEl(
         'span',
         'calendar-advance-note',
         'Bookings allowed up to 1 month in advance'
       );
       advanceLimitNote.id = 'calendar-advance-note';
-      monthNavWrap.append(monthTabs, advanceLimitNote);
+      const refreshBtn = createEl('button', 'calendar-refresh-btn', 'Refresh Available Times');
+      refreshBtn.type = 'button';
+      refreshBtn.id = 'btn-refresh-calendar';
+      refreshBtn.addEventListener('click', () => {
+        loadCalendarSchedule(true);
+      });
+      syncControlsWrap.append(advanceLimitNote, refreshBtn);
+      monthNavWrap.append(monthTabs, syncControlsWrap);
 
       // Date Grid Label & Container
       const dateLabel = createEl('div', 'scheduler-step-label', 'Select a Day (Mon – Fri):');
@@ -1008,6 +1194,7 @@
       schedulerState.refs.calSection = calSection;
       schedulerState.refs.monthTabs = monthTabs;
       schedulerState.refs.advanceLimitNote = advanceLimitNote;
+      schedulerState.refs.refreshBtn = refreshBtn;
       schedulerState.refs.upcomingList = upcomingList;
       schedulerState.refs.dateGrid = dateGrid;
       schedulerState.refs.slotGrid = slotGrid;
@@ -1468,6 +1655,22 @@
 
     const confirmedDate = schedulerState.confirmedSubmission?.appointment?.preferredDate || '';
     const confirmedWindow = schedulerState.confirmedSubmission?.appointment?.preferredWindow || '';
+    const durInfo = getActiveDurationInfo();
+    const busyIntervals = schedulerState.busyIntervals || [];
+
+    const countOpenSlotsForDay = (dayObj) => {
+      if (!dayObj || dayObj.holidayName || dayObj.withinAdvanceWindow === false) return 0;
+      return (dayObj.slots || []).filter((slot) =>
+        evaluateClientSlot(
+          dayObj,
+          slot,
+          durInfo.durationMinutes,
+          confirmedDate,
+          confirmedWindow,
+          busyIntervals
+        ).selectable
+      ).length;
+    };
 
     // 1. Render subtle Upcoming Bookings summary chips
     if (upcomingList) {
@@ -1493,12 +1696,12 @@
       }
     }
 
-    // Ensure valid selectedDate from availableDates (up to 1 month in advance)
+    // Ensure valid selectedDate from availableDates that has at least 1 eligible slot for current duration
     const dates = schedulerState.availableDates || [];
     if (dates.length > 0) {
       const currentFound = dates.find((d) => d.date === schedulerState.selectedDate);
-      if (!currentFound) {
-        const firstOpenDate = dates.find((d) => d.openSlotCount > 0) || dates[0];
+      if (!currentFound || countOpenSlotsForDay(currentFound) === 0) {
+        const firstOpenDate = dates.find((d) => countOpenSlotsForDay(d) > 0) || dates[0];
         schedulerState.selectedDate = firstOpenDate.date;
       }
     }
@@ -1530,7 +1733,7 @@
         tabBtn.addEventListener('click', () => {
           schedulerState.activeMonthKey = mObj.monthKey;
           const firstSelectableInMonth = (mObj.days || []).find(
-            (d) => d.withinAdvanceWindow !== false && !d.holidayName && d.openSlotCount > 0
+            (d) => countOpenSlotsForDay(d) > 0
           );
           if (firstSelectableInMonth) {
             schedulerState.selectedDate = firstSelectableInMonth.date;
@@ -1552,19 +1755,23 @@
 
     const activeDateObj = dates.find((d) => d.date === schedulerState.selectedDate) || dates[0];
     if (activeDateObj) {
-      const currentSlot = activeDateObj.slots.find(
-        (s) =>
-          s.slotId === schedulerState.selectedWindow &&
-          (s.status === 'AVAILABLE' ||
-            (activeDateObj.date === confirmedDate && s.slotId === confirmedWindow))
+      const evaluatedActiveSlots = activeDateObj.slots.map((s) => ({
+        slot: s,
+        evalResult: evaluateClientSlot(
+          activeDateObj,
+          s,
+          durInfo.durationMinutes,
+          confirmedDate,
+          confirmedWindow,
+          busyIntervals
+        )
+      }));
+      const currentMatch = evaluatedActiveSlots.find(
+        (entry) => entry.slot.slotId === schedulerState.selectedWindow && entry.evalResult.selectable
       );
-      if (!currentSlot) {
-        const firstOpenSlot = activeDateObj.slots.find(
-          (s) =>
-            s.status === 'AVAILABLE' ||
-            (activeDateObj.date === confirmedDate && s.slotId === confirmedWindow)
-        );
-        schedulerState.selectedWindow = firstOpenSlot ? firstOpenSlot.slotId : '';
+      if (!currentMatch) {
+        const firstEligible = evaluatedActiveSlots.find((entry) => entry.evalResult.selectable);
+        schedulerState.selectedWindow = firstEligible ? firstEligible.slot.slotId : '';
       }
     }
 
@@ -1579,9 +1786,8 @@
     daysToRender.forEach((dayObj) => {
       const isHoliday = Boolean(dayObj.holidayName);
       const isBeyondLimit = dayObj.withinAdvanceWindow === false && !isHoliday;
-      const hasCustomerOwnSlot = dayObj.date === confirmedDate && Boolean(confirmedWindow);
-      const isFull =
-        !isHoliday && !isBeyondLimit && dayObj.openSlotCount === 0 && !hasCustomerOwnSlot;
+      const openCount = countOpenSlotsForDay(dayObj);
+      const isFull = !isHoliday && !isBeyondLimit && openCount === 0;
       const isDisabled = isHoliday || isBeyondLimit || isFull;
       const isSelected = !isDisabled && dayObj.date === schedulerState.selectedDate;
 
@@ -1601,7 +1807,7 @@
       let metaLabel = 'Available';
       if (isHoliday) metaLabel = 'Holiday';
       else if (isBeyondLimit) metaLabel = '1-Mo Limit';
-      else if (isFull) metaLabel = 'Booked';
+      else if (isFull) metaLabel = 'Full';
       else if (isSelected) metaLabel = 'Selected ✓';
 
       const dayTop = createEl('span', 'cal-date-weekday', weekday);
@@ -1622,36 +1828,50 @@
 
     // 3. Render Arrival Window Buttons for Selected Date (Mon-Fri 8:00 AM - 4:30 PM)
     slotGrid.replaceChildren();
+    let selectedSlotEvaluation = null;
     if (activeDateObj) {
       activeDateObj.slots.forEach((slot) => {
+        const evalResult = evaluateClientSlot(
+          activeDateObj,
+          slot,
+          durInfo.durationMinutes,
+          confirmedDate,
+          confirmedWindow,
+          busyIntervals
+        );
         const isCustomerOwnSlot =
           activeDateObj.date === confirmedDate && slot.slotId === confirmedWindow;
-        const isBooked = slot.status !== 'AVAILABLE' && !isCustomerOwnSlot;
-        const isSelected = !isBooked && slot.slotId === schedulerState.selectedWindow;
+        const isUnavailable = !evalResult.selectable;
+        const isCutoff = evalResult.status === 'EXCEEDS_CLOSING';
+        const isSelected = evalResult.selectable && slot.slotId === schedulerState.selectedWindow;
+        if (isSelected) {
+          selectedSlotEvaluation = evalResult;
+        }
+
         const btn = createEl(
           'button',
-          `calendar-slot-btn${isSelected ? ' active' : ''}${isBooked ? ' is-booked' : ''}`
+          `calendar-slot-btn${isSelected ? ' active' : ''}${isUnavailable ? ' is-booked' : ''}${isCutoff ? ' is-cutoff' : ''}`
         );
         btn.type = 'button';
-        btn.disabled = isBooked;
+        btn.disabled = isUnavailable;
         btn.setAttribute('data-cal-slot', slot.slotId);
         btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
 
         const titleRow = createEl('strong', 'cal-slot-title', slot.shortLabel);
-        const statusRow = createEl(
-          'span',
-          'cal-slot-status',
-          isBooked
-            ? 'Booked'
-            : isCustomerOwnSlot && isSelected
-              ? 'Your Current Slot ✓'
-              : isSelected
-                ? 'Selected ✓'
-                : 'Available — Tap to Choose'
-        );
+        let statusText = evalResult.reasonText;
+        if (evalResult.selectable) {
+          if (isCustomerOwnSlot && isSelected) {
+            statusText = `Your Current Slot ✓ · Est. ends ~${evalResult.endLabel}`;
+          } else if (isSelected) {
+            statusText = evalResult.isFullDayExtension
+              ? 'Selected ✓ · Full-Day Block (Ends 4:30 PM)'
+              : `Selected ✓ · Est. ends ~${evalResult.endLabel}`;
+          }
+        }
+        const statusRow = createEl('span', 'cal-slot-status', statusText);
         btn.append(titleRow, statusRow);
 
-        if (!isBooked) {
+        if (evalResult.selectable) {
           btn.addEventListener('click', () => {
             schedulerState.selectedWindow = slot.slotId;
             renderCalendarUI();
@@ -1663,41 +1883,75 @@
       });
     }
 
-    // 4. Update Selected Summary Banner
+    // 4. Keep Modal Recap Est. Hours synchronized with chosen arrival slot
+    updateRecapHoursDisplay();
+
+    // 5. Update Selected Summary Banner
     if (selectedSummary) {
       if (activeDateObj && schedulerState.selectedWindow) {
         const chosenSlot = activeDateObj.slots.find((s) => s.slotId === schedulerState.selectedWindow);
-        selectedSummary.textContent = `Selected Time: ${activeDateObj.dateFormatted} • ${chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow}`;
+        const endSummary = selectedSlotEvaluation
+          ? ` · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)} (Ends ~${selectedSlotEvaluation.endLabel})`
+          : '';
+        selectedSummary.textContent = `Selected Time: ${activeDateObj.dateFormatted} • ${chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow}${endSummary}`;
       } else {
         selectedSummary.textContent = 'Please select an available day and time window above.';
       }
     }
   }
 
-  async function loadCalendarSchedule() {
+  async function loadCalendarSchedule(isManualRefresh) {
     ensureMountedUI();
-    if (
-      window.SmartsProBackend &&
-      typeof window.SmartsProBackend.fetchCalendarAvailability === 'function'
-    ) {
-      const response = await window.SmartsProBackend.fetchCalendarAvailability();
-      if (response && response.ok && response.data) {
-        schedulerState.availableDates = response.data.availableDates || [];
-        schedulerState.calendarMonths = response.data.calendarMonths || [];
-        schedulerState.maxAdvanceDate = response.data.maxAdvanceDate || '';
-        schedulerState.maxAdvanceDateFormatted = response.data.maxAdvanceDateFormatted || '';
-        schedulerState.upcomingBookings = response.data.upcomingBookings || [];
-        renderCalendarUI();
-        return;
+    const { refreshBtn } = schedulerState.refs;
+    if (refreshBtn && isManualRefresh) {
+      schedulerState.isRefreshingCalendar = true;
+      refreshBtn.disabled = true;
+      refreshBtn.textContent = 'Refreshing...';
+    }
+
+    try {
+      if (
+        window.SmartsProBackend &&
+        typeof window.SmartsProBackend.fetchCalendarAvailability === 'function'
+      ) {
+        const response = await window.SmartsProBackend.fetchCalendarAvailability();
+        if (response && response.ok && response.data) {
+          schedulerState.availableDates = response.data.availableDates || [];
+          schedulerState.calendarMonths = response.data.calendarMonths || [];
+          schedulerState.maxAdvanceDate = response.data.maxAdvanceDate || '';
+          schedulerState.maxAdvanceDateFormatted = response.data.maxAdvanceDateFormatted || '';
+          schedulerState.upcomingBookings = response.data.upcomingBookings || [];
+          schedulerState.busyIntervals = response.data.busyIntervals || [];
+          schedulerState.liveCalendarSyncConfigured = Boolean(response.data.liveCalendarSyncConfigured);
+          renderCalendarUI();
+          if (refreshBtn && isManualRefresh) {
+            refreshBtn.textContent = 'Updated ✓';
+            setTimeout(() => {
+              if (schedulerState.refs.refreshBtn) {
+                schedulerState.refs.refreshBtn.textContent = 'Refresh Available Times';
+              }
+            }, 1800);
+          }
+          return;
+        }
+      }
+      const fallback = buildClientFallbackAvailability();
+      schedulerState.availableDates = fallback.availableDates;
+      schedulerState.calendarMonths = fallback.calendarMonths;
+      schedulerState.maxAdvanceDate = fallback.maxAdvanceDate;
+      schedulerState.maxAdvanceDateFormatted = fallback.maxAdvanceDateFormatted;
+      schedulerState.upcomingBookings = fallback.upcomingBookings;
+      schedulerState.busyIntervals = [];
+      renderCalendarUI();
+    } finally {
+      schedulerState.isRefreshingCalendar = false;
+      if (refreshBtn) {
+        refreshBtn.disabled = false;
+        if (!isManualRefresh) {
+          refreshBtn.textContent = 'Refresh Available Times';
+        }
       }
     }
-    const fallback = buildClientFallbackAvailability();
-    schedulerState.availableDates = fallback.availableDates;
-    schedulerState.calendarMonths = fallback.calendarMonths;
-    schedulerState.maxAdvanceDate = fallback.maxAdvanceDate;
-    schedulerState.maxAdvanceDateFormatted = fallback.maxAdvanceDateFormatted;
-    schedulerState.upcomingBookings = fallback.upcomingBookings;
-    renderCalendarUI();
   }
 
   function triggerIcsDownload(icsContent, filename) {
@@ -1915,6 +2169,7 @@
           appointment: payload.appointment,
           appointmentDateFormatted: dateFormatted,
           appointmentWindowLabel: windowLabel,
+          appointmentScheduledEndLabel: result?.appointment?.scheduledEndLabel || '',
           quote: quotePayload,
           verifiedEstimate,
           snapshotKey: computeCurrentSnapshotKey()
@@ -1940,6 +2195,7 @@
           appointment: payload.appointment,
           appointmentDateFormatted: dateFormatted,
           appointmentWindowLabel: windowLabel,
+          appointmentScheduledEndLabel: result?.appointment?.scheduledEndLabel || '',
           quote: quotePayload,
           verifiedEstimate,
           snapshotKey: computeCurrentSnapshotKey()

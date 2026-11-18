@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from 'node:crypto';
+import { createHash, createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { resolveMx } from 'node:dns/promises';
 
 /**
@@ -6,16 +6,22 @@ import { resolveMx } from 'node:dns/promises';
  * Implements docs/SECURITY-ROADMAP.md Section 1 controls:
  * - Strict JSON parsing, 16 KiB transport limit, unknown-field & prototype-key rejection
  * - Bounded customer fields (First Name, Last Name, Phone, Email, Optional Notes)
- * - Authoritative server-side flat-rate price recalculation (no recurring discounts, no online payments)
- * - Calendar appointment validation, double-booking prevention & anonymized upcoming bookings feed
+ * - Authoritative server-side flat-rate price & duration recalculation (no recurring discounts, no online payments)
+ * - Calendar appointment validation, 4:30 PM closing-time fit, interval overlap prevention & anonymized live feed
  * - Per-IP and per-contact rate limiting (429 + Retry-After) & Idempotency-Key deduplication
- * - Fail-closed automated email + RFC 5545 .ics calendar dispatch to owner business email
+ * - Fail-closed automated email + matched-duration RFC 5545 .ics calendar dispatch + Finish-Early token workflow
  */
 
 export const PRICING_RULES_VERSION = '2026-11-flat-rate-no-online-payment-v1';
 export const MAX_BODY_BYTES = 16 * 1024; // 16 KiB limit per SECURITY-ROADMAP.md
 export const BUSINESS_TIMEZONE = 'America/Chicago';
 export const DEFAULT_OWNER_EMAIL = 'smartsprosolutions@gmail.com';
+export const DEFAULT_PUBLIC_SITE_URL = 'https://www.smartsprosolutions.com';
+export const BUSINESS_OPEN_MINUTES = 8 * 60; // 8:00 AM
+export const BUSINESS_CLOSE_MINUTES = 16 * 60 + 30; // 4:30 PM
+export const FULL_DAY_MINUTES = BUSINESS_CLOSE_MINUTES - BUSINESS_OPEN_MINUTES; // 8.5 hours
+
+const EPHEMERAL_FINISH_EARLY_SECRET = randomBytes(32).toString('hex');
 
 export const ARRIVAL_WINDOWS = Object.freeze([
   Object.freeze({
@@ -25,7 +31,9 @@ export const ARRIVAL_WINDOWS = Object.freeze([
     startHour: 8,
     startMinute: 0,
     endHour: 11,
-    endMinute: 0
+    endMinute: 0,
+    startMinutes: 8 * 60,
+    endMinutes: 11 * 60
   }),
   Object.freeze({
     id: '11:00-14:00',
@@ -34,7 +42,9 @@ export const ARRIVAL_WINDOWS = Object.freeze([
     startHour: 11,
     startMinute: 0,
     endHour: 14,
-    endMinute: 0
+    endMinute: 0,
+    startMinutes: 11 * 60,
+    endMinutes: 14 * 60
   }),
   Object.freeze({
     id: '14:00-16:30',
@@ -43,7 +53,9 @@ export const ARRIVAL_WINDOWS = Object.freeze([
     startHour: 14,
     startMinute: 0,
     endHour: 16,
-    endMinute: 30
+    endMinute: 30,
+    startMinutes: 14 * 60,
+    endMinutes: 16 * 60 + 30
   })
 ]);
 
@@ -354,6 +366,197 @@ export function getBusinessTodayIso(now = new Date()) {
   return formatter.format(now);
 }
 
+/**
+ * Returns YYYY-MM-DD, hour, minute, and total minutes since midnight in America/Chicago.
+ */
+export function getBusinessTimeParts(now = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23'
+  }).formatToParts(now);
+
+  const map = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const hour = Number(map.hour) % 24;
+  const minute = Number(map.minute);
+  return {
+    isoDate: `${map.year}-${map.month}-${map.day}`,
+    hour,
+    minute,
+    totalMinutes: hour * 60 + minute
+  };
+}
+
+export function formatMinutesAsTime(totalMinutes) {
+  const clamped = Math.max(0, Math.min(24 * 60 - 1, Math.round(totalMinutes)));
+  const h24 = Math.floor(clamped / 60);
+  const mins = clamped % 60;
+  const ampm = h24 >= 12 ? 'PM' : 'AM';
+  const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+  return `${h12}:${String(mins).padStart(2, '0')} ${ampm}`;
+}
+
+export function formatDurationHours(hours) {
+  const rounded = Math.round(Number(hours || 0) * 100) / 100;
+  const label = Number.isInteger(rounded) ? String(rounded) : String(rounded).replace(/0+$/, '').replace(/\.$/, '');
+  return `${label} ${rounded === 1 ? 'Hour' : 'Hours'}`;
+}
+
+/**
+ * Builds an RFC 3339 timestamp with the exact DST-aware America/Chicago offset for a date & minute count.
+ */
+function getCentralIsoForDateAndMinutes(isoDate, totalMinutes) {
+  const [y, m, d] = isoDate.split('-').map(Number);
+  const hh = Math.floor(totalMinutes / 60);
+  const mm = totalMinutes % 60;
+  const approxUtcMs = Date.UTC(y, m - 1, d, hh, mm, 0);
+  const tzNamePart = new Intl.DateTimeFormat('en-US', {
+    timeZone: BUSINESS_TIMEZONE,
+    timeZoneName: 'longOffset'
+  })
+    .formatToParts(new Date(approxUtcMs))
+    .find((p) => p.type === 'timeZoneName')?.value;
+  const offsetMatch = String(tzNamePart || '').match(/GMT([+-]\d{2}:\d{2})/);
+  const offsetStr = offsetMatch ? offsetMatch[1] : '-06:00';
+  return `${isoDate}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00${offsetStr}`;
+}
+
+function parseIsoToChicagoDateAndMinutes(isoString) {
+  if (typeof isoString !== 'string' || !isoString.trim()) return null;
+  const parsed = new Date(isoString.trim());
+  if (Number.isNaN(parsed.getTime())) return null;
+  const parts = getBusinessTimeParts(parsed);
+  return {
+    date: parts.isoDate,
+    minutes: parts.totalMinutes
+  };
+}
+
+export function computeScheduledEndMinutes(windowSpec, durationMinutes) {
+  const safeDuration = Math.max(60, Math.round(Number(durationMinutes) || 60));
+  const projectedEnd = windowSpec.startMinutes + safeDuration;
+  if (windowSpec.startMinutes > BUSINESS_OPEN_MINUTES && projectedEnd > BUSINESS_CLOSE_MINUTES) {
+    return {
+      fits: false,
+      endMinutes: projectedEnd,
+      isFullDayExtension: false
+    };
+  }
+  const cappedEnd = Math.min(BUSINESS_CLOSE_MINUTES, projectedEnd);
+  return {
+    fits: true,
+    endMinutes: Math.max(windowSpec.startMinutes + 60, cappedEnd),
+    isFullDayExtension:
+      windowSpec.startMinutes === BUSINESS_OPEN_MINUTES && safeDuration > FULL_DAY_MINUTES
+  };
+}
+
+function intervalsOverlap(startA, endA, startB, endB) {
+  return startA < endB && endA > startB;
+}
+
+function getFinishEarlySecret(explicitSecret) {
+  return (
+    explicitSecret ||
+    process.env.FINISH_EARLY_SECRET ||
+    process.env.EMAIL_WEBHOOK_SECRET ||
+    EPHEMERAL_FINISH_EARLY_SECRET
+  );
+}
+
+export function createFinishEarlyToken(payload, secret = getFinishEarlySecret()) {
+  const bodyJson = JSON.stringify(payload);
+  const bodyB64 = Buffer.from(bodyJson, 'utf8').toString('base64url');
+  const sigB64 = createHmac('sha256', secret).update(bodyB64).digest('base64url');
+  return `${bodyB64}.${sigB64}`;
+}
+
+export function verifyFinishEarlyToken(token, secret = getFinishEarlySecret(), nowMs = Date.now()) {
+  if (typeof token !== 'string' || !token.includes('.')) {
+    return { ok: false, code: 'INVALID_TOKEN', message: 'Finish-early link is invalid or incomplete.' };
+  }
+  const parts = token.trim().split('.');
+  if (parts.length !== 2 || !parts[0] || !parts[1]) {
+    return { ok: false, code: 'INVALID_TOKEN', message: 'Finish-early link is malformed.' };
+  }
+  const [bodyB64, sigB64] = parts;
+  const expectedSig = createHmac('sha256', secret).update(bodyB64).digest('base64url');
+  const sigBuf = Buffer.from(sigB64, 'utf8');
+  const expBuf = Buffer.from(expectedSig, 'utf8');
+  if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
+    return { ok: false, code: 'INVALID_SIGNATURE', message: 'Finish-early link signature could not be verified.' };
+  }
+
+  let parsed;
+  try {
+    parsed = JSON.parse(Buffer.from(bodyB64, 'base64url').toString('utf8'));
+  } catch {
+    return { ok: false, code: 'INVALID_TOKEN', message: 'Finish-early link payload could not be read.' };
+  }
+
+  if (
+    !parsed ||
+    parsed.v !== 1 ||
+    typeof parsed.ref !== 'string' ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(parsed.date || '') ||
+    !Number.isInteger(parsed.startMin) ||
+    !Number.isInteger(parsed.endMin) ||
+    !Number.isInteger(parsed.exp)
+  ) {
+    return { ok: false, code: 'INVALID_TOKEN_PAYLOAD', message: 'Finish-early link data is invalid.' };
+  }
+
+  if (nowMs > parsed.exp) {
+    return { ok: false, code: 'EXPIRED_TOKEN', message: 'This finish-early link has expired.' };
+  }
+
+  return { ok: true, payload: parsed };
+}
+
+function resolvePublicSiteOrigin(headers = {}) {
+  const configured = process.env.PUBLIC_SITE_URL;
+  if (typeof configured === 'string' && configured.trim()) {
+    try {
+      const parsed = new URL(configured.trim());
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        return parsed.origin;
+      }
+    } catch {
+      // Fallback below
+    }
+  }
+
+  const originHeader = headers.origin;
+  if (typeof originHeader === 'string' && originHeader.trim()) {
+    try {
+      const parsed = new URL(originHeader.trim());
+      if (parsed.protocol === 'https:' || parsed.protocol === 'http:') {
+        return parsed.origin;
+      }
+    } catch {
+      // Fallback below
+    }
+  }
+
+  const rawHost = headers['x-forwarded-host'] || headers.host;
+  if (typeof rawHost === 'string' && /^[a-z0-9.-]+(?::\d{1,5})?$/i.test(rawHost.trim())) {
+    const cleanHost = rawHost.trim();
+    const isLocal = cleanHost.startsWith('localhost') || cleanHost.startsWith('127.0.0.1');
+    const proto = isLocal
+      ? 'http'
+      : String(headers['x-forwarded-proto'] || '').toLowerCase() === 'http'
+        ? 'http'
+        : 'https';
+    return `${proto}://${cleanHost}`;
+  }
+
+  return DEFAULT_PUBLIC_SITE_URL;
+}
+
 function addDaysToIsoDate(isoDate, days) {
   const [y, m, d] = isoDate.split('-').map(Number);
   const dt = new Date(Date.UTC(y, m - 1, d + days, 12, 0, 0));
@@ -498,6 +701,9 @@ export function calculateAuthoritativeQuote(quoteInput) {
       isSpecificAreas: false,
       hourlyRate,
       estimatedHours,
+      addonHours: 0,
+      totalEstimatedHours: estimatedHours,
+      durationMinutes: Math.round(estimatedHours * 60),
       basePrice,
       addonsTotal: 0,
       discountRate: 0,
@@ -562,6 +768,12 @@ export function calculateAuthoritativeQuote(quoteInput) {
     quoteInput.addons.oven * cfg.addons.oven +
     petsAddonCount * cfg.addons.pets;
 
+  const addonHours =
+    (quoteInput.addons.fridge + quoteInput.addons.fridgeDouble + quoteInput.addons.oven) * 0.5 +
+    petsAddonCount * 0.25;
+  const totalEstimatedHours = Number((estimatedHours + addonHours).toFixed(2));
+  const durationMinutes = Math.max(60, Math.round(totalEstimatedHours * 60));
+
   const grandTotal = basePrice + addonsTotal;
 
   return Object.freeze({
@@ -571,6 +783,9 @@ export function calculateAuthoritativeQuote(quoteInput) {
     isSpecificAreas,
     hourlyRate,
     estimatedHours,
+    addonHours,
+    totalEstimatedHours,
+    durationMinutes,
     basePrice,
     addonsTotal,
     discountRate: 0,
@@ -924,6 +1139,19 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   };
 
   const authoritativeCalculation = calculateAuthoritativeQuote(normalizedQuote);
+  const slotFit = computeScheduledEndMinutes(windowObj, authoritativeCalculation.durationMinutes);
+  if (!slotFit.fits) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'SLOT_EXCEEDS_CLOSING_TIME',
+      error: `That service is estimated at ${formatDurationHours(authoritativeCalculation.totalEstimatedHours)} and would finish past our 4:30 PM closing time for the ${windowObj.shortLabel} arrival window. Please select an earlier arrival time window.`
+    };
+  }
+
+  const startIso = getCentralIsoForDateAndMinutes(preferredDate, windowObj.startMinutes);
+  const endIso = getCentralIsoForDateAndMinutes(preferredDate, slotFit.endMinutes);
+  const scheduledEndLabel = formatMinutesAsTime(slotFit.endMinutes);
 
   return {
     ok: true,
@@ -942,7 +1170,17 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
         preferredWindow: windowObj.id,
         preferredWindowLabel: windowObj.label,
         preferredWindowShort: windowObj.shortLabel,
-        windowSpec: windowObj
+        windowSpec: windowObj,
+        startMinutes: windowObj.startMinutes,
+        endMinutes: slotFit.endMinutes,
+        durationMinutes: authoritativeCalculation.durationMinutes,
+        estimatedHours: authoritativeCalculation.totalEstimatedHours,
+        scheduledEndHour: Math.floor(slotFit.endMinutes / 60),
+        scheduledEndMinute: slotFit.endMinutes % 60,
+        scheduledEndLabel,
+        startIso,
+        endIso,
+        isFullDayExtension: slotFit.isFullDayExtension
       },
       quote: normalizedQuote,
       calculation: authoritativeCalculation
@@ -971,14 +1209,21 @@ function escapeHtml(str) {
 }
 
 /**
- * Generates an RFC 5545 .ics calendar event string for the owner's calendar.
+ * Generates an RFC 5545 .ics calendar event string for the owner's calendar
+ * sized to the estimated cleaning duration (capped at 4:30 PM close).
  */
 export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DEFAULT_OWNER_EMAIL) {
   const { customer, appointment, quote, calculation } = validatedRecord;
   const dateCompact = appointment.preferredDate.replace(/-/g, '');
   const pad2 = (n) => String(n).padStart(2, '0');
   const startStr = `${dateCompact}T${pad2(appointment.windowSpec.startHour)}${pad2(appointment.windowSpec.startMinute)}00`;
-  const endStr = `${dateCompact}T${pad2(appointment.windowSpec.endHour)}${pad2(appointment.windowSpec.endMinute)}00`;
+  const endHour = Number.isInteger(appointment.scheduledEndHour)
+    ? appointment.scheduledEndHour
+    : appointment.windowSpec.endHour;
+  const endMinute = Number.isInteger(appointment.scheduledEndMinute)
+    ? appointment.scheduledEndMinute
+    : appointment.windowSpec.endMinute;
+  const endStr = `${dateCompact}T${pad2(endHour)}${pad2(endMinute)}00`;
   const nowStamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
   const serviceLabel =
@@ -988,13 +1233,18 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
         ? `Specific Areas (${quote.specificHours} Hours)`
         : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
-  const summary = `Smarts Pro Cleaning: ${customer.fullName} (${serviceLabel})`;
+  const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
+  const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
+  const endLabel = appointment.scheduledEndLabel || formatMinutesAsTime(appointment.windowSpec.endMinutes);
+
+  const summary = `Smarts Pro Cleaning: ${customer.fullName} (${serviceLabel}) [${referenceCode}]`;
   const descriptionLines = [
     `Reference ID: ${referenceCode}`,
     `Customer: ${customer.fullName}`,
     `Phone: ${customer.phone}`,
     `Email: ${customer.email}`,
     `Service: ${serviceLabel}`,
+    `Estimated Cleaning Time: ${formatDurationHours(durationHours)} (Est. ${startLabel} – ${endLabel})`,
     `Schedule: ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`,
     `Estimated Total (Flat Rate): $${calculation.grandTotal.toFixed(2)}`,
     customer.notes ? `Customer Notes: ${customer.notes}` : 'Customer Notes: None provided'
@@ -1024,9 +1274,14 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
 }
 
 /**
- * Builds the automated email subject, plain-text body, HTML body, and Google Calendar URL.
+ * Builds the automated email subject, plain-text body, HTML body, and .ics calendar invite.
  */
-export function buildAutomatedEmailContent(validatedRecord, referenceCode, ownerEmail = DEFAULT_OWNER_EMAIL) {
+export function buildAutomatedEmailContent(
+  validatedRecord,
+  referenceCode,
+  ownerEmail = DEFAULT_OWNER_EMAIL,
+  { finishEarlyUrl = '' } = {}
+) {
   const { customer, appointment, quote, calculation } = validatedRecord;
   const isCommercial = quote.serviceCategory === 'commercial';
   const serviceLabel = isCommercial
@@ -1036,6 +1291,10 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
       : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
   const freqLabel = FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency;
+  const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
+  const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
+  const endLabel = appointment.scheduledEndLabel || formatMinutesAsTime(appointment.windowSpec.endMinutes);
+  const durationSummary = `${formatDurationHours(durationHours)} (Blocked ${startLabel} – ${endLabel}${appointment.isFullDayExtension ? ' · Full-Day Team Block' : ''})`;
 
   const specsLine = isCommercial
     ? 'On-Site Facility Walkthrough Requested'
@@ -1056,7 +1315,7 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
 
   const subject = `[Smarts Pro Estimate #${referenceCode}] ${customer.fullName} — ${appointment.preferredDateFormatted} (${appointment.preferredWindowShort})`;
 
-  const textBody = [
+  const textLines = [
     `SMARTS PRO SOLUTIONS — NEW ESTIMATE & APPOINTMENT REQUEST`,
     `Reference ID: ${referenceCode}`,
     `==========================================================`,
@@ -1071,9 +1330,10 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
     ``,
     `2. REQUESTED CALENDAR APPOINTMENT`,
     `---------------------------------`,
-    `Preferred Date:   ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
-    `Arrival Window:   ${appointment.preferredWindowLabel}`,
-    `Business Zone:    ${BUSINESS_TIMEZONE}`,
+    `Preferred Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
+    `Arrival Window:    ${appointment.preferredWindowLabel}`,
+    `Est. Cleaning Time:${durationSummary}`,
+    `Business Zone:     ${BUSINESS_TIMEZONE}`,
     ``,
     `3. SERVER-VERIFIED ESTIMATE BREAKDOWN`,
     `-------------------------------------`,
@@ -1082,16 +1342,43 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
     `Additional Info:  ${addInfoLine}`,
     `Frequency:        ${freqLabel}`,
     `Custom Add-Ons:   ${addonsLine}`,
+    `Est. Cleaning Hrs:${formatDurationHours(durationHours)}`,
     `Estimated Total:  $${calculation.grandTotal.toFixed(2)} (Flat Rate • No Online Payment Collected)`,
     ``,
     `4. ADDITIONAL CUSTOMER NOTES`,
     `----------------------------`,
-    customer.notes ? customer.notes : 'No additional notes provided by customer.',
+    customer.notes ? customer.notes : 'No additional notes provided by customer.'
+  ];
+
+  if (finishEarlyUrl) {
+    textLines.push(
+      ``,
+      `5. CREW EARLY COMPLETION CONTROL (OWNER ONLY)`,
+      `---------------------------------------------`,
+      `Finished early or need to release this window? Open the secure link below to shorten this calendar block and immediately re-open remaining times on smartsprosolutions.com:`,
+      `${finishEarlyUrl}`
+    );
+  }
+
+  textLines.push(
     ``,
     `==========================================================`,
     `An iCalendar (.ics) appointment file is attached to add this booking directly to your calendar.`,
     `Privacy, Opt-Out & Data Deletion: Customer details are used solely to service this estimate request. To opt out of follow-up emails or request immediate data deletion, reply "DELETE" or contact smartsprosolutions@gmail.com / (318) 564-4360.`
-  ].join('\n');
+  );
+
+  const textBody = textLines.join('\n');
+
+  const finishEarlyHtmlBlock = finishEarlyUrl
+    ? `
+        <div style="margin-top: 20px; background: #EFF6FF; border: 1.5px solid #93C5FD; border-radius: 10px; padding: 16px;">
+          <div style="font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: #1D4ED8;">Owner Schedule Control • Finished Early?</div>
+          <p style="margin: 6px 0 12px; font-size: 13px; color: #1E293B; line-height: 1.5;">
+            If your crew wraps up this cleaning early (or needs to free up the calendar window), use the button below to shorten this calendar block and re-open remaining times on <strong>smartsprosolutions.com</strong> right away.
+          </p>
+          <a href="${escapeHtml(finishEarlyUrl)}" style="display: inline-block; background: #16A34A; color: #FFFFFF; text-decoration: none; font-weight: 700; font-size: 14px; padding: 10px 18px; border-radius: 8px;">Finish Early &mdash; Re-Open Remaining Time</a>
+        </div>`
+    : '';
 
   const htmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
@@ -1103,7 +1390,7 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
       <div style="padding: 24px;">
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">1. Customer Details</h3>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
-          <tr><td style="padding: 6px 0; color: #64748B; width: 140px;">First &amp; Last Name:</td><td style="padding: 6px 0; font-weight: 700;">${escapeHtml(customer.fullName)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B; width: 150px;">First &amp; Last Name:</td><td style="padding: 6px 0; font-weight: 700;">${escapeHtml(customer.fullName)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Phone Number:</td><td style="padding: 6px 0; font-weight: 700;"><a href="tel:${escapeHtml(customer.phone)}">${escapeHtml(customer.phone)}</a></td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Email Address:</td><td style="padding: 6px 0; font-weight: 700;"><a href="mailto:${escapeHtml(customer.email)}">${escapeHtml(customer.email)}</a></td></tr>
         </table>
@@ -1112,20 +1399,23 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px;">
           <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
           <div style="margin-top: 4px;"><strong>Arrival Window:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
+          <div style="margin-top: 4px;"><strong>Est. Cleaning Time:</strong> ${escapeHtml(durationSummary)}</div>
         </div>
 
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">3. Estimate Summary (Server-Verified Flat Rate)</h3>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
-          <tr><td style="padding: 6px 0; color: #64748B; width: 140px;">Service Tier:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(serviceLabel)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B; width: 150px;">Service Tier:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(serviceLabel)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Property Scope:</td><td style="padding: 6px 0;">${escapeHtml(specsLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Additional Info:</td><td style="padding: 6px 0;">${escapeHtml(addInfoLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Frequency:</td><td style="padding: 6px 0;">${escapeHtml(freqLabel)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
           <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">Estimated Total:</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate • No Online Payment)</span></td></tr>
         </table>
 
         <h3 style="margin: 0 0 8px; font-size: 15px; color: #0066CC; text-transform: uppercase;">4. Additional Customer Notes</h3>
         <div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; font-size: 14px; white-space: pre-wrap;">${escapeHtml(customer.notes || 'No additional notes provided by customer.')}</div>
+        ${finishEarlyHtmlBlock}
 
         <p style="margin: 18px 0 0; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; line-height: 1.5;">
           <strong>Privacy, Opt-Out &amp; Data Deletion:</strong> This email was generated from an estimate request at Smarts Pro Solutions (Shreveport &amp; Bossier City, LA). To opt out of follow-up messages or request immediate deletion of your contact &amp; estimate record, reply <strong>DELETE</strong> or contact <a href="mailto:smartsprosolutions@gmail.com">smartsprosolutions@gmail.com</a> / (318) 564-4360.
@@ -1149,7 +1439,8 @@ export function buildAutomatedEmailContent(validatedRecord, referenceCode, owner
     htmlBody,
     icsFilename: `smartspro-booking-${referenceCode}.ics`,
     icsContent,
-    mailtoUrl
+    mailtoUrl,
+    finishEarlyUrl
   };
 }
 
@@ -1250,6 +1541,7 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
 
     const timestamp = String(Math.floor(Date.now() / 1000));
     const bodyString = JSON.stringify({
+      action: 'createBooking',
       referenceCode,
       to: emailPackage.to,
       replyTo: emailPackage.replyTo,
@@ -1258,12 +1550,20 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
       htmlBody: emailPackage.htmlBody,
       icsFilename: emailPackage.icsFilename,
       icsContent: emailPackage.icsContent,
+      finishEarlyUrl: emailPackage.finishEarlyUrl || '',
       customer: validatedRecord.customer,
       appointment: {
         preferredDate: validatedRecord.appointment.preferredDate,
         preferredDateFormatted: validatedRecord.appointment.preferredDateFormatted,
         preferredWindow: validatedRecord.appointment.preferredWindow,
-        preferredWindowLabel: validatedRecord.appointment.preferredWindowLabel
+        preferredWindowLabel: validatedRecord.appointment.preferredWindowLabel,
+        startMinutes: validatedRecord.appointment.startMinutes,
+        endMinutes: validatedRecord.appointment.endMinutes,
+        durationMinutes: validatedRecord.appointment.durationMinutes,
+        estimatedHours: validatedRecord.appointment.estimatedHours,
+        scheduledEndLabel: validatedRecord.appointment.scheduledEndLabel,
+        startIso: validatedRecord.appointment.startIso,
+        endIso: validatedRecord.appointment.endIso
       },
       quote: validatedRecord.quote,
       calculation: validatedRecord.calculation
@@ -1293,31 +1593,105 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
   return { delivered: false, reason: 'NO_MAIL_PROVIDER_CONFIGURED' };
 }
 
+async function defaultCalendarActionTransport(payload) {
+  const webhookUrl = process.env.EMAIL_WEBHOOK_URL;
+  const webhookSecret = process.env.EMAIL_WEBHOOK_SECRET || '';
+  if (!webhookUrl) {
+    return { delivered: false, reason: 'NO_CALENDAR_WEBHOOK_CONFIGURED' };
+  }
+  if (!isSafeWebhookUrl(webhookUrl)) {
+    throw new Error('Unsafe EMAIL_WEBHOOK_URL rejected by SSRF guard');
+  }
+
+  const timestamp = String(Math.floor(Date.now() / 1000));
+  const bodyString = JSON.stringify(payload);
+  const headers = {
+    'Content-Type': 'application/json',
+    'X-SmartsPro-Timestamp': timestamp
+  };
+  if (webhookSecret) {
+    headers['X-SmartsPro-Signature'] = createHmac('sha256', webhookSecret)
+      .update(`${timestamp}.${bodyString}`)
+      .digest('hex');
+  }
+
+  const response = await fetch(webhookUrl, {
+    method: 'POST',
+    headers,
+    body: bodyString
+  });
+  if (!response.ok) {
+    throw new Error(`Calendar webhook returned HTTP ${response.status}`);
+  }
+  return { delivered: true, provider: 'webhook' };
+}
+
 /**
  * Creates an isolated instance of the Smarts Pro Intake & Calendar Service.
  */
 export function createIntakeService({
   mailTransport = null,
+  calendarActionTransport = null,
   ownerEmail = process.env.OWNER_NOTIFICATION_EMAIL || DEFAULT_OWNER_EMAIL,
   rateLimitMax = 5,
   rateLimitWindowMs = 10 * 60 * 1000,
-  nowFn = () => new Date()
+  nowFn = () => new Date(),
+  finishEarlySecret = ''
 } = {}) {
-  const bookedSlots = new Map(); // key: `${date}|${slotId}` -> { date, slotId, serviceLabel, referenceCode }
+  const localBookings = new Map(); // referenceCode -> { referenceCode, date, slotId, startMinutes, endMinutes, serviceLabel, customerEmailHash, syncedRemotely }
+  let remoteBusyIntervals = []; // [{ date, startMinutes, endMinutes, serviceLabel }]
+  let remoteSyncActive = false;
   const rateLimits = new Map(); // key -> { count, resetAt }
   const idempotencyStore = new Map(); // key -> { payloadHash, status, body }
 
-  function isSlotBooked(isoDate, slotId) {
-    const key = `${isoDate}|${slotId}`;
-    if (bookedSlots.has(key)) {
-      return bookedSlots.get(key);
+  function getEffectiveBusyIntervals() {
+    const intervals = [];
+    if (remoteSyncActive) {
+      for (const item of remoteBusyIntervals) {
+        intervals.push({
+          date: item.date,
+          startMinutes: item.startMinutes,
+          endMinutes: item.endMinutes,
+          serviceLabel: item.serviceLabel || 'Booked · Cleaning Appointment',
+          customerEmailHash: '',
+          source: 'gcal'
+        });
+      }
+    }
+    for (const booking of localBookings.values()) {
+      if (booking.endMinutes <= booking.startMinutes) continue;
+      if (remoteSyncActive && booking.syncedRemotely) continue;
+      intervals.push({
+        date: booking.date,
+        startMinutes: booking.startMinutes,
+        endMinutes: booking.endMinutes,
+        serviceLabel: booking.serviceLabel || 'Booked · Cleaning Appointment',
+        customerEmailHash: booking.customerEmailHash || '',
+        referenceCode: booking.referenceCode,
+        source: 'intake'
+      });
+    }
+    return intervals;
+  }
+
+  function findConflictingBooking(isoDate, startMinutes, endMinutes, requesterEmailHash = '') {
+    const intervals = getEffectiveBusyIntervals();
+    for (const interval of intervals) {
+      if (interval.date !== isoDate) continue;
+      if (requesterEmailHash && interval.customerEmailHash && interval.customerEmailHash === requesterEmailHash) {
+        continue;
+      }
+      if (intervalsOverlap(startMinutes, endMinutes, interval.startMinutes, interval.endMinutes)) {
+        return interval;
+      }
     }
     return null;
   }
 
   /**
-   * Syncs booked cleaning windows from the owner's Google Calendar Apps Script webhook (when configured)
-   * so stateless Vercel serverless invocations reflect live Google Calendar bookings with zero customer PII.
+   * Syncs live busy intervals from the owner's Google Calendar Apps Script webhook (when configured)
+   * so stateless Vercel serverless invocations reflect manual calendar edits and Finish-Early updates
+   * with zero customer PII exposed.
    */
   async function syncCalendarFromWebhook() {
     if (mailTransport) return; // Skip external network calls during isolated unit tests
@@ -1334,28 +1708,72 @@ export function createIntakeService({
       });
       if (!res.ok) return;
       const data = await res.json();
-      if (!data || !Array.isArray(data.bookedSlots)) return;
+      if (!data || typeof data !== 'object') return;
 
-      const validSlotIds = new Set(ARRIVAL_WINDOWS.map((w) => w.id));
-      for (const item of data.bookedSlots) {
-        if (!item || typeof item !== 'object') continue;
-        const date = typeof item.date === 'string' ? item.date.trim() : '';
-        const slotId = typeof item.slotId === 'string' ? item.slotId.trim() : '';
-        if (/^\d{4}-\d{2}-\d{2}$/.test(date) && validSlotIds.has(slotId)) {
-          const key = `${date}|${slotId}`;
-          if (!bookedSlots.has(key)) {
-            bookedSlots.set(key, {
+      const nextIntervals = [];
+      const windowLookup = new Map(ARRIVAL_WINDOWS.map((w) => [w.id, w]));
+
+      if (Array.isArray(data.busyIntervals)) {
+        for (const item of data.busyIntervals) {
+          if (!item || typeof item !== 'object') continue;
+          let date = typeof item.date === 'string' ? item.date.trim() : '';
+          let startMin = Number.isFinite(Number(item.startMinutes)) ? Number(item.startMinutes) : null;
+          let endMin = Number.isFinite(Number(item.endMinutes)) ? Number(item.endMinutes) : null;
+
+          if ((!date || startMin === null || endMin === null) && item.startIso && item.endIso) {
+            const parsedStart = parseIsoToChicagoDateAndMinutes(item.startIso);
+            const parsedEnd = parseIsoToChicagoDateAndMinutes(item.endIso);
+            if (parsedStart && parsedEnd && parsedStart.date === parsedEnd.date) {
+              date = parsedStart.date;
+              startMin = parsedStart.minutes;
+              endMin = parsedEnd.minutes;
+            }
+          }
+
+          if (
+            /^\d{4}-\d{2}-\d{2}$/.test(date) &&
+            startMin !== null &&
+            endMin !== null &&
+            endMin > startMin &&
+            endMin > BUSINESS_OPEN_MINUTES &&
+            startMin < BUSINESS_CLOSE_MINUTES
+          ) {
+            nextIntervals.push({
               date,
-              slotId,
-              serviceLabel: 'Booked · Cleaning Appointment',
-              status: 'BOOKED',
-              referenceCode: 'GCAL-SYNC'
+              startMinutes: Math.max(BUSINESS_OPEN_MINUTES, Math.round(startMin)),
+              endMinutes: Math.min(BUSINESS_CLOSE_MINUTES, Math.round(endMin)),
+              serviceLabel: 'Booked · Cleaning Appointment'
             });
           }
         }
       }
+
+      if (Array.isArray(data.bookedSlots)) {
+        for (const item of data.bookedSlots) {
+          if (!item || typeof item !== 'object') continue;
+          const date = typeof item.date === 'string' ? item.date.trim() : '';
+          const slotId = typeof item.slotId === 'string' ? item.slotId.trim() : '';
+          const win = windowLookup.get(slotId);
+          if (/^\d{4}-\d{2}-\d{2}$/.test(date) && win) {
+            const alreadyCovered = nextIntervals.some(
+              (ev) => ev.date === date && intervalsOverlap(win.startMinutes, win.endMinutes, ev.startMinutes, ev.endMinutes)
+            );
+            if (!alreadyCovered) {
+              nextIntervals.push({
+                date,
+                startMinutes: win.startMinutes,
+                endMinutes: win.endMinutes,
+                serviceLabel: 'Booked · Cleaning Appointment'
+              });
+            }
+          }
+        }
+      }
+
+      remoteBusyIntervals = nextIntervals;
+      remoteSyncActive = true;
     } catch {
-      // Fail-open to in-memory schedule if webhook does not implement doGet yet or times out
+      // Fail-open to local schedule state if webhook does not implement doGet yet or times out
     }
   }
 
@@ -1369,6 +1787,13 @@ export function createIntakeService({
     const nextMonth = curMonth === 12 ? 1 : curMonth + 1;
     const endOfNextMonthIso = getLastDayOfMonthIso(nextYear, nextMonth);
     const maxAdvanceDate = endOfNextMonthIso;
+
+    const effectiveIntervals = getEffectiveBusyIntervals();
+    const sanitizedBusyIntervals = effectiveIntervals.map((item) => ({
+      date: item.date,
+      startMinutes: item.startMinutes,
+      endMinutes: item.endMinutes
+    }));
 
     const availableDates = [];
     const upcomingBookings = [];
@@ -1400,24 +1825,32 @@ export function createIntakeService({
 
       if (dow >= 1 && dow <= 5) {
         const readableDate = formatReadableDate(isoDate);
+        const dayIntervals = effectiveIntervals.filter((i) => i.date === isoDate);
+
         const slots = ARRIVAL_WINDOWS.map((win) => {
           if (holidayName) {
             return {
               slotId: win.id,
               label: win.label,
               shortLabel: win.shortLabel,
+              startMinutes: win.startMinutes,
+              endMinutes: win.endMinutes,
               status: 'CLOSED_HOLIDAY',
               serviceLabel: `Closed (${holidayName})`
             };
           }
-          const booked = isSlotBooked(isoDate, win.id, offset);
-          if (booked) {
+          const matchingInterval = dayIntervals.find((ev) =>
+            intervalsOverlap(win.startMinutes, win.endMinutes, ev.startMinutes, ev.endMinutes)
+          );
+          if (matchingInterval) {
             upcomingBookings.push({
               date: isoDate,
               dateFormatted: readableDate,
               slotId: win.id,
               slotLabel: win.shortLabel,
-              serviceLabel: booked.serviceLabel,
+              startMinutes: matchingInterval.startMinutes,
+              endMinutes: matchingInterval.endMinutes,
+              serviceLabel: matchingInterval.serviceLabel || 'Booked · Cleaning Appointment',
               status: 'BOOKED'
             });
           }
@@ -1425,8 +1858,12 @@ export function createIntakeService({
             slotId: win.id,
             label: win.label,
             shortLabel: win.shortLabel,
-            status: booked ? 'BOOKED' : 'AVAILABLE',
-            serviceLabel: booked ? booked.serviceLabel : 'Available'
+            startMinutes: win.startMinutes,
+            endMinutes: win.endMinutes,
+            status: matchingInterval ? 'BOOKED' : 'AVAILABLE',
+            serviceLabel: matchingInterval
+              ? matchingInterval.serviceLabel || 'Booked · Cleaning Appointment'
+              : 'Available'
           };
         });
 
@@ -1459,13 +1896,17 @@ export function createIntakeService({
     return {
       timezone: BUSINESS_TIMEZONE,
       businessHours: 'Mon – Fri · 8:00 AM – 4:30 PM',
+      businessOpenMinutes: BUSINESS_OPEN_MINUTES,
+      businessCloseMinutes: BUSINESS_CLOSE_MINUTES,
       todayDate: todayIso,
       minAdvanceDate,
       maxAdvanceDate,
       maxAdvanceDateFormatted: formatReadableDate(maxAdvanceDate),
       paymentPolicy: 'No Online Payment Required • Flat-Rate Estimate Sent to Owner Email',
       intakeConfigured: transportConfigured,
+      liveCalendarSyncConfigured: Boolean(process.env.EMAIL_WEBHOOK_URL),
       arrivalWindows: ARRIVAL_WINDOWS,
+      busyIntervals: sanitizedBusyIntervals,
       availableDates,
       calendarMonths: Array.from(monthsMap.values()),
       upcomingBookings: upcomingBookings.slice(0, 12)
@@ -1484,6 +1925,29 @@ export function createIntakeService({
     }
     existing.count += 1;
     return { allowed: true, retryAfterSeconds: 0 };
+  }
+
+  function resolveEffectiveSecret() {
+    return getFinishEarlySecret(finishEarlySecret);
+  }
+
+  function buildFinishEarlyConfirmationUrl(record, referenceCode, headers) {
+    const siteOrigin = resolvePublicSiteOrigin(headers);
+    const expMs = Date.parse(`${record.appointment.preferredDate}T23:59:59Z`) + 2 * 24 * 60 * 60 * 1000;
+    const token = createFinishEarlyToken(
+      {
+        v: 1,
+        ref: referenceCode,
+        date: record.appointment.preferredDate,
+        slotId: record.appointment.preferredWindow,
+        startMin: record.appointment.startMinutes,
+        endMin: record.appointment.endMinutes,
+        durMin: record.appointment.durationMinutes,
+        exp: expMs
+      },
+      resolveEffectiveSecret()
+    );
+    return `${siteOrigin}/api/finish-early?token=${encodeURIComponent(token)}`;
   }
 
   async function processEstimateRequest({ rawBody, headers = {}, clientIp = '127.0.0.1' }) {
@@ -1608,7 +2072,7 @@ export function createIntakeService({
       };
     }
 
-    // 7. Schema, bounds & authoritative calculation
+    // 7. Schema, bounds, closing cutoff & authoritative calculation
     const validation = validateEstimateRequest(parsed, { now });
     if (!validation.ok) {
       return {
@@ -1641,7 +2105,7 @@ export function createIntakeService({
       };
     }
 
-    // 8b. Live DNS MX mail-server verification on email domain (prevents non-existent/fake domains from locking Google Calendar)
+    // 8b. Live DNS MX mail-server verification on email domain
     const emailDomainDeliverable = await verifyEmailDomainHasMx(record.customer.email);
     if (!emailDomainDeliverable) {
       return {
@@ -1656,36 +2120,60 @@ export function createIntakeService({
       };
     }
 
-    // 9. Calendar slot conflict check (prevent double-booking by different customers; allow same customer to update their estimate)
+    // 9. Duration-aware calendar interval conflict check
     await syncCalendarFromWebhook();
-    const todayIso = getBusinessTodayIso(now);
-    const dayDiff = Math.round(
-      (Date.parse(`${record.appointment.preferredDate}T12:00:00Z`) - Date.parse(`${todayIso}T12:00:00Z`)) /
-        (24 * 60 * 60 * 1000)
-    );
     const requesterEmailHash = createHash('sha256')
       .update(record.customer.email, 'utf8')
       .digest('hex');
-    const existingBooking = isSlotBooked(
+
+    const conflict = findConflictingBooking(
       record.appointment.preferredDate,
-      record.appointment.preferredWindow,
-      dayDiff
+      record.appointment.startMinutes,
+      record.appointment.endMinutes,
+      requesterEmailHash
     );
-    if (existingBooking && existingBooking.customerEmailHash !== requesterEmailHash) {
+    if (conflict) {
       return {
         status: 409,
         headers: { 'Cache-Control': 'no-store' },
         body: {
           success: false,
           code: 'SLOT_ALREADY_BOOKED',
-          message: 'That cleaning arrival window is already booked. Please choose another available date or time window.'
+          message:
+            'That cleaning window overlaps an existing appointment on our calendar. Please choose another available date or time window.'
         }
       };
     }
 
-    // 10. Generate opaque server reference ID & email/calendar package
+    // 10. Generate opaque server reference ID, signed Finish-Early URL & email/calendar package
     const referenceCode = `SPS-${randomBytes(5).toString('hex').toUpperCase()}`;
-    const emailPackage = buildAutomatedEmailContent(record, referenceCode, ownerEmail);
+    const finishEarlyUrl = buildFinishEarlyConfirmationUrl(record, referenceCode, headers);
+    const emailPackage = buildAutomatedEmailContent(record, referenceCode, ownerEmail, {
+      finishEarlyUrl
+    });
+
+    const verifiedEstimateSummary = {
+      grandTotal: record.calculation.grandTotal,
+      basePrice: record.calculation.basePrice,
+      addonsTotal: record.calculation.addonsTotal,
+      estimatedHours: record.calculation.estimatedHours,
+      addonHours: record.calculation.addonHours,
+      totalEstimatedHours: record.calculation.totalEstimatedHours,
+      durationMinutes: record.calculation.durationMinutes,
+      pricingModel: record.calculation.pricingModel
+    };
+
+    const appointmentSummary = {
+      preferredDate: record.appointment.preferredDate,
+      preferredDateFormatted: record.appointment.preferredDateFormatted,
+      preferredWindow: record.appointment.preferredWindow,
+      preferredWindowLabel: record.appointment.preferredWindowLabel,
+      startMinutes: record.appointment.startMinutes,
+      endMinutes: record.appointment.endMinutes,
+      scheduledEndLabel: record.appointment.scheduledEndLabel,
+      durationMinutes: record.appointment.durationMinutes,
+      estimatedHours: record.appointment.estimatedHours
+    };
 
     // 11. Dispatch via configured server mail transport (fail-closed if not configured)
     const activeTransport = mailTransport || defaultMailTransport;
@@ -1703,19 +2191,8 @@ export function createIntakeService({
           fallbackMailtoUrl: emailPackage.mailtoUrl,
           icsContent: emailPackage.icsContent,
           icsFilename: emailPackage.icsFilename,
-          verifiedEstimate: {
-            grandTotal: record.calculation.grandTotal,
-            basePrice: record.calculation.basePrice,
-            addonsTotal: record.calculation.addonsTotal,
-            estimatedHours: record.calculation.estimatedHours,
-            pricingModel: record.calculation.pricingModel
-          },
-          appointment: {
-            preferredDate: record.appointment.preferredDate,
-            preferredDateFormatted: record.appointment.preferredDateFormatted,
-            preferredWindow: record.appointment.preferredWindow,
-            preferredWindowLabel: record.appointment.preferredWindowLabel
-          }
+          verifiedEstimate: verifiedEstimateSummary,
+          appointment: appointmentSummary
         }
       };
     }
@@ -1731,24 +2208,13 @@ export function createIntakeService({
           fallbackMailtoUrl: emailPackage.mailtoUrl,
           icsContent: emailPackage.icsContent,
           icsFilename: emailPackage.icsFilename,
-          verifiedEstimate: {
-            grandTotal: record.calculation.grandTotal,
-            basePrice: record.calculation.basePrice,
-            addonsTotal: record.calculation.addonsTotal,
-            estimatedHours: record.calculation.estimatedHours,
-            pricingModel: record.calculation.pricingModel
-          },
-          appointment: {
-            preferredDate: record.appointment.preferredDate,
-            preferredDateFormatted: record.appointment.preferredDateFormatted,
-            preferredWindow: record.appointment.preferredWindow,
-            preferredWindowLabel: record.appointment.preferredWindowLabel
-          }
+          verifiedEstimate: verifiedEstimateSummary,
+          appointment: appointmentSummary
         }
       };
     }
 
-    // 12. Mark slot booked only after verified delivery (atomic in-process reservation)
+    // 12. Mark interval booked only after verified delivery (replacing prior booking for same customer email + date if editing)
     const serviceBadge =
       record.quote.serviceCategory === 'commercial'
         ? 'Booked · Commercial Walkthrough'
@@ -1760,34 +2226,34 @@ export function createIntakeService({
               ? 'Booked · Residential Deep Clean'
               : 'Booked · Residential Standard Clean';
 
-    const slotKey = `${record.appointment.preferredDate}|${record.appointment.preferredWindow}`;
-    bookedSlots.set(slotKey, {
+    for (const [existingRef, existingItem] of localBookings.entries()) {
+      if (
+        existingItem.date === record.appointment.preferredDate &&
+        existingItem.customerEmailHash === requesterEmailHash
+      ) {
+        localBookings.delete(existingRef);
+      }
+    }
+
+    localBookings.set(referenceCode, {
+      referenceCode,
       date: record.appointment.preferredDate,
       slotId: record.appointment.preferredWindow,
+      startMinutes: record.appointment.startMinutes,
+      endMinutes: record.appointment.endMinutes,
       serviceLabel: serviceBadge,
       status: 'BOOKED',
-      referenceCode,
-      customerEmailHash: requesterEmailHash
+      customerEmailHash: requesterEmailHash,
+      syncedRemotely: deliveryResult.provider === 'webhook'
     });
 
     const responseBody = {
       success: true,
       code: 'ESTIMATE_DISPATCHED',
       referenceCode,
-      message: `Your estimate and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions.`,
-      verifiedEstimate: {
-        grandTotal: record.calculation.grandTotal,
-        basePrice: record.calculation.basePrice,
-        addonsTotal: record.calculation.addonsTotal,
-        estimatedHours: record.calculation.estimatedHours,
-        pricingModel: record.calculation.pricingModel
-      },
-      appointment: {
-        preferredDate: record.appointment.preferredDate,
-        preferredDateFormatted: record.appointment.preferredDateFormatted,
-        preferredWindow: record.appointment.preferredWindow,
-        preferredWindowLabel: record.appointment.preferredWindowLabel
-      },
+      message: `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions.`,
+      verifiedEstimate: verifiedEstimateSummary,
+      appointment: appointmentSummary,
       icsContent: emailPackage.icsContent,
       icsFilename: emailPackage.icsFilename
     };
@@ -1807,6 +2273,308 @@ export function createIntakeService({
     };
   }
 
+  /**
+   * Renders a strict-CSP HTML confirmation page for the owner's email Finish-Early action.
+   * Performs zero mutations on GET (protects against email link-scanner pre-fetching).
+   */
+  function renderFinishEarlyPage(token) {
+    const verification = verifyFinishEarlyToken(token, resolveEffectiveSecret(), nowFn().getTime());
+    const cspMeta =
+      "default-src 'none'; script-src 'self'; script-src-attr 'none'; style-src 'self'; style-src-attr 'none'; img-src 'self'; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-src 'none'; worker-src 'none'; manifest-src 'none'";
+
+    let cardHtml = '';
+    if (!verification.ok) {
+      cardHtml = `
+        <div class="finish-early-card is-error">
+          <span class="finish-early-kicker">Smarts Pro Solutions &bull; Schedule Control</span>
+          <h1>Link Invalid or Expired</h1>
+          <p class="finish-early-copy">${escapeHtml(verification.message)}</p>
+          <a class="btn btn-primary" href="/">Return to Smarts Pro Solutions</a>
+        </div>`;
+    } else {
+      const p = verification.payload;
+      const dateFormatted = formatReadableDate(p.date);
+      const startLabel = formatMinutesAsTime(p.startMin);
+      const endLabel = formatMinutesAsTime(p.endMin);
+      cardHtml = `
+        <div class="finish-early-card" id="finish-early-card" data-finish-token="${escapeHtml(token)}">
+          <span class="finish-early-kicker">Smarts Pro Solutions &bull; Owner Early-Completion Tool</span>
+          <h1>Finish Cleaning Early &amp; Re-Open Calendar</h1>
+          <p class="finish-early-copy">
+            Confirm below to shorten this calendar block and immediately make the remaining weekday time available for customers on <strong>smartsprosolutions.com</strong>.
+          </p>
+          <div class="finish-early-summary">
+            <div class="finish-early-row"><span>Reference ID:</span><strong>${escapeHtml(p.ref)}</strong></div>
+            <div class="finish-early-row"><span>Appointment Date:</span><strong>${escapeHtml(dateFormatted)}</strong></div>
+            <div class="finish-early-row"><span>Scheduled Calendar Block:</span><strong>${escapeHtml(startLabel)} &ndash; ${escapeHtml(endLabel)}</strong></div>
+          </div>
+          <div class="finish-early-actions" id="finish-early-actions">
+            <button type="button" class="btn btn-green btn-lg" id="btn-finish-now" data-finish-mode="now">Confirm Finished Early Now (Free Remaining Time)</button>
+            <button type="button" class="btn btn-outline btn-sm" id="btn-finish-release-all" data-finish-mode="release_all">Release Entire Window (Canceled / Rescheduled)</button>
+          </div>
+          <div class="intake-status-banner is-hidden" id="finish-early-status" role="status" aria-live="polite"></div>
+          <div class="finish-early-footer">
+            <a href="/">View Live Website Schedule &rarr;</a>
+          </div>
+        </div>`;
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="${cspMeta}">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Owner Schedule Control | Smarts Pro Solutions</title>
+  <link rel="icon" type="image/png" href="/assets/images/favicon-s.png">
+  <link rel="stylesheet" href="/assets/css/fonts.css">
+  <link rel="stylesheet" href="/assets/css/styles.css">
+  <link rel="stylesheet" href="/assets/css/security.css">
+</head>
+<body class="finish-early-body">
+  <main class="finish-early-main">
+    ${cardHtml}
+  </main>
+  <script src="/assets/js/api.js"></script>
+  <script src="/assets/js/finish-early.js"></script>
+</body>
+</html>`;
+
+    return {
+      status: verification.ok ? 200 : 400,
+      html
+    };
+  }
+
+  /**
+   * Executes the verified Finish-Early request: shortens local interval holds and
+   * signals Google Apps Script to shorten/delete the Google Calendar event so
+   * freed time immediately re-opens on the website.
+   */
+  async function processFinishEarlyRequest({ rawBody, headers = {}, clientIp = '127.0.0.1' }) {
+    const now = nowFn();
+    const nowMs = now.getTime();
+
+    const secFetchSite = String(headers['sec-fetch-site'] || '').toLowerCase();
+    if (secFetchSite && secFetchSite !== 'same-origin' && secFetchSite !== 'none') {
+      return {
+        status: 403,
+        headers: { 'Cache-Control': 'no-store' },
+        body: { success: false, code: 'CROSS_SITE_FORBIDDEN', message: 'Cross-site requests are not permitted.' }
+      };
+    }
+
+    const origin = headers.origin;
+    const host = headers.host;
+    if (origin && host) {
+      try {
+        const originUrl = new URL(origin);
+        if (originUrl.host.toLowerCase() !== String(host).toLowerCase()) {
+          return {
+            status: 403,
+            headers: { 'Cache-Control': 'no-store' },
+            body: { success: false, code: 'ORIGIN_MISMATCH', message: 'Request origin is not authorized.' }
+          };
+        }
+      } catch {
+        return {
+          status: 403,
+          headers: { 'Cache-Control': 'no-store' },
+          body: { success: false, code: 'INVALID_ORIGIN', message: 'Invalid Origin header.' }
+        };
+      }
+    }
+
+    const contentType = String(headers['content-type'] || '').toLowerCase();
+    if (!contentType.startsWith('application/json')) {
+      return {
+        status: 415,
+        headers: { 'Cache-Control': 'no-store' },
+        body: { success: false, code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Content-Type must be application/json.' }
+      };
+    }
+
+    const byteLength = Buffer.byteLength(rawBody || '', 'utf8');
+    if (byteLength === 0 || byteLength > MAX_BODY_BYTES) {
+      return {
+        status: byteLength === 0 ? 400 : 413,
+        headers: { 'Cache-Control': 'no-store' },
+        body: { success: false, code: 'INVALID_BODY_SIZE', message: 'Invalid request body size.' }
+      };
+    }
+
+    const ipLimit = checkRateLimit(`finish:${clientIp}`, nowMs);
+    if (!ipLimit.allowed) {
+      return {
+        status: 429,
+        headers: { 'Cache-Control': 'no-store', 'Retry-After': String(ipLimit.retryAfterSeconds) },
+        body: { success: false, code: 'RATE_LIMITED', message: 'Too many requests. Please wait a moment.' }
+      };
+    }
+
+    let parsed;
+    try {
+      parsed = JSON.parse(rawBody);
+    } catch {
+      return {
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+        body: { success: false, code: 'MALFORMED_JSON', message: 'Request body is not valid JSON.' }
+      };
+    }
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed) || hasDangerousKeys(parsed)) {
+      return {
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+        body: { success: false, code: 'INVALID_PAYLOAD', message: 'Invalid finish-early payload.' }
+      };
+    }
+
+    const allowedKeys = new Set(['token', 'mode']);
+    if (!hasOnlyAllowedKeys(parsed, allowedKeys)) {
+      return {
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+        body: { success: false, code: 'UNKNOWN_FIELDS', message: 'Unrecognized request fields.' }
+      };
+    }
+
+    const mode = parsed.mode === 'release_all' ? 'release_all' : 'now';
+    const verification = verifyFinishEarlyToken(parsed.token, resolveEffectiveSecret(), nowMs);
+    if (!verification.ok) {
+      return {
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+        body: { success: false, code: verification.code, message: verification.message }
+      };
+    }
+
+    const tokenPayload = verification.payload;
+    const businessNow = getBusinessTimeParts(now);
+
+    if (businessNow.isoDate > tokenPayload.date) {
+      return {
+        status: 400,
+        headers: { 'Cache-Control': 'no-store' },
+        body: {
+          success: false,
+          code: 'APPOINTMENT_ALREADY_PASSED',
+          message: 'This appointment date has already passed.'
+        }
+      };
+    }
+
+    let earlyEndMinutes = tokenPayload.startMin;
+    if (mode === 'release_all') {
+      earlyEndMinutes = tokenPayload.startMin;
+    } else if (businessNow.isoDate < tokenPayload.date || businessNow.totalMinutes <= tokenPayload.startMin) {
+      // Marked complete / released before appointment start time
+      earlyEndMinutes = tokenPayload.startMin;
+    } else {
+      const roundedNowMinutes = Math.ceil(businessNow.totalMinutes / 15) * 15;
+      earlyEndMinutes = Math.min(
+        tokenPayload.endMin,
+        Math.max(tokenPayload.startMin + 15, roundedNowMinutes)
+      );
+    }
+
+    const releaseAll = earlyEndMinutes <= tokenPayload.startMin;
+
+    // 1. Update local in-memory booking hold
+    const existingLocal = localBookings.get(tokenPayload.ref);
+    if (existingLocal) {
+      if (releaseAll) {
+        localBookings.delete(tokenPayload.ref);
+      } else {
+        existingLocal.endMinutes = earlyEndMinutes;
+      }
+    }
+
+    // 2. Update any matching remoteBusyIntervals cached in this instance
+    remoteBusyIntervals = remoteBusyIntervals
+      .map((item) => {
+        if (item.date !== tokenPayload.date) return item;
+        if (!intervalsOverlap(tokenPayload.startMin, tokenPayload.endMin, item.startMinutes, item.endMinutes)) {
+          return item;
+        }
+        if (releaseAll) return null;
+        if (earlyEndMinutes <= item.startMinutes) return null;
+        return {
+          ...item,
+          endMinutes: Math.min(item.endMinutes, earlyEndMinutes)
+        };
+      })
+      .filter(Boolean);
+
+    // 3. Notify Google Apps Script Calendar Bridge to shorten/delete event in Google Calendar
+    let calendarSynced = false;
+    const actionTransport = calendarActionTransport || defaultCalendarActionTransport;
+    try {
+      const webhookPayload = {
+        action: 'finishEarly',
+        referenceCode: tokenPayload.ref,
+        date: tokenPayload.date,
+        slotId: tokenPayload.slotId,
+        startMinutes: tokenPayload.startMin,
+        scheduledEndMinutes: tokenPayload.endMin,
+        earlyEndMinutes,
+        releaseAll,
+        startIso: getCentralIsoForDateAndMinutes(tokenPayload.date, tokenPayload.startMin),
+        earlyEndIso: getCentralIsoForDateAndMinutes(
+          tokenPayload.date,
+          releaseAll ? tokenPayload.startMin : earlyEndMinutes
+        )
+      };
+      const webhookRes = await actionTransport(webhookPayload);
+      calendarSynced = Boolean(webhookRes && webhookRes.delivered);
+    } catch {
+      return {
+        status: 502,
+        headers: { 'Cache-Control': 'no-store' },
+        body: {
+          success: false,
+          code: 'CALENDAR_SYNC_FAILED',
+          message: 'Could not reach Google Calendar sync webhook. Please update the event directly in Google Calendar.'
+        }
+      };
+    }
+
+    // Determine which arrival windows on that date are now open
+    const updatedDayBusy = getEffectiveBusyIntervals().filter((i) => i.date === tokenPayload.date);
+    const openWindowsNow = ARRIVAL_WINDOWS.filter(
+      (win) =>
+        !updatedDayBusy.some((ev) =>
+          intervalsOverlap(win.startMinutes, win.endMinutes, ev.startMinutes, ev.endMinutes)
+        )
+    ).map((w) => w.shortLabel);
+
+    const earlyEndLabel = releaseAll
+      ? 'Full Window Released'
+      : formatMinutesAsTime(earlyEndMinutes);
+
+    return {
+      status: 200,
+      headers: { 'Cache-Control': 'no-store' },
+      body: {
+        success: true,
+        code: releaseAll ? 'WINDOW_RELEASED' : 'FINISHED_EARLY',
+        referenceCode: tokenPayload.ref,
+        date: tokenPayload.date,
+        dateFormatted: formatReadableDate(tokenPayload.date),
+        earlyEndMinutes,
+        earlyEndLabel,
+        releaseAll,
+        calendarSynced,
+        openWindowsNow,
+        message: releaseAll
+          ? `Full cleaning window on ${formatReadableDate(tokenPayload.date)} released. Open windows now: ${openWindowsNow.length > 0 ? openWindowsNow.join(', ') : 'None'}.`
+          : `Cleaning block updated to end at ${earlyEndLabel} on ${formatReadableDate(tokenPayload.date)}. Open windows now: ${openWindowsNow.length > 0 ? openWindowsNow.join(', ') : 'None (remaining slots still overlap)'}.`
+      }
+    };
+  }
+
   async function getCalendarAvailabilityAsync() {
     await syncCalendarFromWebhook();
     return getCalendarAvailability();
@@ -1815,7 +2583,9 @@ export function createIntakeService({
   return Object.freeze({
     getCalendarAvailability,
     getCalendarAvailabilityAsync,
-    processEstimateRequest
+    processEstimateRequest,
+    renderFinishEarlyPage,
+    processFinishEarlyRequest
   });
 }
 

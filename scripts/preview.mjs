@@ -82,6 +82,34 @@ export function createPreviewServer({ allowFraming = false, intakeService = defa
       return;
     }
 
+    if (pathname === '/api/finish-early') {
+      res.setHeader('Cache-Control', 'no-store');
+      if (req.method === 'GET' || req.method === 'HEAD') {
+        const parsedUrl = new URL(req.url, 'http://localhost');
+        const token = parsedUrl.searchParams.get('token') || '';
+        const page = intakeService.renderFinishEarlyPage(token);
+        res.writeHead(page.status, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(req.method === 'HEAD' ? undefined : page.html);
+        return;
+      }
+      if (req.method !== 'POST') {
+        res.writeHead(405, { Allow: 'GET, HEAD, POST', 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ success: false, code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed' }));
+        return;
+      }
+      const rawBody = await readBoundedRequest(req);
+      const clientIp = req.socket?.remoteAddress || '127.0.0.1';
+      const result = await intakeService.processFinishEarlyRequest({
+        rawBody,
+        headers: req.headers,
+        clientIp
+      });
+      Object.entries(result.headers || {}).forEach(([k, v]) => res.setHeader(k, v));
+      res.writeHead(result.status, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(JSON.stringify(result.body));
+      return;
+    }
+
     if (!['GET', 'HEAD'].includes(req.method)) {
       res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'text/plain; charset=utf-8' });
       res.end('Method not allowed');

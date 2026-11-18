@@ -1,11 +1,11 @@
 /**
  * SMARTS PRO SOLUTIONS - LIVE PRICING CALCULATOR ENGINE & MULTI-STEP WIZARD
  * Step 1: Type of Service (Residential, Commercial, Move-In/Out, Airbnb) + Scope Overview
- * Step 2: Property Details (Residential Tiers/Specific Areas OR Move-In/Out Property Type + Gauge)
+ * Step 2: Property Details (Residential Tiers OR Move-In/Out Property Type + Gauge)
  * Step 3: Additional Information (Pets, Last Professional Cleaning, Occupancy, Current Condition)
  *         (Steps 2 & 3 skipped automatically for Commercial & Offices -> goes straight to Frequency)
  * Step 4: Cleaning Frequency
- * Step 5: Custom Add-Ons (with smart Pet Hair add-on sync from Step 3)
+ * Step 5: Custom Add-Ons (Appliances + Specific Areas Flat-Rate Package Option)
  *
  * Includes per-step fulfillment validation with missing-option highlighting
  * and dispatches structured job envelopes to SmartsProDispatchFramework.
@@ -195,8 +195,11 @@
     movePropertyTypeGroup: document.getElementById('move-property-type-group'),
     propertyTypeBtns: document.querySelectorAll('.property-type-btn'),
 
-    // Scope Mode & Specific Areas Elements
+    // Scope Mode & Specific Areas Elements (Moved to Step 5 Add-Ons)
     scopePanelFull: document.getElementById('scope-panel-full'),
+    step5SpecificAreasBlock: document.getElementById('step5-specific-areas-block'),
+    btnScopeSpecific: document.getElementById('btn-scope-specific'),
+    specificAreasToggleBadge: document.getElementById('specific-areas-toggle-badge'),
     scopePanelSpecific: document.getElementById('scope-panel-specific'),
     specificAreasInputGroup: document.getElementById('specific-areas-input-group'),
     inputSpecificAreas: document.getElementById('input-specific-areas'),
@@ -356,17 +359,9 @@
       if (state.serviceCategory === 'residential') {
         if (!state.step2ResidentialFulfilled) {
           showValidationError(
-            'Please select your Residential Cleaning Tier (Standard Clean, Deep Clean, or Specific Areas) or adjust your property details to continue.',
+            'Please select your Residential Cleaning Tier (Standard Clean or Deep Clean) or adjust your property details to continue.',
             [els.residentialTierGroup]
           );
-          return false;
-        }
-        if (state.scopeMode === 'specific' && state.specificAreasText.trim().length === 0) {
-          showValidationError(
-            'Please enter which specific areas you want cleaned before moving forward.',
-            [els.specificAreasInputGroup, els.inputSpecificAreas]
-          );
-          if (els.inputSpecificAreas) els.inputSpecificAreas.focus();
           return false;
         }
         return true;
@@ -396,6 +391,22 @@
           'Please select a Cleaning Frequency schedule below to fulfill this section.',
           [els.step4FrequencyGrid]
         );
+        return false;
+      }
+      return true;
+    }
+
+    if (stepId === 5) {
+      if (
+        state.serviceCategory === 'residential' &&
+        state.scopeMode === 'specific' &&
+        state.specificAreasText.trim().length === 0
+      ) {
+        showValidationError(
+          'Please enter which specific areas you want cleaned (or click Specific Areas again to switch back) before continuing.',
+          [els.specificAreasInputGroup, els.inputSpecificAreas]
+        );
+        if (els.inputSpecificAreas) els.inputSpecificAreas.focus();
         return false;
       }
       return true;
@@ -442,6 +453,9 @@
         isSpecificAreas: false,
         hourlyRate: baseRate,
         estimatedHours,
+        addonHours: 0,
+        totalEstimatedHours: estimatedHours,
+        durationMinutes: Math.round(estimatedHours * 60),
         basePrice,
         minApplied: false,
         discountRate: 0,
@@ -507,6 +521,8 @@
       (state.addons.fridge + state.addons.fridgeDouble + state.addons.oven) * 0.5 +
       state.addons.pets * 0.25;
     const totalHours = estimatedHours + addonHours;
+    const totalEstimatedHours = Number(totalHours.toFixed(2));
+    const durationMinutes = Math.max(60, Math.round(totalEstimatedHours * 60));
 
     let timeRangeText = '';
     if (isSpecificAreas) {
@@ -529,6 +545,9 @@
       isSpecificAreas,
       hourlyRate,
       estimatedHours,
+      addonHours,
+      totalEstimatedHours,
+      durationMinutes,
       basePrice,
       minApplied,
       discountRate: 0,
@@ -684,8 +703,16 @@
       }
       if (els.step2HeadingDesc) {
         els.step2HeadingDesc.textContent =
-          'Choose Standard Clean, Deep Clean, or Specific Areas (from $50), then set your home size';
+          'Choose Standard Clean or Deep Clean, then set your home size (Specific Areas is available in Step 5)';
       }
+    }
+
+    // Specific Areas option in Step 5 applies exclusively to Residential Homes
+    if (els.step5SpecificAreasBlock) {
+      els.step5SpecificAreasBlock.classList.toggle(
+        'is-hidden',
+        state.serviceCategory !== 'residential'
+      );
     }
 
     // Update Step Panes
@@ -711,6 +738,13 @@
         const nextLabel = nextButtonTitles[nextStepId] || 'Next';
         els.wizardNextLabel.textContent = `Next: ${nextLabel}`;
       }
+    }
+
+    if (
+      window.SmartsProCurrentQuote &&
+      window.SmartsProCurrentQuote.state
+    ) {
+      window.SmartsProCurrentQuote.state.wizardStep = state.wizardStep;
     }
   }
 
@@ -793,7 +827,16 @@
     });
 
     if (els.scopePanelFull) {
-      els.scopePanelFull.classList.toggle('is-hidden', isSpecific);
+      els.scopePanelFull.classList.remove('is-hidden');
+    }
+    if (els.btnScopeSpecific) {
+      els.btnScopeSpecific.classList.toggle('active', isSpecific);
+      els.btnScopeSpecific.setAttribute('aria-pressed', isSpecific ? 'true' : 'false');
+    }
+    if (els.specificAreasToggleBadge) {
+      els.specificAreasToggleBadge.textContent = isSpecific
+        ? 'Selected · Click to switch back'
+        : 'Click to select';
     }
     if (els.scopePanelSpecific) {
       els.scopePanelSpecific.classList.toggle('is-hidden', !isSpecific);
@@ -959,7 +1002,7 @@
         els.summarySpecificAreasRow.classList.remove('is-hidden');
         const cleanedText = state.specificAreasText.trim();
         els.summarySpecificAreasVal.textContent =
-          cleanedText.length > 0 ? cleanedText : 'Specify in Step 2';
+          cleanedText.length > 0 ? cleanedText : 'Specify in Step 5';
       } else {
         els.summarySpecificAreasRow.classList.add('is-hidden');
       }
@@ -1079,15 +1122,13 @@
       });
     });
 
-    // Step 2: Residential Tier Buttons (Standard Clean, Deep Clean, Specific Areas from $50)
+    // Step 2: Residential Tier Buttons (Standard Clean, Deep Clean)
     els.residentialTierBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const tier = btn.getAttribute('data-res-tier');
         state.step2ResidentialFulfilled = true;
         clearValidationErrors();
-        if (tier === 'specific') {
-          state.scopeMode = 'specific';
-        } else if (tier === 'deep') {
+        if (tier === 'deep') {
           state.scopeMode = 'full';
           state.serviceType = 'deep';
         } else {
@@ -1097,6 +1138,17 @@
         updateUI();
       });
     });
+
+    // Step 5: Specific Areas Toggle Button
+    if (els.btnScopeSpecific) {
+      els.btnScopeSpecific.addEventListener('click', () => {
+        if (state.serviceCategory !== 'residential') return;
+        state.step2ResidentialFulfilled = true;
+        state.scopeMode = state.scopeMode === 'specific' ? 'full' : 'specific';
+        clearValidationErrors();
+        updateUI();
+      });
+    }
 
     // Step 2: Move-In/Out Property Type Buttons (House, Apartment, Condo, Townhome)
     els.propertyTypeBtns.forEach((btn) => {
@@ -1127,6 +1179,7 @@
       els.btnHoursMinus.addEventListener('click', () => {
         if (state.specificHours > PRICING_CONFIG.specificAreas.minHours) {
           state.specificHours--;
+          state.scopeMode = 'specific';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1136,6 +1189,7 @@
       els.btnHoursPlus.addEventListener('click', () => {
         if (state.specificHours < PRICING_CONFIG.specificAreas.maxHours) {
           state.specificHours++;
+          state.scopeMode = 'specific';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1149,6 +1203,7 @@
             PRICING_CONFIG.specificAreas.maxHours,
             Math.max(PRICING_CONFIG.specificAreas.minHours, hrs)
           );
+          state.scopeMode = 'specific';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1160,6 +1215,7 @@
       els.btnBedMinus.addEventListener('click', () => {
         if (state.bedrooms > 1) {
           state.bedrooms--;
+          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1169,6 +1225,7 @@
       els.btnBedPlus.addEventListener('click', () => {
         if (state.bedrooms < 8) {
           state.bedrooms++;
+          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1180,6 +1237,7 @@
       els.btnBathMinus.addEventListener('click', () => {
         if (state.fullBaths > 1) {
           state.fullBaths--;
+          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1189,6 +1247,7 @@
       els.btnBathPlus.addEventListener('click', () => {
         if (state.fullBaths < 6) {
           state.fullBaths++;
+          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1200,6 +1259,7 @@
       els.btnHalfBathMinus.addEventListener('click', () => {
         if (state.halfBaths > 0) {
           state.halfBaths--;
+          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1209,6 +1269,7 @@
       els.btnHalfBathPlus.addEventListener('click', () => {
         if (state.halfBaths < 4) {
           state.halfBaths++;
+          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           updateUI();
         }
@@ -1220,6 +1281,7 @@
       els.sliderSqft.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10) || 1800;
         state.sqft = Math.min(6000, Math.max(400, val));
+        state.scopeMode = 'full';
         state.step2ResidentialFulfilled = true;
         if (els.inputSqft) els.inputSqft.value = state.sqft;
         updateUI();
@@ -1232,6 +1294,7 @@
         let val = parseInt(e.target.value, 10);
         if (isNaN(val)) val = 400;
         state.sqft = Math.min(6000, Math.max(400, val));
+        state.scopeMode = 'full';
         state.step2ResidentialFulfilled = true;
         if (els.sliderSqft) els.sliderSqft.value = state.sqft;
         updateUI();
@@ -1390,7 +1453,7 @@
       selectServiceCategory('residential');
       state.scopeMode = 'specific';
       state.step2ResidentialFulfilled = true;
-      state.wizardStep = 2;
+      state.wizardStep = 5;
       updateUI();
     } else if (serviceKey === 'commercial') {
       selectServiceCategory('commercial');

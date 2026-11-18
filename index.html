@@ -591,10 +591,10 @@
                   </div>
                 </div>
 
-                <!-- SUB-SECTION A (Shown for Residential Homes): Choose Standard, Deep, or Specific Areas (from $50) -->
+                <!-- SUB-SECTION A (Shown for Residential Homes): Choose Standard or Deep Clean -->
                 <div class="residential-tier-block" id="step2-residential-controls">
                   <div class="substep-label-row">
-                    <span class="substep-title">Select Residential Cleaning Tier or Specific Areas</span>
+                    <span class="substep-title">Select Residential Cleaning Tier</span>
                     <span class="substep-req-badge">Required</span>
                   </div>
                   <div class="scope-mode-selector residential-tier-selector" id="residential-tier-group" role="radiogroup" aria-label="Select Residential Cleaning Tier">
@@ -615,16 +615,6 @@
                       <span class="scope-mode-copy">
                         <strong>Deep Clean</strong>
                         <span>Full property • Baseboards, grout &amp; heavy scrub</span>
-                      </span>
-                    </button>
-
-                    <button type="button" class="scope-mode-btn" id="btn-scope-specific" data-res-tier="specific" data-scope-mode="specific" aria-pressed="false">
-                      <span class="scope-mode-icon">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                      </span>
-                      <span class="scope-mode-copy">
-                        <strong>Specific Areas</strong>
-                        <span>1 to 6 hrs booked • Flat-rate packages from $50</span>
                       </span>
                     </button>
                   </div>
@@ -727,61 +717,6 @@
                       <span>2,000 sq ft</span>
                       <span>4,000 sq ft</span>
                       <span>6,000+ sq ft</span>
-                    </div>
-                  </div>
-                </div>
-
-                <!-- PANEL 2: Specific Areas Custom Text Entry & Booked Hours (2-6 Hours) -->
-                <div class="scope-panel-specific is-hidden" id="scope-panel-specific">
-                  <div class="specific-areas-box">
-                    <div class="specific-input-group" id="specific-areas-input-group">
-                      <label for="input-specific-areas" class="specific-input-label">
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                        <span>Which specific areas would you like cleaned? (Required)</span>
-                      </label>
-                      <input id="input-specific-areas" class="specific-areas-input" placeholder="Type your specific areas (e.g., Kitchen, master bathroom, living room &amp; hallways)..." maxlength="180" autocomplete="off" aria-label="Type your specific areas to clean">
-                      <span class="specific-input-hint">Describe the rooms, surfaces, or priority tasks you want our team to focus on during your booked time.</span>
-                    </div>
-
-                    <div class="specific-hours-card">
-                      <div class="specific-hours-header">
-                        <div class="specific-hours-title-wrap">
-                          <h4>How many hours are you booking?</h4>
-                          <p><strong>1-hour minimum flat rate = $50</strong> • Select a <strong>1 to 6 hour</strong> flat-rate package below</p>
-                        </div>
-                        <div class="stepper-control specific-hours-stepper">
-                          <button type="button" class="stepper-btn" id="btn-hours-minus" aria-label="Decrease Booked Hours">−</button>
-                          <span class="stepper-value" id="val-specific-hours">1</span>
-                          <button type="button" class="stepper-btn" id="btn-hours-plus" aria-label="Increase Booked Hours">+</button>
-                        </div>
-                      </div>
-
-                      <div class="specific-hours-pills" role="group" aria-label="Select Booked Hours">
-                        <button type="button" class="hour-tier-btn active" data-hours-val="1">
-                          <strong>1 Hour</strong>
-                          <span>$50 Flat Min</span>
-                        </button>
-                        <button type="button" class="hour-tier-btn" data-hours-val="2">
-                          <strong>2 Hours</strong>
-                          <span>$100 Flat Rate</span>
-                        </button>
-                        <button type="button" class="hour-tier-btn" data-hours-val="3">
-                          <strong>3 Hours</strong>
-                          <span>$150 Flat Rate</span>
-                        </button>
-                        <button type="button" class="hour-tier-btn" data-hours-val="4">
-                          <strong>4 Hours</strong>
-                          <span>$200 Flat Rate</span>
-                        </button>
-                        <button type="button" class="hour-tier-btn" data-hours-val="5">
-                          <strong>5 Hours</strong>
-                          <span>$250 Flat Rate</span>
-                        </button>
-                        <button type="button" class="hour-tier-btn" data-hours-val="6">
-                          <strong>6 Hours</strong>
-                          <span>$300 Flat Rate</span>
-                        </button>
-                      </div>
                     </div>
                   </div>
                 </div>
@@ -1038,7 +973,7 @@
                   <div class="step-num" id="step-badge-5">5</div>
                   <div class="step-info">
                     <h3>Custom Add-Ons</h3>
-                    <p>Optional: add inside refrigerator or oven cleaning, or click Review Estimate</p>
+                    <p>Optional: add inside refrigerator or oven cleaning, or switch to a timed Specific Areas package ($50 min)</p>
                   </div>
                 </div>
 
@@ -1094,6 +1029,80 @@
                       <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Oven">−</button>
                       <span class="stepper-value" id="val-addon-oven">0</span>
                       <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Oven">+</button>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Specific Areas Option & Package Panel (Moved from Step 2 into Step 5 Add-Ons) -->
+                <div class="step5-specific-areas-block" id="step5-specific-areas-block">
+                  <div class="substep-label-row">
+                    <span class="substep-title">Specific Areas Package (Optional)</span>
+                    <span class="substep-req-badge">Flat Rate from $50</span>
+                  </div>
+
+                  <button type="button" class="scope-mode-btn step5-specific-toggle" id="btn-scope-specific" data-res-tier="specific" data-scope-mode="specific" aria-pressed="false">
+                    <span class="scope-mode-icon">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                    </span>
+                    <span class="scope-mode-copy">
+                      <strong>Specific Areas</strong>
+                      <span>1 to 6 hrs booked • Flat-rate packages from $50</span>
+                    </span>
+                    <span class="specific-toggle-badge" id="specific-areas-toggle-badge">Click to select</span>
+                  </button>
+
+                  <!-- PANEL: Specific Areas Custom Text Entry & Booked Hours (1-6 Hours) -->
+                  <div class="scope-panel-specific is-hidden" id="scope-panel-specific">
+                    <div class="specific-areas-box">
+                      <div class="specific-input-group" id="specific-areas-input-group">
+                        <label for="input-specific-areas" class="specific-input-label">
+                          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                          <span>Which specific areas would you like cleaned? (Required)</span>
+                        </label>
+                        <input id="input-specific-areas" class="specific-areas-input" placeholder="Type your specific areas (e.g., Kitchen, master bathroom, living room &amp; hallways)..." maxlength="180" autocomplete="off" aria-label="Type your specific areas to clean">
+                        <span class="specific-input-hint">Describe the rooms, surfaces, or priority tasks you want our team to focus on during your booked time.</span>
+                      </div>
+
+                      <div class="specific-hours-card">
+                        <div class="specific-hours-header">
+                          <div class="specific-hours-title-wrap">
+                            <h4>How many hours are you booking?</h4>
+                            <p><strong>1-hour minimum flat rate = $50</strong> • Select a <strong>1 to 6 hour</strong> flat-rate package below</p>
+                          </div>
+                          <div class="stepper-control specific-hours-stepper">
+                            <button type="button" class="stepper-btn" id="btn-hours-minus" aria-label="Decrease Booked Hours">−</button>
+                            <span class="stepper-value" id="val-specific-hours">1</span>
+                            <button type="button" class="stepper-btn" id="btn-hours-plus" aria-label="Increase Booked Hours">+</button>
+                          </div>
+                        </div>
+
+                        <div class="specific-hours-pills" role="group" aria-label="Select Booked Hours">
+                          <button type="button" class="hour-tier-btn active" data-hours-val="1">
+                            <strong>1 Hour</strong>
+                            <span>$50 Flat Min</span>
+                          </button>
+                          <button type="button" class="hour-tier-btn" data-hours-val="2">
+                            <strong>2 Hours</strong>
+                            <span>$100 Flat Rate</span>
+                          </button>
+                          <button type="button" class="hour-tier-btn" data-hours-val="3">
+                            <strong>3 Hours</strong>
+                            <span>$150 Flat Rate</span>
+                          </button>
+                          <button type="button" class="hour-tier-btn" data-hours-val="4">
+                            <strong>4 Hours</strong>
+                            <span>$200 Flat Rate</span>
+                          </button>
+                          <button type="button" class="hour-tier-btn" data-hours-val="5">
+                            <strong>5 Hours</strong>
+                            <span>$250 Flat Rate</span>
+                          </button>
+                          <button type="button" class="hour-tier-btn" data-hours-val="6">
+                            <strong>6 Hours</strong>
+                            <span>$300 Flat Rate</span>
+                          </button>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1169,7 +1178,7 @@
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                     Requested Areas
                   </span>
-                  <span class="breakdown-value" id="summary-specific-areas-val">Specify in Step 2</span>
+                  <span class="breakdown-value" id="summary-specific-areas-val">Specify in Step 5</span>
                 </div>
 
                 <div class="breakdown-row is-hidden" id="summary-addinfo-row">
@@ -2023,6 +2032,7 @@
           <div class="recap-row is-hidden" id="modal-recap-addinfo-row"><span>Additional Info:</span><strong id="modal-recap-addinfo">—</strong></div>
           <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks</strong></div>
           <div class="recap-row" id="modal-recap-addons-row"><span>Add-Ons &amp; Pets:</span><span id="modal-recap-addons">None selected</span></div>
+          <div class="recap-row" id="modal-recap-hours-row"><span>Est. Cleaning Time:</span><strong id="modal-recap-hours">5 Hours</strong></div>
           <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote (Flat Rate):</span><span id="modal-recap-total">$250.00</span></div>
           <div class="recap-row recap-policy" id="modal-recap-policy-row"><span>Payment Policy:</span><strong id="modal-recap-policy">Flat Rate • No Online Payment Required • 10% Bounced Check Fee</strong></div>
         </div>

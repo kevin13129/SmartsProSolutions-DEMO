@@ -40,7 +40,8 @@
       const response = await fetch('/api/calendar-availability', {
         method: 'GET',
         headers: { Accept: 'application/json' },
-        credentials: 'same-origin'
+        credentials: 'same-origin',
+        cache: 'no-store'
       });
       if (!response.ok) {
         return Object.freeze({
@@ -161,12 +162,62 @@
     }
   }
 
+  /**
+   * Submits an owner Finish-Early action (two-step confirmation) to shorten or release
+   * an active cleaning calendar block on the server and synced Google Calendar.
+   */
+  async function confirmFinishEarly(token, mode) {
+    if (!token || typeof token !== 'string' || typeof fetch !== 'function') {
+      return Object.freeze({
+        success: false,
+        code: 'INVALID_REQUEST',
+        message: 'Missing verification token.'
+      });
+    }
+
+    const cleanMode = mode === 'release_all' ? 'release_all' : 'now';
+
+    try {
+      const response = await fetch('/api/finish-early', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Accept: 'application/json'
+        },
+        credentials: 'same-origin',
+        cache: 'no-store',
+        body: JSON.stringify({
+          token: token.trim(),
+          mode: cleanMode
+        })
+      });
+
+      const result = await response.json().catch(() => ({
+        success: false,
+        code: 'INVALID_SERVER_RESPONSE',
+        message: 'Unexpected response from server.'
+      }));
+
+      return Object.freeze({
+        ...result,
+        httpStatus: response.status
+      });
+    } catch {
+      return Object.freeze({
+        success: false,
+        code: 'NETWORK_ERROR',
+        message: 'Network error while updating the schedule. Please try again.'
+      });
+    }
+  }
+
   // Legacy submitBooking remains fail-closed so unvalidated callers never receive a fake confirmation.
   window.SmartsProBackend = Object.freeze({
     intakeAvailable: true,
     onlinePaymentsEnabled: false,
     fetchCalendarAvailability,
     submitEstimateRequest,
+    confirmFinishEarly,
     async submitBooking() {
       return Object.freeze({
         success: false,
@@ -270,7 +321,7 @@
         occupancy: addInfo.occupancy || '',
         condition: addInfo.condition || ''
       }),
-      estimatedHours: Number(calc.estimatedHours) || 0,
+      estimatedHours: Number(calc.totalEstimatedHours || calc.estimatedHours) || 0,
       estimatedTotal: total,
       adapters: Object.freeze({
         calendarAvailabilityFeed: '/api/calendar-availability',
