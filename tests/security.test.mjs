@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { build, root, output, publicFiles, deployment, headers } from '../scripts/build.mjs';
 import { createPreviewServer } from '../scripts/preview.mjs';
 import {
+  calculateAuthoritativeQuote,
   createIntakeService,
   isSafeWebhookUrl,
   validateUsPhoneNanp,
@@ -259,12 +260,12 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
   };
 
   try {
-    // 1. Check GET /api/calendar-availability returns no-store, Mon-Fri 8:00 AM - 5:30 PM, and all of Nov 2026 + all of Dec 2026
+    // 1. Check GET /api/calendar-availability returns no-store, Mon-Fri 8:00 AM - 4:30 PM, and all of Nov 2026 + all of Dec 2026
     const availRes = await fetch(`${base}/api/calendar-availability`);
     assert.equal(availRes.status, 200);
     assert.equal(availRes.headers.get('cache-control'), 'no-store');
     const availData = await availRes.json();
-    assert.equal(availData.businessHours, 'Mon – Fri · 8:00 AM – 5:30 PM');
+    assert.equal(availData.businessHours, 'Mon – Fri · 8:00 AM – 4:30 PM');
     assert.equal(availData.maxAdvanceDate, '2026-12-31');
     assert.equal(availData.paymentPolicy, 'No Online Payment Required • Flat-Rate Estimate Sent to Owner Email');
     assert.ok(Array.isArray(availData.availableDates));
@@ -471,7 +472,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     const leapYearRes = await leapYearService.processEstimateRequest({
       rawBody: JSON.stringify({
         ...validPayload,
-        appointment: { preferredDate: '2028-02-29', preferredWindow: '14:30-17:30' }
+        appointment: { preferredDate: '2028-02-29', preferredWindow: '14:00-16:30' }
       }),
       headers: { 'content-type': 'application/json' },
       clientIp: '10.0.0.15'
@@ -479,7 +480,61 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(leapYearRes.status, 200);
     assert.equal(leapYearRes.body.appointment.preferredDate, '2028-02-29');
 
-    // 8. Valid request recalculates authoritative flat-rate total ($220 base + $65 fridge + $35 pets = $320),
+    // 7b. Verify updated pricing rules: $50 min (no 2-hr/$120 min) & higher 2000 sqft Standard ($250) and Deep ($330) quotes
+    const oneHrSpecificQuote = calculateAuthoritativeQuote({
+      serviceCategory: 'residential',
+      serviceType: 'standard',
+      propertyType: '',
+      scopeMode: 'specific',
+      specificAreasText: 'Kitchen counters and sink',
+      specificHours: 1,
+      bedrooms: 3,
+      fullBaths: 2,
+      halfBaths: 0,
+      sqft: 2000,
+      additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+      frequency: 'onetime',
+      addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+    });
+    assert.equal(oneHrSpecificQuote.grandTotal, 50);
+
+    const standard2000Quote = calculateAuthoritativeQuote({
+      serviceCategory: 'residential',
+      serviceType: 'standard',
+      propertyType: '',
+      scopeMode: 'full',
+      specificAreasText: '',
+      specificHours: 1,
+      bedrooms: 3,
+      fullBaths: 2,
+      halfBaths: 0,
+      sqft: 2000,
+      additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+      frequency: 'onetime',
+      addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+    });
+    assert.equal(standard2000Quote.basePrice, 250);
+    assert.ok(standard2000Quote.grandTotal > 200);
+
+    const deep2000Quote = calculateAuthoritativeQuote({
+      serviceCategory: 'residential',
+      serviceType: 'deep',
+      propertyType: '',
+      scopeMode: 'full',
+      specificAreasText: '',
+      specificHours: 1,
+      bedrooms: 3,
+      fullBaths: 2,
+      halfBaths: 0,
+      sqft: 2000,
+      additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+      frequency: 'onetime',
+      addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+    });
+    assert.equal(deep2000Quote.basePrice, 330);
+    assert.ok(deep2000Quote.grandTotal > 275);
+
+    // 8. Valid request recalculates authoritative flat-rate total ($275 base + $65 fridge + $35 pets = $375),
     // sends automated email + .ics invite to smartsprosolutions@gmail.com, and locks the calendar slot!
     const idemKey = 'sps-test-idempotency-key-0001';
     const validRes = await fetch(`${base}/api/estimate-request`, {
@@ -496,8 +551,8 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     const validData = await validRes.json();
     assert.equal(validData.success, true);
     assert.match(validData.referenceCode, /^SPS-[0-9A-F]{10}$/);
-    assert.equal(validData.verifiedEstimate.grandTotal, 320);
-    assert.equal(validData.verifiedEstimate.basePrice, 220);
+    assert.equal(validData.verifiedEstimate.grandTotal, 375);
+    assert.equal(validData.verifiedEstimate.basePrice, 275);
     assert.equal(validData.verifiedEstimate.addonsTotal, 100);
     assert.equal(validData.verifiedEstimate.pricingModel, 'FLAT_RATE_NO_ONLINE_PAYMENT');
     assert.equal(sentEmails.length, 1);
@@ -545,7 +600,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       },
       body: JSON.stringify({
         ...validPayload,
-        appointment: { preferredDate: '2026-11-06', preferredWindow: '11:30-14:30' }
+        appointment: { preferredDate: '2026-11-06', preferredWindow: '11:00-14:00' }
       })
     });
     assert.equal(conflictIdemRes.status, 409);
@@ -575,7 +630,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
         quote: {
           ...validPayload.quote,
           scopeMode: 'specific',
-          specificHours: 4, // 2 hrs ($120) + 2 extra hrs ($90) = $210 base + $65 fridge + $35 pets = $310
+          specificHours: 4, // 4 hrs * $50 = $200 base + $65 fridge + $35 pets = $300
           specificAreasText: 'Kitchen, living room, and master bath'
         }
       }),
@@ -584,9 +639,9 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     });
     assert.equal(editedSameCustomerRes.status, 200);
     assert.equal(editedSameCustomerRes.body.success, true);
-    assert.equal(editedSameCustomerRes.body.verifiedEstimate.basePrice, 210);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.basePrice, 200);
     assert.equal(editedSameCustomerRes.body.verifiedEstimate.addonsTotal, 100);
-    assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 310);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 300);
 
     // 12. Verify GET /api/calendar-availability now shows the slot as BOOKED with zero customer PII
     const availAfter = await (await fetch(`${base}/api/calendar-availability`)).json();

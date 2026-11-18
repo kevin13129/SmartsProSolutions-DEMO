@@ -28,38 +28,38 @@ export const ARRIVAL_WINDOWS = Object.freeze([
     endMinute: 0
   }),
   Object.freeze({
-    id: '11:30-14:30',
-    label: 'Midday (11:30 AM – 2:30 PM)',
-    shortLabel: '11:30 AM – 2:30 PM',
+    id: '11:00-14:00',
+    label: 'Midday (11:00 AM – 2:00 PM)',
+    shortLabel: '11:00 AM – 2:00 PM',
     startHour: 11,
-    startMinute: 30,
+    startMinute: 0,
     endHour: 14,
-    endMinute: 30
+    endMinute: 0
   }),
   Object.freeze({
-    id: '14:30-17:30',
-    label: 'Afternoon (2:30 PM – 5:30 PM)',
-    shortLabel: '2:30 PM – 5:30 PM',
+    id: '14:00-16:30',
+    label: 'Afternoon (2:00 PM – 4:30 PM)',
+    shortLabel: '2:00 PM – 4:30 PM',
     startHour: 14,
-    startMinute: 30,
-    endHour: 17,
+    startMinute: 0,
+    endHour: 16,
     endMinute: 30
   })
 ]);
 
 const SERVER_PRICING_CONFIG = Object.freeze({
-  minimumJobCharge: 120,
+  minimumJobCharge: 50,
   specificAreas: Object.freeze({
-    minHours: 2,
+    minHours: 1,
     maxHours: 6,
-    baseTwoHourFlatRate: 120,
-    extraHourRate: 45
+    baseOneHourFlatRate: 50,
+    extraHourRate: 50
   }),
   hourlyRates: Object.freeze({
-    standard: 40,
-    deep: 50,
-    moveinout: 50,
-    airbnb: 45,
+    standard: 50,
+    deep: 60,
+    moveinout: 60,
+    airbnb: 50,
     commercial: 50
   }),
   timeFactors: Object.freeze({
@@ -518,8 +518,8 @@ export function calculateAuthoritativeQuote(quoteInput) {
           : 'standard';
 
   let basePrice = 0;
-  let estimatedHours = 2;
-  let hourlyRate = cfg.hourlyRates[effectiveServiceType] || 40;
+  let estimatedHours = 1;
+  let hourlyRate = cfg.hourlyRates[effectiveServiceType] || 50;
 
   if (isSpecificAreas) {
     const bookedHours = Math.min(
@@ -528,7 +528,7 @@ export function calculateAuthoritativeQuote(quoteInput) {
     );
     estimatedHours = bookedHours;
     const extraHours = Math.max(0, bookedHours - cfg.specificAreas.minHours);
-    basePrice = cfg.specificAreas.baseTwoHourFlatRate + extraHours * cfg.specificAreas.extraHourRate;
+    basePrice = cfg.specificAreas.baseOneHourFlatRate + extraHours * cfg.specificAreas.extraHourRate;
     hourlyRate = cfg.specificAreas.extraHourRate;
   } else {
     const tf = cfg.timeFactors;
@@ -541,7 +541,7 @@ export function calculateAuthoritativeQuote(quoteInput) {
       quoteInput.halfBaths * tf.perHalfBathHours +
       sqftHours;
     const serviceMult = cfg.serviceMultipliers[effectiveServiceType] || 1.0;
-    estimatedHours = Math.max(2.0, Math.round(rawHours * serviceMult * 2) / 2);
+    estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
     const rawPrice = Math.round(estimatedHours * hourlyRate);
     basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
   }
@@ -759,7 +759,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
       ok: false,
       status: 400,
       code: 'WEEKEND_CLOSED',
-      error: 'Cleaning appointments are available Monday through Friday, 8:00 AM to 5:30 PM.'
+      error: 'Cleaning appointments are available Monday through Friday, 8:00 AM to 4:30 PM.'
     };
   }
 
@@ -779,7 +779,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
       ok: false,
       status: 400,
       code: 'INVALID_ARRIVAL_WINDOW',
-      error: 'Please select a valid arrival time window between 8:00 AM and 5:30 PM.'
+      error: 'Please select a valid arrival time window between 8:00 AM and 4:30 PM.'
     };
   }
 
@@ -841,7 +841,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   const fullBaths = quote.fullBaths ?? 2;
   const halfBaths = quote.halfBaths ?? 1;
   const sqft = quote.sqft ?? 1800;
-  const specificHours = quote.specificHours ?? 2;
+  const specificHours = quote.specificHours ?? 1;
   const specificAreasText = typeof quote.specificAreasText === 'string' ? quote.specificAreasText.trim() : '';
 
   if (
@@ -849,7 +849,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     !isIntInRange(fullBaths, 1, 8) ||
     !isIntInRange(halfBaths, 0, 6) ||
     !isIntInRange(sqft, 400, 6000) ||
-    !isIntInRange(specificHours, 2, 6)
+    !isIntInRange(specificHours, 1, 6)
   ) {
     return { ok: false, status: 400, code: 'INVALID_PROPERTY_BOUNDS', error: 'Property dimensions are outside supported bounds.' };
   }
@@ -1458,7 +1458,7 @@ export function createIntakeService({
 
     return {
       timezone: BUSINESS_TIMEZONE,
-      businessHours: 'Mon – Fri · 8:00 AM – 5:30 PM',
+      businessHours: 'Mon – Fri · 8:00 AM – 4:30 PM',
       todayDate: todayIso,
       minAdvanceDate,
       maxAdvanceDate,

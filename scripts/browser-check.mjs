@@ -88,7 +88,7 @@ try {
   await evaluate('document.querySelector(".construction-screen")?.remove()');
   assert.deepEqual(await evaluate('window.__violations'), [], 'Legitimate page triggered CSP');
   assert.deepEqual(exceptions, [], 'Runtime errors');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 200);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 250);
   assert.equal(await evaluate('localStorage.getItem("smartspro_leads_v1")'), null);
   assert.equal(await evaluate('localStorage.getItem("unrelated")'), 'keep');
   assert.equal(await evaluate('document.querySelectorAll("form, textarea, input[type=email], input[type=tel]").length'), 0);
@@ -127,7 +127,7 @@ try {
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
   await evaluate('document.getElementById("btn-bed-plus").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 220);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 275);
 
   // Advance to Step 3 (Additional Information) and verify mandatory 4-question validation
   await evaluate('document.getElementById("btn-wizard-next").click()');
@@ -136,15 +136,15 @@ try {
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 3);
   assert.equal(await evaluate('document.getElementById("addinfo-group-pets").classList.contains("wizard-field-missing")'), true);
 
-  // Choose "Yes, we have pets" -> auto-adds flat $35 Pet Hair & Detailing fee (220 + 35 = 255)
+  // Choose "Yes, we have pets" -> auto-adds flat $35 Pet Hair & Detailing fee (275 + 35 = 310)
   await evaluate('document.getElementById("addinfo-pets-yes").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.addons.pets'), 1);
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 255);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 310);
 
-  // Switch to "No pets" -> resets pets add-on to 0 ($220) and verify duplicate Step 5 pet card is removed
+  // Switch to "No pets" -> resets pets add-on to 0 ($275) and verify duplicate Step 5 pet card is removed
   await evaluate('document.getElementById("addinfo-pets-no").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.addons.pets'), 0);
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 220);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 275);
   assert.equal(await evaluate('document.getElementById("addon-item-pets")'), null);
 
   // Complete remaining 3 Additional Information questions and advance to Step 4 (Frequency)
@@ -160,12 +160,12 @@ try {
     await evaluate(`document.querySelector('[data-freq="${freq}"]').click()`);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountRate'), 0);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountAmount'), 0);
-    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 220);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 275);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.onlinePaymentsEnabled'), false);
   }
 
   await evaluate('document.getElementById("btn-fridge-plus").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 285);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 340);
   assert.equal(await evaluate('document.getElementById("summary-dispatch-val").textContent'), 'Calendar Slot + Email');
   assert.equal(await evaluate('document.getElementById("summary-online-payment-val").textContent'), 'None Required');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.onlinePaymentEnabled'), false);
@@ -179,7 +179,7 @@ try {
   await evaluate('document.getElementById("btn-book-quote-now").click()');
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
-  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$285.00');
+  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$340.00');
   assert.equal(await evaluate('!!document.getElementById("calendar-date-grid")'), true);
   assert.equal(await evaluate('!!document.getElementById("calendar-slot-grid")'), true);
   assert.equal(await evaluate('!!document.getElementById("upcoming-bookings-list")'), true);

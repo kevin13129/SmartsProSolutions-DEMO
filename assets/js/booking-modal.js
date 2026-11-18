@@ -300,7 +300,7 @@
         rawState.scopeMode === 'specific'
           ? rawState.specificAreasText || 'General priority rooms'
           : rawState.specificAreasText || '',
-      specificHours: Number(rawState.specificHours) || 2,
+      specificHours: Number(rawState.specificHours) || 1,
       bedrooms: Number(rawState.bedrooms) || 3,
       fullBaths: Number(rawState.fullBaths) || 2,
       halfBaths: Number(rawState.halfBaths) || 0,
@@ -386,9 +386,9 @@
       if (recapSpecsLabel) recapSpecsLabel.textContent = 'Booked Time:';
       if (recapSpecs) {
         recapSpecs.textContent =
-          quote.state.specificHours > 2
+          quote.state.specificHours > 1
             ? `${quote.state.specificHours} Hours Booked (Flat-Rate Package)`
-            : '2 Hours ($120 Flat Minimum)';
+            : '1 Hour ($50 Flat Minimum)';
       }
       if (recapAreasRow) recapAreasRow.classList.remove('is-hidden');
       if (recapAreas) {
@@ -493,7 +493,7 @@
   }
 
   /**
-   * Builds a fallback Monday-Friday (8:00 AM - 5:30 PM) schedule client-side
+   * Builds a fallback Monday-Friday (8:00 AM - 4:30 PM) schedule client-side
    * covering the full current calendar month and full next calendar month.
    */
   function buildClientFallbackAvailability() {
@@ -544,16 +544,16 @@
             serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available'
           },
           {
-            slotId: '11:30-14:30',
-            label: 'Midday (11:30 AM – 2:30 PM)',
-            shortLabel: '11:30 AM – 2:30 PM',
+            slotId: '11:00-14:00',
+            label: 'Midday (11:00 AM – 2:00 PM)',
+            shortLabel: '11:00 AM – 2:00 PM',
             status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
             serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available'
           },
           {
-            slotId: '14:30-17:30',
-            label: 'Afternoon (2:30 PM – 5:30 PM)',
-            shortLabel: '2:30 PM – 5:30 PM',
+            slotId: '14:00-16:30',
+            label: 'Afternoon (2:00 PM – 4:30 PM)',
+            shortLabel: '2:00 PM – 4:30 PM',
             status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
             serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available'
           }
@@ -656,9 +656,9 @@
     }
 
     if (refs.editHoursVal) {
-      const extraH = Math.max(0, (Number(st.specificHours) || 2) - 2);
-      const hourlyCost = 120 + extraH * 45;
-      refs.editHoursVal.textContent = `${st.specificHours} Hours ($${hourlyCost})`;
+      const hrs = Math.max(1, Number(st.specificHours) || 1);
+      const packageCost = hrs * 50;
+      refs.editHoursVal.textContent = `${hrs} ${hrs === 1 ? 'Hour' : 'Hours'} ($${packageCost})`;
     }
     if (refs.editBedVal) {
       refs.editBedVal.textContent = `${st.bedrooms} Bed`;
@@ -930,7 +930,7 @@
     if (schedulerState.mounted) return;
     schedulerState.mounted = true;
 
-    // 1. Build Simple, Senior-Friendly Calendar Section (Mon-Fri, 8:00 AM - 5:30 PM)
+    // 1. Build Simple, Senior-Friendly Calendar Section (Mon-Fri, 8:00 AM - 4:30 PM)
     if (calendarMount) {
       const calSection = createEl('section', 'modal-scheduler-card');
       calSection.id = 'modal-scheduler-card';
@@ -941,7 +941,7 @@
       const subtitle = createEl(
         'p',
         'scheduler-subtitle',
-        'Monday – Friday, 8:00 AM to 5:30 PM. You can schedule up to 1 month in advance.'
+        'Monday – Friday, 8:00 AM to 4:30 PM. You can schedule up to 1 month in advance.'
       );
       headerWrap.append(title, subtitle);
 
@@ -1080,7 +1080,7 @@
       const modeBtnSpecific = createEl(
         'button',
         'edit-option-chip',
-        'Specific Areas ($120 2-hr min, 2–6 hrs)'
+        'Specific Areas ($50 min, 1–6 hrs)'
       );
       modeBtnSpecific.type = 'button';
       modeBtnSpecific.addEventListener('click', () => {
@@ -1095,23 +1095,23 @@
       const hoursLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Adjust Booked Cleaning Hours (2 to 6 Hours — Price Auto-Adjusts):'
+        'Adjust Booked Cleaning Hours (1 to 6 Hours — Price Auto-Adjusts):'
       );
       const hoursStepperWrap = createEl('div', 'edit-stepper-row');
       const btnHoursMinus = createEl('button', 'edit-stepper-btn', '− 1 Hr');
       btnHoursMinus.type = 'button';
       btnHoursMinus.id = 'btn-edit-hours-minus';
       btnHoursMinus.addEventListener('click', () => {
-        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 2;
-        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(2, cur - 1) });
+        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
+        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(1, cur - 1) });
       });
-      const editHoursVal = createEl('strong', 'edit-stepper-val', '2 Hours ($120)');
+      const editHoursVal = createEl('strong', 'edit-stepper-val', '1 Hour ($50)');
       editHoursVal.id = 'edit-hours-val';
       const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Hr');
       btnHoursPlus.type = 'button';
       btnHoursPlus.id = 'btn-edit-hours-plus';
       btnHoursPlus.addEventListener('click', () => {
-        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 2;
+        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
         handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.min(6, cur + 1) });
       });
       hoursStepperWrap.append(btnHoursMinus, editHoursVal, btnHoursPlus);
@@ -1620,7 +1620,7 @@
       dateGrid.append(btn);
     });
 
-    // 3. Render Arrival Window Buttons for Selected Date (Mon-Fri 8:00 AM - 5:30 PM)
+    // 3. Render Arrival Window Buttons for Selected Date (Mon-Fri 8:00 AM - 4:30 PM)
     slotGrid.replaceChildren();
     if (activeDateObj) {
       activeDateObj.slots.forEach((slot) => {

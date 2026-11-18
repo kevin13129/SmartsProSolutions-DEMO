@@ -16,18 +16,18 @@
 
   // --- Pricing Configuration (Flat-rate property valuation) ---
   const PRICING_CONFIG = {
-    minimumJobCharge: 120,
+    minimumJobCharge: 50,
     specificAreas: {
-      minHours: 2,
+      minHours: 1,
       maxHours: 6,
-      baseTwoHourFlatRate: 120,
-      extraHourRate: 45
+      baseOneHourFlatRate: 50,
+      extraHourRate: 50
     },
     hourlyRates: {
-      standard: 40,
-      deep: 50,
-      moveinout: 50,
-      airbnb: 45,
+      standard: 50,
+      deep: 60,
+      moveinout: 60,
+      airbnb: 50,
       commercial: 50
     },
     timeFactors: {
@@ -62,7 +62,7 @@
       title: 'What Each Service Category Includes',
       desc: 'Select one of the 4 service categories above to view its full room-by-room checklist and unlock the next step.',
       items: [
-        'Residential Homes: Kitchens, baths, floors & dusting (Standard Clean, Deep Clean, or Specific Areas $120 min)',
+        'Residential Homes: Kitchens, baths, floors & dusting (Standard Clean, Deep Clean, or Specific Areas from $50)',
         'Commercial & Offices: Lobbies, desks, restrooms, breakrooms & custom facility walkthrough schedule',
         'Move-In / Move-Out: Inside empty cabinets, drawers, closets, hand-wiped baseboards & lease inspection prep',
         'Airbnb / STR Turnover: Linen change, bathroom & kitchen sanitization, restock check & guest-ready presentation'
@@ -70,13 +70,13 @@
     },
     residential: {
       kicker: 'RESIDENTIAL HOMES OVERVIEW',
-      title: 'Complete Home Care (Standard Clean · Deep Clean · Specific Areas from $120)',
-      desc: 'Customizable cleaning built for houses, apartments, and family homes across Shreveport & Bossier City. Choose full-property Standard or Deep cleaning, or target Specific Areas with a 2 to 6 hour flat-rate package.',
+      title: 'Complete Home Care (Standard Clean · Deep Clean · Specific Areas from $50)',
+      desc: 'Customizable cleaning built for houses, apartments, and family homes across Shreveport & Bossier City. Choose full-property Standard or Deep cleaning, or target Specific Areas with a 1 to 6 hour flat-rate package.',
       items: [
         'Kitchens: Countertops, sink scrubbing, stovetop degreasing, microwave interior & cabinet faces',
         'Bathrooms: Showers, tubs, toilets, mirrors, chrome fixtures & hospital-grade surface sanitization',
         'Bedrooms & Living Spaces: Ceiling fans, window sills, baseboards, furniture dusting & pet-friendly floor care',
-        'Flexible Options: Choose Standard Clean, Deep Clean, or Specific Areas ($120 2-hr minimum)'
+        'Flexible Options: Choose Standard Clean, Deep Clean, or Specific Areas ($50 minimum)'
       ]
     },
     commercial: {
@@ -124,7 +124,7 @@
     propertyType: '', // 'House' | 'Apartment' | 'Condo' | 'Townhome'
     scopeMode: 'full', // 'full' | 'specific'
     specificAreasText: '',
-    specificHours: 2,
+    specificHours: 1,
     bedrooms: 3,
     fullBaths: 2,
     halfBaths: 1,
@@ -458,9 +458,9 @@
       state.serviceCategory === 'residential' && state.scopeMode === 'specific';
 
     let basePrice = 0;
-    let estimatedHours = 2;
+    let estimatedHours = 1;
     let minApplied = false;
-    let hourlyRate = cfg.hourlyRates[state.serviceType] || 40;
+    let hourlyRate = cfg.hourlyRates[state.serviceType] || 50;
 
     if (isSpecificAreas) {
       const bookedHours = Math.min(
@@ -470,7 +470,7 @@
       estimatedHours = bookedHours;
       const extraHours = Math.max(0, bookedHours - cfg.specificAreas.minHours);
       basePrice =
-        cfg.specificAreas.baseTwoHourFlatRate +
+        cfg.specificAreas.baseOneHourFlatRate +
         extraHours * cfg.specificAreas.extraHourRate;
       minApplied = bookedHours === cfg.specificAreas.minHours;
       hourlyRate = cfg.specificAreas.extraHourRate;
@@ -487,7 +487,7 @@
         sqftHours;
 
       const serviceMult = cfg.serviceMultipliers[state.serviceType] || 1.0;
-      estimatedHours = Math.max(2.0, Math.round(rawHours * serviceMult * 2) / 2);
+      estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
 
       const rawPrice = Math.round(estimatedHours * hourlyRate);
       basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
@@ -684,7 +684,7 @@
       }
       if (els.step2HeadingDesc) {
         els.step2HeadingDesc.textContent =
-          'Choose Standard Clean, Deep Clean, or Specific Areas ($120 2-hr min), then set your home size';
+          'Choose Standard Clean, Deep Clean, or Specific Areas (from $50), then set your home size';
       }
     }
 
@@ -897,7 +897,7 @@
           'Commercial walkthrough confirms final facility pricing';
       } else if (isSpecific) {
         els.quoteMinimumNoteText.textContent =
-          'Flat-rate package (2–6 hrs) • No Online Payment Required';
+          'Flat-rate package (1–6 hrs) • No Online Payment Required';
       } else {
         els.quoteMinimumNoteText.textContent =
           'Flat-Rate Property Estimate • No Online Payment Required';
@@ -941,9 +941,9 @@
       } else if (isSpecific) {
         els.summaryScopeTitle.textContent = 'Booked Time';
         els.summaryBaseRate.textContent =
-          state.specificHours > 2
+          state.specificHours > 1
             ? `${state.specificHours} Hours Booked (Flat-Rate Package)`
-            : '2 hrs ($120 Flat Minimum)';
+            : '1 hr ($50 Flat Minimum)';
       } else {
         els.summaryScopeTitle.textContent = 'Property Size';
         const bathText =
@@ -1079,7 +1079,7 @@
       });
     });
 
-    // Step 2: Residential Tier Buttons (Standard Clean, Deep Clean, Specific Areas $120 min)
+    // Step 2: Residential Tier Buttons (Standard Clean, Deep Clean, Specific Areas from $50)
     els.residentialTierBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const tier = btn.getAttribute('data-res-tier');
@@ -1361,7 +1361,7 @@
         state.propertyType = '';
         state.scopeMode = 'full';
         state.specificAreasText = '';
-        state.specificHours = 2;
+        state.specificHours = 1;
         state.bedrooms = 3;
         state.fullBaths = 2;
         state.halfBaths = 1;
