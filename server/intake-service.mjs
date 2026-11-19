@@ -484,42 +484,46 @@ function intervalsOverlap(startA, endA, startB, endB) {
 }
 
 function getFinishEarlySecret(explicitSecret) {
-  return (
-    explicitSecret ||
-    process.env.FINISH_EARLY_SECRET ||
-    process.env.EMAIL_WEBHOOK_SECRET ||
-    EPHEMERAL_FINISH_EARLY_SECRET
-  );
+  if (explicitSecret) return explicitSecret;
+  if (process.env.FINISH_EARLY_SECRET) return process.env.FINISH_EARLY_SECRET;
+  if (process.env.EMAIL_WEBHOOK_SECRET) return process.env.EMAIL_WEBHOOK_SECRET;
+  const providerSeed = process.env.EMAIL_WEBHOOK_URL || process.env.RESEND_API_KEY || '';
+  if (providerSeed) {
+    return createHmac('sha256', 'smartspro-stateless-token-key-v1')
+      .update(providerSeed)
+      .digest('hex');
+  }
+  return EPHEMERAL_FINISH_EARLY_SECRET;
 }
 
-export function createFinishEarlyToken(payload, secret = getFinishEarlySecret()) {
+function signTokenPayload(payload, secret = getFinishEarlySecret()) {
   const bodyJson = JSON.stringify(payload);
   const bodyB64 = Buffer.from(bodyJson, 'utf8').toString('base64url');
   const sigB64 = createHmac('sha256', secret).update(bodyB64).digest('base64url');
   return `${bodyB64}.${sigB64}`;
 }
 
-export function verifyFinishEarlyToken(token, secret = getFinishEarlySecret(), nowMs = Date.now()) {
+function verifySignedTokenPayload(token, secret = getFinishEarlySecret(), nowMs = Date.now()) {
   if (typeof token !== 'string' || !token.includes('.')) {
-    return { ok: false, code: 'INVALID_TOKEN', message: 'Finish-early link is invalid or incomplete.' };
+    return { ok: false, code: 'INVALID_TOKEN', message: 'Token link is invalid or incomplete.' };
   }
   const parts = token.trim().split('.');
   if (parts.length !== 2 || !parts[0] || !parts[1]) {
-    return { ok: false, code: 'INVALID_TOKEN', message: 'Finish-early link is malformed.' };
+    return { ok: false, code: 'INVALID_TOKEN', message: 'Token link is malformed.' };
   }
   const [bodyB64, sigB64] = parts;
   const expectedSig = createHmac('sha256', secret).update(bodyB64).digest('base64url');
   const sigBuf = Buffer.from(sigB64, 'utf8');
   const expBuf = Buffer.from(expectedSig, 'utf8');
   if (sigBuf.length !== expBuf.length || !timingSafeEqual(sigBuf, expBuf)) {
-    return { ok: false, code: 'INVALID_SIGNATURE', message: 'Finish-early link signature could not be verified.' };
+    return { ok: false, code: 'INVALID_SIGNATURE', message: 'Token signature could not be verified.' };
   }
 
   let parsed;
   try {
     parsed = JSON.parse(Buffer.from(bodyB64, 'base64url').toString('utf8'));
   } catch {
-    return { ok: false, code: 'INVALID_TOKEN', message: 'Finish-early link payload could not be read.' };
+    return { ok: false, code: 'INVALID_TOKEN', message: 'Token payload could not be read.' };
   }
 
   if (
@@ -531,25 +535,41 @@ export function verifyFinishEarlyToken(token, secret = getFinishEarlySecret(), n
     !Number.isInteger(parsed.endMin) ||
     !Number.isInteger(parsed.exp)
   ) {
-    return { ok: false, code: 'INVALID_TOKEN_PAYLOAD', message: 'Finish-early link data is invalid.' };
+    return { ok: false, code: 'INVALID_TOKEN_PAYLOAD', message: 'Token data is invalid.' };
   }
 
   if (nowMs > parsed.exp) {
-    return { ok: false, code: 'EXPIRED_TOKEN', message: 'This finish-early link has expired.' };
+    return { ok: false, code: 'EXPIRED_TOKEN', message: 'This link has expired.' };
   }
 
   return { ok: true, payload: parsed };
 }
 
+export function createFinishEarlyToken(payload, secret = getFinishEarlySecret()) {
+  return signTokenPayload({ ...payload, kind: payload?.kind || 'finish_early' }, secret);
+}
+
+export function verifyFinishEarlyToken(token, secret = getFinishEarlySecret(), nowMs = Date.now()) {
+  const verified = verifySignedTokenPayload(token, secret, nowMs);
+  if (!verified.ok) {
+    return verified;
+  }
+  if (verified.payload.kind !== 'finish_early') {
+    return {
+      ok: false,
+      code: 'INVALID_TOKEN_TYPE',
+      message: 'This token is not authorized for owner schedule control.'
+    };
+  }
+  return verified;
+}
+
 export function createBookingUpdateToken(payload, secret = getFinishEarlySecret()) {
-  return createFinishEarlyToken({ ...payload, kind: 'update' }, secret);
+  return signTokenPayload({ ...payload, kind: 'update' }, secret);
 }
 
 export function verifyBookingUpdateToken(token, secret = getFinishEarlySecret(), nowMs = Date.now()) {
-  if (typeof token !== 'string' || !token.includes('.')) {
-    return { ok: false, code: 'INVALID_UPDATE_TOKEN', message: 'Booking update token is invalid.' };
-  }
-  const verified = verifyFinishEarlyToken(token, secret, nowMs);
+  const verified = verifySignedTokenPayload(token, secret, nowMs);
   if (!verified.ok) {
     return {
       ok: false,
@@ -1348,12 +1368,20 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
   return lines.join('\r\n') + '\r\n';
 }
 
+function hashContactIdentityField(val) {
+  return createHash('sha256')
+    .update(String(val || '').trim().toLowerCase(), 'utf8')
+    .digest('hex')
+    .slice(0, 16);
+}
+
 function buildUpdateTokenSnapshot(validatedRecord) {
   const quote = validatedRecord?.quote || {};
   const calc = validatedRecord?.calculation || {};
+  const cust = validatedRecord?.customer || {};
   const addInfo = quote.additionalInfo || {};
   const addons = quote.addons || {};
-  const notesStr = String(validatedRecord?.customer?.notes || '').trim();
+  const notesStr = String(cust.notes || '').trim();
   return {
     cat: quote.serviceCategory || 'residential',
     type: quote.serviceType || 'standard',
@@ -1377,8 +1405,96 @@ function buildUpdateTokenSnapshot(validatedRecord) {
     ov: addons.oven || 0,
     hrs: calc.totalEstimatedHours || calc.estimatedHours || 1,
     tot: calc.grandTotal || 0,
-    nHash: createHash('sha256').update(notesStr, 'utf8').digest('hex').slice(0, 12)
+    nHash: createHash('sha256').update(notesStr, 'utf8').digest('hex').slice(0, 12),
+    emH: hashContactIdentityField(cust.email),
+    phH: hashContactIdentityField(cust.phone),
+    nmH: hashContactIdentityField(cust.fullName)
   };
+}
+
+function enforceNoDowngradeOnUpdate(verifiedUpdate, record) {
+  const prevTotal = Number(verifiedUpdate?.prevTotal);
+  if (Number.isFinite(prevTotal) && record.calculation.grandTotal < prevTotal) {
+    return {
+      ok: false,
+      code: 'DOWNGRADE_NOT_PERMITTED',
+      message:
+        'Online edits can only add extra items or hours to your confirmed appointment. To remove items or reduce your service scope, please call (318) 564-4360.'
+    };
+  }
+
+  const snap = verifiedUpdate?.snap;
+  if (!snap || typeof snap !== 'object') {
+    return { ok: true };
+  }
+
+  const q = record.quote;
+  const addons = q.addons || {};
+  const addInfo = q.additionalInfo || {};
+
+  if (
+    (snap.cat && q.serviceCategory !== snap.cat) ||
+    (snap.type && q.serviceType !== snap.type) ||
+    (snap.freq && q.frequency !== snap.freq)
+  ) {
+    return {
+      ok: false,
+      code: 'DOWNGRADE_NOT_PERMITTED',
+      message:
+        'Your confirmed base service tier, size, and schedule frequency are locked. You can add appliances, Specific Areas hours, or pet detailing online, or call (318) 564-4360 to change your base service.'
+    };
+  }
+
+  if (q.serviceCategory !== 'commercial') {
+    if (
+      Number(q.bedrooms) !== Number(snap.beds) ||
+      Number(q.fullBaths) !== Number(snap.fb) ||
+      Number(q.halfBaths) !== Number(snap.hb) ||
+      Number(q.sqft) !== Number(snap.sqft)
+    ) {
+      return {
+        ok: false,
+        code: 'DOWNGRADE_NOT_PERMITTED',
+        message:
+          'Your confirmed home size (bedrooms, bathrooms, and square footage) is locked once booked. You can add appliances, Specific Areas hours (+$50/hr), or pet detailing online, or call (318) 564-4360 to change your base property size.'
+      };
+    }
+
+    if (
+      Number(addons.fridge || 0) < Number(snap.fr || 0) ||
+      Number(addons.fridgeDouble || 0) < Number(snap.fr2 || 0) ||
+      Number(addons.oven || 0) < Number(snap.ov || 0)
+    ) {
+      return {
+        ok: false,
+        code: 'DOWNGRADE_NOT_PERMITTED',
+        message:
+          'Already-confirmed appliance add-ons cannot be removed online. You can add additional items online, or call (318) 564-4360 for reductions.'
+      };
+    }
+
+    if (snap.pets === 'yes' && addInfo.hasPets !== 'yes') {
+      return {
+        ok: false,
+        code: 'DOWNGRADE_NOT_PERMITTED',
+        message:
+          'Confirmed Pet Hair & Detailing cannot be removed online. Please call (318) 564-4360 if you need to adjust your base household details.'
+      };
+    }
+
+    if (snap.mode === 'specific') {
+      if (q.scopeMode !== 'specific' || Number(q.specificHours || 1) < Number(snap.sh || 1)) {
+        return {
+          ok: false,
+          code: 'DOWNGRADE_NOT_PERMITTED',
+          message:
+            'Confirmed Specific Areas Add-On hours cannot be reduced or removed online. You can add additional hours online, or call (318) 564-4360 for reductions.'
+        };
+      }
+    }
+  }
+
+  return { ok: true };
 }
 
 function formatScopeLabelForSnapshot(cat, type) {
@@ -2306,6 +2422,13 @@ export function createIntakeService({
           continue;
         }
         if (
+          requesterEmailHash &&
+          interval.customerEmailHash &&
+          interval.customerEmailHash === requesterEmailHash
+        ) {
+          continue;
+        }
+        if (
           interval.source === 'gcal' &&
           interval.date === excludeBooking.date &&
           intervalsOverlap(
@@ -2317,9 +2440,6 @@ export function createIntakeService({
         ) {
           continue;
         }
-      }
-      if (requesterEmailHash && interval.customerEmailHash && interval.customerEmailHash === requesterEmailHash) {
-        continue;
       }
       if (intervalsOverlap(startMinutes, endMinutes, interval.startMinutes, interval.endMinutes)) {
         return interval;
@@ -2794,8 +2914,8 @@ export function createIntakeService({
 
     const record = validation.value;
 
-    // 7b. Enforce locked appointment date & time block when editing an existing booking,
-    //     preserving the exact same Reference ID across every revision.
+    // 7b. Enforce locked appointment date/time block, 24-hour edit cutoff, locked customer identity,
+    //     and upgrade-only (no-downgrade) protections when editing an existing booking.
     if (verifiedUpdate) {
       if (
         record.appointment.preferredDate !== verifiedUpdate.date ||
@@ -2809,10 +2929,65 @@ export function createIntakeService({
             success: false,
             code: 'APPOINTMENT_TIME_LOCKED',
             message:
-              'Appointment dates and time blocks are locked once booked. You can add add-ons or adjust home details, or call (318) 564-4360 to reschedule your time.'
+              'Appointment dates and time blocks are locked once booked. You can add add-ons or extra hours, or call (318) 564-4360 to reschedule your time.'
           }
         };
       }
+
+      // 24-Hour Cutoff Before Appointment Start (America/Chicago)
+      const apptStartMs = Date.parse(record.appointment.startIso);
+      const cutoff24hMs = 24 * 60 * 60 * 1000;
+      if (Number.isFinite(apptStartMs) && nowMs > apptStartMs - cutoff24hMs) {
+        return {
+          status: 400,
+          headers: { 'Cache-Control': 'no-store' },
+          body: {
+            success: false,
+            code: 'EDIT_WINDOW_CLOSED_24H',
+            message:
+              'Online changes lock 24 hours before your scheduled appointment so our crew can prepare. Please call (318) 564-4360 for any last-minute additions.'
+          }
+        };
+      }
+
+      // Locked Customer Contact Identity Check (email, phone, name cannot be swapped on edit)
+      const snap = verifiedUpdate.snap;
+      if (snap && typeof snap === 'object') {
+        const curEmH = hashContactIdentityField(record.customer.email);
+        const curPhH = hashContactIdentityField(record.customer.phone);
+        const curNmH = hashContactIdentityField(record.customer.fullName);
+        if (
+          (snap.emH && curEmH !== snap.emH) ||
+          (snap.phH && curPhH !== snap.phH) ||
+          (snap.nmH && curNmH !== snap.nmH)
+        ) {
+          return {
+            status: 403,
+            headers: { 'Cache-Control': 'no-store' },
+            body: {
+              success: false,
+              code: 'CUSTOMER_IDENTITY_LOCKED',
+              message:
+                'Customer contact details (name, phone number, and email address) are locked to the original booking. Please call (318) 564-4360 if you need to update your contact information.'
+            }
+          };
+        }
+      }
+
+      // Upgrade & Add-On Floor Check (no price or scope downgrades after confirmation)
+      const downgradeCheck = enforceNoDowngradeOnUpdate(verifiedUpdate, record);
+      if (!downgradeCheck.ok) {
+        return {
+          status: 400,
+          headers: { 'Cache-Control': 'no-store' },
+          body: {
+            success: false,
+            code: downgradeCheck.code,
+            message: downgradeCheck.message
+          }
+        };
+      }
+
       const nextUpdateCount = Number.isInteger(verifiedUpdate.updateCount)
         ? verifiedUpdate.updateCount + 1
         : 1;
@@ -2981,12 +3156,14 @@ export function createIntakeService({
       ));
     }
 
-    for (const [existingRef, existingItem] of localBookings.entries()) {
-      if (
-        existingItem.date === record.appointment.preferredDate &&
-        existingItem.customerEmailHash === requesterEmailHash
-      ) {
-        localBookings.delete(existingRef);
+    if (verifiedUpdate) {
+      for (const [existingRef, existingItem] of localBookings.entries()) {
+        if (
+          existingItem.date === record.appointment.preferredDate &&
+          existingItem.customerEmailHash === requesterEmailHash
+        ) {
+          localBookings.delete(existingRef);
+        }
       }
     }
 

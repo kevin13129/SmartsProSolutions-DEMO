@@ -681,7 +681,24 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(doubleBookRes.status, 409);
     assert.equal(doubleBookRes.body.code, 'SLOT_ALREADY_BOOKED');
 
-    // 11b. Same customer (matching email) can edit their confirmed request to add Specific Areas (+4 hrs = +$200) on top of base Standard Clean ($275) + Fridge ($65) + Pets ($35) = $575
+    // 11a. Submitting the same customer email WITHOUT a signed updateToken cannot overwrite the slot (prevents email-guessing slot hijacking)
+    const unverifiedSameEmailOverwriteRes = await intakeService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...validPayload,
+        quote: {
+          ...validPayload.quote,
+          scopeMode: 'specific',
+          specificHours: 4,
+          specificAreasText: 'Attempted overwrite without token'
+        }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.51'
+    });
+    assert.equal(unverifiedSameEmailOverwriteRes.status, 409);
+    assert.equal(unverifiedSameEmailOverwriteRes.body.code, 'SLOT_ALREADY_BOOKED');
+
+    // 11b. Same customer with their signed updateToken can edit their confirmed request to add Specific Areas (+4 hrs = +$200) on top of base Standard Clean ($275) + Fridge ($65) + Pets ($35) = $575
     const editedSameCustomerRes = await intakeService.processEstimateRequest({
       rawBody: JSON.stringify({
         ...validPayload,
@@ -690,7 +707,8 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
           scopeMode: 'specific',
           specificHours: 4, // +4 hrs * $50 = +$200 add-on stacked on top of $275 base + $65 fridge + $35 pets = $575
           specificAreasText: 'Kitchen, living room, and master bath'
-        }
+        },
+        updateToken: validData.updateToken
       }),
       headers: { 'content-type': 'application/json' },
       clientIp: '10.0.0.51'
@@ -936,6 +954,81 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     });
     assert.equal(timeChangeAttempt.status, 400);
     assert.equal((await timeChangeAttempt.json()).code, 'APPOINTMENT_TIME_LOCKED');
+
+    // 2e. Token Crossover Blocked: passing a customer updateToken (kind: 'update') to /api/finish-early is rejected
+    const crossoverGetRes = await fetch(
+      `${base}/api/finish-early?token=${encodeURIComponent(morningEdit2Data.updateToken)}`
+    );
+    assert.equal(crossoverGetRes.status, 400);
+    const crossoverPostRes = await fetch(`${base}/api/finish-early`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: morningEdit2Data.updateToken, mode: 'release_all' })
+    });
+    assert.equal(crossoverPostRes.status, 400);
+
+    // 2f. No-Downgrade Floor Enforced: customer cannot downgrade service tier, reduce home size, or remove confirmed add-ons
+    const downgradeServiceAttempt = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload({
+          quote: {
+            serviceType: 'standard',
+            addons: { fridge: 1, fridgeDouble: 0, oven: 1, pets: 0 }
+          }
+        }),
+        updateToken: morningEdit2Data.updateToken
+      })
+    });
+    assert.equal(downgradeServiceAttempt.status, 400);
+    assert.equal((await downgradeServiceAttempt.json()).code, 'DOWNGRADE_NOT_PERMITTED');
+
+    const removeAddonAttempt = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload({
+          quote: {
+            addons: { fridge: 1, fridgeDouble: 0, oven: 0, pets: 0 } // trying to remove confirmed oven
+          }
+        }),
+        updateToken: morningEdit2Data.updateToken
+      })
+    });
+    assert.equal(removeAddonAttempt.status, 400);
+    assert.equal((await removeAddonAttempt.json()).code, 'DOWNGRADE_NOT_PERMITTED');
+
+    // 2g. Customer Identity Lock Enforced: customer cannot swap email, phone, or name on an existing booking
+    const swapEmailAttempt = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload({
+          customer: { email: 'victim@example.com' },
+          quote: { addons: { fridge: 1, fridgeDouble: 0, oven: 1, pets: 0 } }
+        }),
+        updateToken: morningEdit2Data.updateToken
+      })
+    });
+    assert.equal(swapEmailAttempt.status, 403);
+    assert.equal((await swapEmailAttempt.json()).code, 'CUSTOMER_IDENTITY_LOCKED');
+
+    // 2h. 24-Hour Edit Cutoff Enforced: within 24 hours of appointment start, online edits lock (400 EDIT_WINDOW_CLOSED_24H)
+    activeNow = new Date('2026-11-09T15:00:00Z'); // 9:00 AM CST Monday (23 hours before Tuesday 8:00 AM CST)
+    const lateEditAttempt = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload({
+          quote: { addons: { fridge: 1, fridgeDouble: 1, oven: 1, pets: 0 } }
+        }),
+        updateToken: morningEdit2Data.updateToken
+      })
+    });
+    assert.equal(lateEditAttempt.status, 400);
+    assert.equal((await lateEditAttempt.json()).code, 'EDIT_WINDOW_CLOSED_24H');
+    activeNow = new Date('2026-11-09T14:00:00Z'); // restore clock for remaining tests
 
     // Tampered updateToken must fail closed with 400 INVALID_UPDATE_TOKEN
     const badUpdateRes = await fetch(`${base}/api/estimate-request`, {
@@ -1202,7 +1295,7 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
   };
 
   try {
-    const fixedNow = new Date('2026-11-18T15:00:00Z');
+    const fixedNow = new Date('2026-11-17T15:00:00Z'); // 47 hours before 2026-11-19 08:00 AM CST
     const webhookService = createIntakeService({
       nowFn: () => fixedNow,
       finishEarlySecret: 'remote-webhook-test-secret-32-chars-minimum'

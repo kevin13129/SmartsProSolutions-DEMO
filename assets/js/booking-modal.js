@@ -768,8 +768,61 @@
     updateSubmitButtonLockState();
   }
 
+  function isConfirmedBookingWithin24Hours(confirmed) {
+    if (!confirmed || !confirmed.appointment) return false;
+    const isoDate = confirmed.appointment.preferredDate || '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return false;
+    const timing = WINDOW_TIMINGS[confirmed.appointment.preferredWindow];
+    const startMin = Number.isFinite(Number(confirmed.confirmedStartMinutes))
+      ? Number(confirmed.confirmedStartMinutes)
+      : timing
+        ? timing.startMinutes
+        : 480;
+    const [y, m, d] = isoDate.split('-').map(Number);
+    const hh = Math.floor(startMin / 60);
+    const mm = startMin % 60;
+    const approxUtcMs = Date.UTC(y, m - 1, d, hh, mm, 0);
+    let offsetStr = '-06:00';
+    try {
+      const tzPart = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'America/Chicago',
+        timeZoneName: 'longOffset'
+      })
+        .formatToParts(new Date(approxUtcMs))
+        .find((p) => p.type === 'timeZoneName')?.value;
+      const match = String(tzPart || '').match(/GMT([+-]\d{2}:\d{2})/);
+      if (match) offsetStr = match[1];
+    } catch {
+      // Fallback to CST (-06:00)
+    }
+    const startIso = `${isoDate}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00${offsetStr}`;
+    const apptStartMs = Date.parse(startIso);
+    if (!Number.isFinite(apptStartMs)) return false;
+    return Date.now() > apptStartMs - 24 * 60 * 60 * 1000;
+  }
+
+  function syncContactFieldsLockState(isLockedEdit) {
+    const refs = schedulerState.refs;
+    const confirmedCust = schedulerState.confirmedSubmission?.customer;
+    const inputs = [
+      [refs.firstInput, confirmedCust?.firstName],
+      [refs.lastInput, confirmedCust?.lastName],
+      [refs.phoneInput, confirmedCust?.phone],
+      [refs.emailInput, confirmedCust?.email]
+    ];
+    inputs.forEach(([inputEl, lockedVal]) => {
+      if (!inputEl) return;
+      inputEl.readOnly = Boolean(isLockedEdit);
+      inputEl.classList.toggle('is-locked-input', Boolean(isLockedEdit));
+      if (isLockedEdit && typeof lockedVal === 'string' && lockedVal) {
+        inputEl.value = lockedVal;
+      }
+    });
+  }
+
   /**
-   * Synchronizes the Inline Edit Request Panel controls with the live calculator quote.
+   * Synchronizes the Inline Edit Request Panel controls with the live calculator quote
+   * and enforces the confirmed booking baseline floor (upgrade & add only).
    */
   function syncEditAdjusterUI() {
     const refs = schedulerState.refs;
@@ -780,38 +833,66 @@
     const calc = quote.calculation;
     const isCommercial = st.serviceCategory === 'commercial';
     const isSpecific = !isCommercial && st.scopeMode === 'specific';
+    const confirmedQuote =
+      schedulerState.viewMode === 'editing' && schedulerState.confirmedSubmission?.quote
+        ? schedulerState.confirmedSubmission.quote
+        : null;
 
     if (refs.editLivePriceBadge) {
       refs.editLivePriceBadge.textContent = `Auto-Adjusted Total: $${calc.grandTotal.toFixed(2)}`;
     }
 
+    // Base service tier & room dimensions are locked once confirmed (upgrade & add only via Add-Ons)
     if (refs.modeGroup) {
       refs.modeGroup.classList.toggle('is-hidden', st.serviceCategory !== 'residential');
     }
 
     if (refs.modeBtnStandard) {
       const active = st.serviceType === 'standard';
+      const lockedOut = Boolean(confirmedQuote && confirmedQuote.serviceType !== 'standard');
       refs.modeBtnStandard.classList.toggle('active', active);
+      refs.modeBtnStandard.disabled = lockedOut;
       refs.modeBtnStandard.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
     if (refs.modeBtnDeep) {
       const active = st.serviceType === 'deep';
+      const lockedOut = Boolean(confirmedQuote && confirmedQuote.serviceType !== 'deep');
       refs.modeBtnDeep.classList.toggle('active', active);
+      refs.modeBtnDeep.disabled = lockedOut;
       refs.modeBtnDeep.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
 
     if (refs.editRoomsRow) {
       refs.editRoomsRow.classList.toggle('is-hidden', isCommercial);
     }
+    if (refs.btnBedMinus) {
+      refs.btnBedMinus.disabled = Boolean(confirmedQuote);
+    }
+    if (refs.btnBedPlus) {
+      refs.btnBedPlus.disabled = Boolean(confirmedQuote);
+    }
+    if (refs.btnBathMinus) {
+      refs.btnBathMinus.disabled = Boolean(confirmedQuote);
+    }
+    if (refs.btnBathPlus) {
+      refs.btnBathPlus.disabled = Boolean(confirmedQuote);
+    }
 
     if (refs.editSpecificCard) {
       refs.editSpecificCard.classList.toggle('is-hidden', isCommercial);
     }
+    const confirmedSpecificOn = Boolean(confirmedQuote && confirmedQuote.scopeMode === 'specific');
+    const minSpecificHours = confirmedSpecificOn
+      ? Math.max(1, Number(confirmedQuote.specificHours) || 1)
+      : 1;
     if (refs.editSpecificToggleBtn) {
       refs.editSpecificToggleBtn.classList.toggle('active', isSpecific);
+      refs.editSpecificToggleBtn.disabled = confirmedSpecificOn;
       refs.editSpecificToggleBtn.setAttribute('aria-pressed', isSpecific ? 'true' : 'false');
       refs.editSpecificToggleBtn.textContent = isSpecific
-        ? 'Specific Areas Add-On: Included ✓ (Click to Remove)'
+        ? confirmedSpecificOn
+          ? 'Specific Areas Add-On: Locked On ✓ (Add Extra Hours Below)'
+          : 'Specific Areas Add-On: Included ✓ (Click to Remove)'
         : '+ Add Specific Areas (+$50/hr, 1–6 hrs)';
     }
     if (refs.editSpecificFields) {
@@ -821,21 +902,33 @@
       refs.editSpecificAreasInput.value = st.specificAreasText || '';
     }
 
+    const hrs = Math.max(1, Number(st.specificHours) || 1);
     if (refs.editHoursVal) {
-      const hrs = Math.max(1, Number(st.specificHours) || 1);
       const addonCost = hrs * 50;
       refs.editHoursVal.textContent = `+${hrs} ${hrs === 1 ? 'Hr' : 'Hrs'} (+$${addonCost})`;
     }
+    if (refs.btnHoursMinus) {
+      refs.btnHoursMinus.disabled = hrs <= minSpecificHours;
+    }
+    if (refs.btnHoursPlus) {
+      refs.btnHoursPlus.disabled = hrs >= 6;
+    }
+
     if (refs.editBedVal) {
-      refs.editBedVal.textContent = `${st.bedrooms} Bed`;
+      refs.editBedVal.textContent = `${st.bedrooms} Bed (Locked)`;
     }
     if (refs.editBathVal) {
-      refs.editBathVal.textContent = `${st.fullBaths} Full Bath`;
+      refs.editBathVal.textContent = `${st.fullBaths} Full Bath (Locked)`;
     }
 
     const hasPetsYes = st.additionalInfo?.hasPets === 'yes' || st.addons?.pets > 0;
+    const confirmedPetsYes = Boolean(
+      confirmedQuote &&
+        (confirmedQuote.additionalInfo?.hasPets === 'yes' || Number(confirmedQuote.addons?.pets) > 0)
+    );
     if (refs.petsBtnNo) {
       refs.petsBtnNo.classList.toggle('active', !hasPetsYes);
+      refs.petsBtnNo.disabled = confirmedPetsYes;
       refs.petsBtnNo.setAttribute('aria-pressed', !hasPetsYes ? 'true' : 'false');
     }
     if (refs.petsBtnYes) {
@@ -853,14 +946,27 @@
       });
     }
 
+    const minFridge = confirmedQuote ? Number(confirmedQuote.addons?.fridge) || 0 : 0;
+    const minFridgeDouble = confirmedQuote ? Number(confirmedQuote.addons?.fridgeDouble) || 0 : 0;
+    const minOven = confirmedQuote ? Number(confirmedQuote.addons?.oven) || 0 : 0;
+
     if (refs.editFridgeVal) {
       refs.editFridgeVal.textContent = `${st.addons.fridge || 0}`;
+    }
+    if (refs.btnFridgeMinus) {
+      refs.btnFridgeMinus.disabled = (Number(st.addons.fridge) || 0) <= minFridge;
     }
     if (refs.editFridgeDoubleVal) {
       refs.editFridgeDoubleVal.textContent = `${st.addons.fridgeDouble || 0}`;
     }
+    if (refs.btnFridgeDoubleMinus) {
+      refs.btnFridgeDoubleMinus.disabled = (Number(st.addons.fridgeDouble) || 0) <= minFridgeDouble;
+    }
     if (refs.editOvenVal) {
       refs.editOvenVal.textContent = `${st.addons.oven || 0}`;
+    }
+    if (refs.btnOvenMinus) {
+      refs.btnOvenMinus.disabled = (Number(st.addons.oven) || 0) <= minOven;
     }
   }
 
@@ -1039,28 +1145,33 @@
 
     detailsCard.append(detailsHeading, list);
 
-    // 3. Edit / Next-Step Explanation Callout
+    // 3. Edit / Next-Step Explanation Callout (with 24-hour cutoff check)
+    const isCutoffLocked = !isWarningFallback && isConfirmedBookingWithin24Hours(confirmed);
     const editHint = createEl(
       'p',
-      'intake-confirmation-edit-hint',
+      `intake-confirmation-edit-hint${isCutoffLocked ? ' is-cutoff-locked' : ''}`,
       isWarningFallback
         ? 'Automated email confirmation did not finish yet. Click "Open Pre-Filled Email to smartsprosolutions@gmail.com" below or call (318) 564-4360 so we can confirm your appointment — or retry sending below.'
-        : 'Your appointment date and time block are locked in to avoid scheduling conflicts. Need to add appliances, extra hours, or home details? Click "Edit Request" anytime to update this same Reference ID and receive an updated receipt (to change your day or time, call (318) 564-4360).'
+        : isCutoffLocked
+          ? 'Online self-service changes lock 24 hours before your scheduled appointment so our crew can prepare. Need a last-minute addition or schedule change? Call (318) 564-4360.'
+          : 'Your appointment date, time block, base service, and home size are locked in. Need to add appliances, extra Specific Areas hours (+$50/hr), or pet detailing? Click "Edit Request" anytime up to 24 hours before your appointment (to remove items or change your day/time, call (318) 564-4360).'
     );
 
     // 4. Action Buttons Row
     const actionsRow = createEl('div', 'intake-confirmation-actions');
 
     if (!isWarningFallback || hasVerifiedUpdateToken) {
-      const editBtn = createEl(
-        'button',
-        'btn btn-primary intake-edit-request-btn',
-        'Edit Request (Add Add-Ons, Adjust Hours or Home Details)'
-      );
-      editBtn.type = 'button';
-      editBtn.id = 'btn-edit-confirmed-request';
-      editBtn.addEventListener('click', enterEditRequestView);
-      actionsRow.append(editBtn);
+      if (!isCutoffLocked) {
+        const editBtn = createEl(
+          'button',
+          'btn btn-primary intake-edit-request-btn',
+          'Edit Request (Add Add-Ons, Extra Hours or Notes)'
+        );
+        editBtn.type = 'button';
+        editBtn.id = 'btn-edit-confirmed-request';
+        editBtn.addEventListener('click', enterEditRequestView);
+        actionsRow.append(editBtn);
+      }
     } else {
       const retryBtn = createEl(
         'button',
@@ -1072,6 +1183,7 @@
       retryBtn.addEventListener('click', () => {
         schedulerState.confirmedSubmission = null;
         schedulerState.viewMode = 'initial';
+        syncContactFieldsLockState(false);
         if (refs.confirmationSection) refs.confirmationSection.classList.add('is-hidden');
         if (refs.editAdjusterSection) refs.editAdjusterSection.classList.add('is-hidden');
         if (refs.calSection) refs.calSection.classList.remove('is-hidden');
@@ -1125,6 +1237,10 @@
    */
   function enterEditRequestView() {
     const refs = schedulerState.refs;
+    if (isConfirmedBookingWithin24Hours(schedulerState.confirmedSubmission)) {
+      enterConfirmedView();
+      return;
+    }
     schedulerState.viewMode = 'editing';
 
     if (schedulerState.confirmedSubmission?.appointment) {
@@ -1132,6 +1248,41 @@
       schedulerState.selectedWindow = schedulerState.confirmedSubmission.appointment.preferredWindow;
       schedulerState.activeMonthKey = schedulerState.selectedDate.slice(0, 7);
     }
+
+    // Restore any calculator field that might have been lowered outside the modal back up to the confirmed floor
+    const cq = schedulerState.confirmedSubmission?.quote;
+    if (cq && window.SmartsProCalculator && typeof window.SmartsProCalculator.applyQuoteAdjustments === 'function') {
+      const curState = window.SmartsProCurrentQuote?.state || {};
+      const enforcedPatch = {
+        serviceType: cq.serviceType,
+        bedrooms: cq.bedrooms,
+        fullBaths: cq.fullBaths,
+        halfBaths: cq.halfBaths,
+        sqft: cq.sqft,
+        frequency: cq.frequency,
+        addons: {
+          fridge: Math.max(Number(cq.addons?.fridge) || 0, Number(curState.addons?.fridge) || 0),
+          fridgeDouble: Math.max(Number(cq.addons?.fridgeDouble) || 0, Number(curState.addons?.fridgeDouble) || 0),
+          oven: Math.max(Number(cq.addons?.oven) || 0, Number(curState.addons?.oven) || 0)
+        }
+      };
+      if (cq.additionalInfo?.hasPets === 'yes' || Number(cq.addons?.pets) > 0) {
+        enforcedPatch.additionalInfo = { hasPets: 'yes' };
+      }
+      if (cq.scopeMode === 'specific') {
+        enforcedPatch.scopeMode = 'specific';
+        enforcedPatch.specificHours = Math.max(
+          Number(cq.specificHours) || 1,
+          Number(curState.specificHours) || 1
+        );
+        if (!curState.specificAreasText && cq.specificAreasText) {
+          enforcedPatch.specificAreasText = cq.specificAreasText;
+        }
+      }
+      window.SmartsProCalculator.applyQuoteAdjustments(enforcedPatch);
+    }
+
+    syncContactFieldsLockState(true);
 
     if (refs.confirmationSection) refs.confirmationSection.classList.add('is-hidden');
     if (refs.editAdjusterSection) refs.editAdjusterSection.classList.remove('is-hidden');
@@ -1141,9 +1292,10 @@
     if (refs.postSubmitActions) refs.postSubmitActions.classList.add('is-hidden');
 
     if (refs.intakeTitle) {
-      refs.intakeTitle.textContent = '3. Review Contact Details & Send Updated Request';
+      refs.intakeTitle.textContent = '3. Review Locked Contact Details & Add Notes';
     }
 
+    refreshModalRecapUI();
     renderCalendarUI();
     syncEditAdjusterUI();
     updateSubmitButtonLockState();
@@ -1294,12 +1446,12 @@
       editLivePriceBadge.id = 'edit-live-price-badge';
       editHeaderRow.append(editTitleWrap, editLivePriceBadge);
 
-      // Control Group 1: Service Tier (Residential Standard vs Deep — never replaced by add-ons)
+      // Control Group 1: Service Tier (Locked to confirmed booking tier once submitted)
       const modeGroup = createEl('div', 'edit-adjuster-group');
       const modeLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Base Cleaning Service Tier:'
+        'Confirmed Base Cleaning Service Tier (Locked):'
       );
       const modeBtnGrid = createEl('div', 'edit-chip-grid');
 
@@ -1310,6 +1462,7 @@
       );
       modeBtnStandard.type = 'button';
       modeBtnStandard.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission?.quote) return;
         handleModalQuoteAdjustment({ serviceType: 'standard' });
       });
 
@@ -1320,18 +1473,19 @@
       );
       modeBtnDeep.type = 'button';
       modeBtnDeep.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission?.quote) return;
         handleModalQuoteAdjustment({ serviceType: 'deep' });
       });
 
       modeBtnGrid.append(modeBtnStandard, modeBtnDeep);
       modeGroup.append(modeLabel, modeBtnGrid);
 
-      // Control Group 1B: Bedrooms / Baths (Always available for non-commercial properties)
+      // Control Group 1B: Bedrooms / Baths (Locked to confirmed property size once booked)
       const editRoomsRow = createEl('div', 'edit-adjuster-group');
       const roomsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Adjust Property Bedrooms & Bathrooms:'
+        'Confirmed Property Bedrooms & Bathrooms (Locked — Call (318) 564-4360 to Change Size):'
       );
       const roomsStepperGrid = createEl('div', 'edit-rooms-grid');
 
@@ -1340,15 +1494,17 @@
       const btnBedMinus = createEl('button', 'edit-stepper-btn', '−');
       btnBedMinus.type = 'button';
       btnBedMinus.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission?.quote) return;
         const cur = Number(window.SmartsProCurrentQuote?.state?.bedrooms) || 3;
         handleModalQuoteAdjustment({ bedrooms: Math.max(1, cur - 1) });
       });
-      const editBedVal = createEl('strong', 'edit-stepper-val', '3 Bed');
+      const editBedVal = createEl('strong', 'edit-stepper-val', '3 Bed (Locked)');
       editBedVal.id = 'edit-bed-val';
       const btnBedPlus = createEl('button', 'edit-stepper-btn', '+');
       btnBedPlus.type = 'button';
       btnBedPlus.id = 'btn-edit-bed-plus';
       btnBedPlus.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission?.quote) return;
         const cur = Number(window.SmartsProCurrentQuote?.state?.bedrooms) || 3;
         handleModalQuoteAdjustment({ bedrooms: Math.min(8, cur + 1) });
       });
@@ -1359,15 +1515,17 @@
       const btnBathMinus = createEl('button', 'edit-stepper-btn', '−');
       btnBathMinus.type = 'button';
       btnBathMinus.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission?.quote) return;
         const cur = Number(window.SmartsProCurrentQuote?.state?.fullBaths) || 2;
         handleModalQuoteAdjustment({ fullBaths: Math.max(1, cur - 1) });
       });
-      const editBathVal = createEl('strong', 'edit-stepper-val', '2 Full Bath');
+      const editBathVal = createEl('strong', 'edit-stepper-val', '2 Full Bath (Locked)');
       editBathVal.id = 'edit-bath-val';
       const btnBathPlus = createEl('button', 'edit-stepper-btn', '+');
       btnBathPlus.type = 'button';
       btnBathPlus.id = 'btn-edit-bath-plus';
       btnBathPlus.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission?.quote) return;
         const cur = Number(window.SmartsProCurrentQuote?.state?.fullBaths) || 2;
         handleModalQuoteAdjustment({ fullBaths: Math.min(6, cur + 1) });
       });
@@ -1388,6 +1546,10 @@
       petsBtnNo.type = 'button';
       petsBtnNo.id = 'btn-edit-pets-no';
       petsBtnNo.addEventListener('click', () => {
+        const cq = schedulerState.confirmedSubmission?.quote;
+        if (cq && (cq.additionalInfo?.hasPets === 'yes' || Number(cq.addons?.pets) > 0)) {
+          return;
+        }
         handleModalQuoteAdjustment({ additionalInfo: { hasPets: 'no' } });
       });
       const petsBtnYes = createEl(
@@ -1431,7 +1593,7 @@
       const addonsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Custom Add-Ons (Added On Top of Base Service — Auto-Adjusts Flat Rate):'
+        'Custom Add-Ons (Add Extra Appliances or Specific Areas Hours — Confirmed Items Locked):'
       );
       const addonsGrid = createEl('div', 'edit-rooms-grid');
 
@@ -1441,9 +1603,11 @@
         const stepRow = createEl('div', 'edit-stepper-row');
         const minusBtn = createEl('button', 'edit-stepper-btn', '−');
         minusBtn.type = 'button';
+        minusBtn.id = `btn-${valId}-minus`;
         minusBtn.addEventListener('click', () => {
+          const minFloor = Number(schedulerState.confirmedSubmission?.quote?.addons?.[key]) || 0;
           const cur = Number(window.SmartsProCurrentQuote?.state?.addons?.[key]) || 0;
-          handleModalQuoteAdjustment({ addons: { [key]: Math.max(0, cur - 1) } });
+          handleModalQuoteAdjustment({ addons: { [key]: Math.max(minFloor, cur - 1) } });
         });
         const valEl = createEl('strong', 'edit-stepper-val', '0');
         valEl.id = valId;
@@ -1457,16 +1621,16 @@
         stepRow.append(minusBtn, valEl, plusBtn);
         wrap.append(nameSpan, stepRow);
         addonsGrid.append(wrap);
-        return valEl;
+        return { valEl, minusBtn, plusBtn };
       };
 
-      const editFridgeVal = buildAddonStepper('Single Fridge (+$65)', 'fridge', 'edit-fridge-val');
-      const editFridgeDoubleVal = buildAddonStepper(
+      const fridgeCtrl = buildAddonStepper('Single Fridge (+$65)', 'fridge', 'edit-fridge-val');
+      const fridgeDoubleCtrl = buildAddonStepper(
         'Double Fridge (+$75)',
         'fridgeDouble',
         'edit-fridge-double-val'
       );
-      const editOvenVal = buildAddonStepper('Inside Oven (+$80)', 'oven', 'edit-oven-val');
+      const ovenCtrl = buildAddonStepper('Inside Oven (+$80)', 'oven', 'edit-oven-val');
 
       // Specific Areas (+$50/hr, 1–6 hrs) Stackable Add-On Card
       const editSpecificCard = createEl('div', 'edit-specific-addon-card');
@@ -1484,6 +1648,9 @@
       editSpecificToggleBtn.type = 'button';
       editSpecificToggleBtn.id = 'btn-edit-specific-toggle';
       editSpecificToggleBtn.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission?.quote?.scopeMode === 'specific') {
+          return;
+        }
         const curMode = window.SmartsProCurrentQuote?.state?.scopeMode || 'full';
         handleModalQuoteAdjustment({ scopeMode: curMode === 'specific' ? 'full' : 'specific' });
       });
@@ -1495,8 +1662,11 @@
       btnHoursMinus.type = 'button';
       btnHoursMinus.id = 'btn-edit-hours-minus';
       btnHoursMinus.addEventListener('click', () => {
+        const cq = schedulerState.confirmedSubmission?.quote;
+        const minHrs =
+          cq && cq.scopeMode === 'specific' ? Math.max(1, Number(cq.specificHours) || 1) : 1;
         const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
-        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(1, cur - 1) });
+        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(minHrs, cur - 1) });
       });
       const editHoursVal = createEl('strong', 'edit-stepper-val', '+1 Hr (+$50)');
       editHoursVal.id = 'edit-hours-val';
@@ -1708,19 +1878,28 @@
       schedulerState.refs.modeBtnStandard = modeBtnStandard;
       schedulerState.refs.modeBtnDeep = modeBtnDeep;
       schedulerState.refs.editRoomsRow = editRoomsRow;
+      schedulerState.refs.btnBedMinus = btnBedMinus;
+      schedulerState.refs.btnBedPlus = btnBedPlus;
+      schedulerState.refs.btnBathMinus = btnBathMinus;
+      schedulerState.refs.btnBathPlus = btnBathPlus;
       schedulerState.refs.editSpecificCard = editSpecificCard;
       schedulerState.refs.editSpecificToggleBtn = editSpecificToggleBtn;
       schedulerState.refs.editSpecificFields = editSpecificFields;
       schedulerState.refs.editSpecificAreasInput = editSpecificAreasInput;
       schedulerState.refs.editHoursVal = editHoursVal;
+      schedulerState.refs.btnHoursMinus = btnHoursMinus;
+      schedulerState.refs.btnHoursPlus = btnHoursPlus;
       schedulerState.refs.editBedVal = editBedVal;
       schedulerState.refs.editBathVal = editBathVal;
       schedulerState.refs.petsBtnNo = petsBtnNo;
       schedulerState.refs.petsBtnYes = petsBtnYes;
       schedulerState.refs.conditionButtons = conditionButtons;
-      schedulerState.refs.editFridgeVal = editFridgeVal;
-      schedulerState.refs.editFridgeDoubleVal = editFridgeDoubleVal;
-      schedulerState.refs.editOvenVal = editOvenVal;
+      schedulerState.refs.editFridgeVal = fridgeCtrl.valEl;
+      schedulerState.refs.btnFridgeMinus = fridgeCtrl.minusBtn;
+      schedulerState.refs.editFridgeDoubleVal = fridgeDoubleCtrl.valEl;
+      schedulerState.refs.btnFridgeDoubleMinus = fridgeDoubleCtrl.minusBtn;
+      schedulerState.refs.editOvenVal = ovenCtrl.valEl;
+      schedulerState.refs.btnOvenMinus = ovenCtrl.minusBtn;
       schedulerState.refs.intakeSection = intakeSection;
       schedulerState.refs.intakeTitle = title;
       schedulerState.refs.firstInput = firstInput;
@@ -2402,7 +2581,10 @@
     // If a request was already confirmed in this session and calculator options match, keep Confirmed View locked
     if (schedulerState.confirmedSubmission) {
       const currentKey = computeCurrentSnapshotKey();
-      if (currentKey === schedulerState.confirmedSubmission.snapshotKey) {
+      if (
+        currentKey === schedulerState.confirmedSubmission.snapshotKey ||
+        isConfirmedBookingWithin24Hours(schedulerState.confirmedSubmission)
+      ) {
         enterConfirmedView();
       } else {
         enterEditRequestView();
@@ -2440,6 +2622,10 @@
     if (btnContactOpenScheduler) btnContactOpenScheduler.addEventListener('click', handleBookingTriggerClick);
     if (btnEditDetails) {
       btnEditDetails.addEventListener('click', () => {
+        if (schedulerState.confirmedSubmission && schedulerState.confirmedSubmission.updateToken) {
+          enterEditRequestView();
+          return;
+        }
         closeBookingModal();
         if (
           window.SmartsProCalculator &&
