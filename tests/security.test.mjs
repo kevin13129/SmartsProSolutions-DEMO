@@ -1095,6 +1095,7 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
   const webhookCalls = [];
   let failHtmlNextPost = false;
   let failCustomerMailNextPost = false;
+  let omitCustomerMailFlagNextPost = false;
   const originalFetch = globalThis.fetch;
   // Intentionally include duplicate Google Calendar holds for the customer's locked window
   const remoteEvents = [
@@ -1121,6 +1122,12 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
       }
       if (failCustomerMailNextPost) {
         return new Response(JSON.stringify({ ok: true, customerEmailSent: false, customerEmailError: 'Quota limit' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      if (omitCustomerMailFlagNextPost) {
+        return new Response(JSON.stringify({ ok: true }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' }
         });
@@ -1232,6 +1239,20 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     assert.equal(customerMailFailRes.status, 502);
     assert.equal(customerMailFailRes.body.code, 'EMAIL_DISPATCH_FAILED');
     failCustomerMailNextPost = false;
+
+    // If an older Apps Script deployment returns { ok: true } without customerEmailSent: true, fail closed with 502
+    omitCustomerMailFlagNextPost = true;
+    const staleScriptRes = await webhookService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...basePayload,
+        appointment: { preferredDate: '2026-11-23', preferredWindow: '08:00-11:00' }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.86'
+    });
+    assert.equal(staleScriptRes.status, 502);
+    assert.equal(staleScriptRes.body.code, 'EMAIL_DISPATCH_FAILED');
+    omitCustomerMailFlagNextPost = false;
 
     // If Apps Script returns HTTP 200 HTML (e.g. "Who has access" or MailApp auth outage), fail closed with 502!
     failHtmlNextPost = true;

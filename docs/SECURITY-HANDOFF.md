@@ -98,11 +98,14 @@ those documents authoritative rather than duplicating their full requirements.
          const iso = String(dateHints[d] || '').trim();
          if (!iso || seenDates[iso]) continue;
          seenDates[iso] = true;
-         const dayStart = new Date(iso + 'T00:00:00-06:00');
-         const dayEnd = new Date(iso + 'T23:59:59-05:00');
-         const dayEvents = cal.getEvents(dayStart, dayEnd);
-         for (let j = 0; j < dayEvents.length; j++) {
-           candidates.push(dayEvents[j]);
+         const baseMs = new Date(iso + 'T12:00:00Z').getTime();
+         if (!isNaN(baseMs)) {
+           const dayStart = new Date(baseMs - 24 * 60 * 60 * 1000);
+           const dayEnd = new Date(baseMs + 24 * 60 * 60 * 1000);
+           const dayEvents = cal.getEvents(dayStart, dayEnd);
+           for (let j = 0; j < dayEvents.length; j++) {
+             candidates.push(dayEvents[j]);
+           }
          }
        }
 

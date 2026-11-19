@@ -1698,7 +1698,7 @@ export function isSafeWebhookUrl(urlString) {
   return true;
 }
 
-async function assertWebhookJsonSuccess(response, label) {
+async function assertWebhookJsonSuccess(response, label, { requireCustomerEmailConfirmed = false } = {}) {
   if (!response.ok) {
     throw new Error(`${label} returned HTTP ${response.status}`);
   }
@@ -1725,6 +1725,13 @@ async function assertWebhookJsonSuccess(response, label) {
         `${label} could not send the customer confirmation email: ${parsed.customerEmailError || 'mail dispatch declined'}`
       );
     }
+    if (requireCustomerEmailConfirmed && (!parsed || parsed.customerEmailSent !== true)) {
+      throw new Error(
+        `${label} is running an older Apps Script deployment without customer email confirmation (customerEmailSent !== true)`
+      );
+    }
+  } else if (requireCustomerEmailConfirmed) {
+    throw new Error(`${label} returned an empty response without customerEmailSent confirmation`);
   }
 }
 
@@ -1844,7 +1851,11 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
       headers,
       body: bodyString
     });
-    await assertWebhookJsonSuccess(response, 'Email webhook');
+    await assertWebhookJsonSuccess(response, 'Email webhook', {
+      requireCustomerEmailConfirmed: Boolean(
+        emailPackage.customerConfirmation && emailPackage.customerConfirmation.to
+      )
+    });
     return { delivered: true, provider: 'webhook' };
   }
 
