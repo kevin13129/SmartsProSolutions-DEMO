@@ -813,7 +813,7 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     assert.equal(morningDeepData.appointment.scheduledEndLabel, '11:00 AM');
     assert.match(sentEmails[emailIdxBeforeMorning].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261110T110000/);
 
-    // 2b. Edit that booking using updateToken to add a fridge (+0.5h -> 6.0 hrs, $395) on the SAME fixed window without self-blocking
+    // 2b. Edit that booking using updateToken to add a fridge (+0.5h -> 6.0 hrs, $395) keeping SAME Reference ID
     const morningEditRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -825,13 +825,56 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     assert.equal(morningEditRes.status, 200);
     const morningEditData = await morningEditRes.json();
     assert.equal(morningEditData.isUpdated, true);
+    assert.equal(morningEditData.updateCount, 1);
+    assert.equal(morningEditData.referenceCode, morningDeepData.referenceCode);
     assert.equal(morningEditData.verifiedEstimate.grandTotal, 395);
     assert.equal(morningEditData.verifiedEstimate.totalEstimatedHours, 6);
     assert.equal(morningEditData.appointment.scheduledEndLabel, '11:00 AM');
     const morningEmail = sentEmails[sentEmails.length - 1];
     assert.equal(morningEmail.previousReferenceCode, morningDeepData.referenceCode);
     assert.match(morningEmail.emailPackage.subject, /^\[UPDATED\] /);
+    assert.match(morningEmail.emailPackage.htmlBody, /#16A34A/);
+    assert.match(morningEmail.emailPackage.htmlBody, /#1D4ED8/);
+    assert.match(morningEmail.emailPackage.icsContent, /UID:/);
+    assert.match(morningEmail.emailPackage.icsContent, /SEQUENCE:1/);
     assert.match(morningEmail.emailPackage.icsContent, /SUMMARY:\\\[UPDATED\\\] |SUMMARY:\[UPDATED\] /);
+    assert.match(morningEmail.emailPackage.customerConfirmation.subject, /^\[UPDATED APPOINTMENT\] /);
+    assert.match(morningEmail.emailPackage.customerConfirmation.htmlBody, /\$330\.00/);
+    assert.match(morningEmail.emailPackage.customerConfirmation.htmlBody, /\$395\.00/);
+    assert.doesNotMatch(morningEmail.emailPackage.customerConfirmation.htmlBody, /Finish Early/i);
+
+    // 2c. Edit #2 on top of Edit #1 (adding an Inside Oven -> $475) STILL keeps exact same Reference ID & succeeds!
+    const morningEdit2Res = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload({ quote: { addons: { fridge: 1, fridgeDouble: 0, oven: 1, pets: 0 } } }),
+        updateToken: morningEditData.updateToken
+      })
+    });
+    assert.equal(morningEdit2Res.status, 200);
+    const morningEdit2Data = await morningEdit2Res.json();
+    assert.equal(morningEdit2Data.referenceCode, morningDeepData.referenceCode);
+    assert.equal(morningEdit2Data.updateCount, 2);
+    assert.equal(morningEdit2Data.verifiedEstimate.grandTotal, 475);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.subject, /^\[UPDATED #2\] /);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.icsContent, /SEQUENCE:2/);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$395\.00/);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$475\.00/);
+
+    // 2d. Locked date & window check: editing updateToken with a different date or time block is rejected (400 APPOINTMENT_TIME_LOCKED)
+    const timeChangeAttempt = await fetch(`${base}/api/estimate-request`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...makePayload({
+          appointment: { preferredDate: '2026-11-12', preferredWindow: '11:00-14:00' }
+        }),
+        updateToken: morningEdit2Data.updateToken
+      })
+    });
+    assert.equal(timeChangeAttempt.status, 400);
+    assert.equal((await timeChangeAttempt.json()).code, 'APPOINTMENT_TIME_LOCKED');
 
     // Tampered updateToken must fail closed with 400 INVALID_UPDATE_TOKEN
     const badUpdateRes = await fetch(`${base}/api/estimate-request`, {
@@ -839,7 +882,7 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         ...makePayload(),
-        updateToken: `${morningEditData.updateToken}tamper`
+        updateToken: `${morningEdit2Data.updateToken}tamper`
       })
     });
     assert.equal(badUpdateRes.status, 400);
@@ -974,18 +1017,89 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     const thuAfter = thursdayAvailAfter.availableDates.find(d => d.date === '2026-11-12');
     assert.equal(thuAfter.slots.find(s => s.slotId === '08:00-11:00').status, 'AVAILABLE');
     assert.equal(thuAfter.slots.find(s => s.slotId === '11:00-14:00').status, 'AVAILABLE');
+
+    // 5. Verified edits bypass the strict unverified rate limit (allowing unlimited adjustments),
+    //    while unverified requests still block past rateLimitMax.
+    const strictLimitService = createIntakeService({
+      nowFn: () => new Date('2026-11-09T14:00:00Z'),
+      includeBaselineSchedule: false,
+      rateLimitMax: 2,
+      finishEarlySecret: 'strict-limit-test-secret-32-chars-minimum',
+      mailTransport: async () => ({ delivered: true, provider: 'test-double' })
+    });
+
+    const initialBook = await strictLimitService.processEstimateRequest({
+      rawBody: JSON.stringify(
+        makePayload({
+          customer: { email: 'repeat.editor@example.com', firstName: 'Repeat', lastName: 'Editor', phone: '(318) 555-0171' },
+          appointment: { preferredDate: '2026-11-17', preferredWindow: '08:00-11:00' }
+        })
+      ),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.210'
+    });
+    assert.equal(initialBook.status, 200);
+    let activeToken = initialBook.body.updateToken;
+
+    for (let editIdx = 1; editIdx <= 4; editIdx++) {
+      const editResp = await strictLimitService.processEstimateRequest({
+        rawBody: JSON.stringify({
+          ...makePayload({
+            customer: { email: 'repeat.editor@example.com', firstName: 'Repeat', lastName: 'Editor', phone: '(318) 555-0171' },
+            appointment: { preferredDate: '2026-11-17', preferredWindow: '08:00-11:00' },
+            quote: { addons: { fridge: editIdx, fridgeDouble: 0, oven: 0, pets: 0 } }
+          }),
+          updateToken: activeToken
+        }),
+        headers: { 'content-type': 'application/json' },
+        clientIp: '10.0.0.210'
+      });
+      assert.equal(editResp.status, 200);
+      assert.equal(editResp.body.updateCount, editIdx);
+      assert.equal(editResp.body.referenceCode, initialBook.body.referenceCode);
+      activeToken = editResp.body.updateToken;
+    }
+
+    // Two unverified new attempts from the same IP hit 429 on the 2nd (1 initial + 1 more = 2, 3rd returns 429)
+    const secondUnverified = await strictLimitService.processEstimateRequest({
+      rawBody: JSON.stringify(
+        makePayload({
+          customer: { email: 'spam2@example.com', firstName: 'Spam', lastName: 'Two', phone: '(318) 555-0172' },
+          appointment: { preferredDate: '2026-11-19', preferredWindow: '11:00-14:00' }
+        })
+      ),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.210'
+    });
+    assert.equal(secondUnverified.status, 200);
+
+    const thirdUnverified = await strictLimitService.processEstimateRequest({
+      rawBody: JSON.stringify(
+        makePayload({
+          customer: { email: 'spam3@example.com', firstName: 'Spam', lastName: 'Three', phone: '(318) 555-0173' },
+          appointment: { preferredDate: '2026-11-20', preferredWindow: '14:00-16:30' }
+        })
+      ),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.210'
+    });
+    assert.equal(thirdUnverified.status, 429);
+    assert.equal(thirdUnverified.body.code, 'RATE_LIMITED');
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
   }
 });
 
-test('remote Google Calendar webhook mode excludes self-booking via updateToken, includes customer confirmation + recurrence + [UPDATED] metadata, and fails closed on HTML pages', async () => {
+test('remote Google Calendar webhook mode keeps same referenceCode across edits, skips all own holds, verifies customerEmailSent, and fails closed on HTML responses', async () => {
   const webhookCalls = [];
   let failHtmlNextPost = false;
+  let failCustomerMailNextPost = false;
   const originalFetch = globalThis.fetch;
+  // Intentionally include duplicate Google Calendar holds for the customer's locked window
   const remoteEvents = [
-    { date: '2026-11-19', startMinutes: 480, endMinutes: 810 } // Initial 5.5h booking
+    { date: '2026-11-19', startMinutes: 480, endMinutes: 660 },
+    { date: '2026-11-19', startMinutes: 480, endMinutes: 660 }
   ];
 
   process.env.EMAIL_WEBHOOK_URL = 'https://script.google.com/macros/s/test-deploy-id/exec';
@@ -1005,7 +1119,13 @@ test('remote Google Calendar webhook mode excludes self-booking via updateToken,
           headers: { 'Content-Type': 'text/html' }
         });
       }
-      return new Response(JSON.stringify({ ok: true }), {
+      if (failCustomerMailNextPost) {
+        return new Response(JSON.stringify({ ok: true, customerEmailSent: false, customerEmailError: 'Quota limit' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' }
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, customerEmailSent: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' }
       });
@@ -1063,7 +1183,9 @@ test('remote Google Calendar webhook mode excludes self-booking via updateToken,
         ref: 'SPS-PRIOR12345',
         date: '2026-11-19',
         startMin: 480,
-        endMin: 810,
+        endMin: 660,
+        updateCount: 0,
+        prevTotal: 375,
         exp: Date.parse('2026-11-25T00:00:00Z')
       },
       'remote-webhook-test-secret-32-chars-minimum'
@@ -1083,21 +1205,40 @@ test('remote Google Calendar webhook mode excludes self-booking via updateToken,
     });
     assert.equal(updateRes.status, 200);
     assert.equal(updateRes.body.success, true);
+    assert.equal(updateRes.body.referenceCode, 'SPS-PRIOR12345');
+    assert.equal(updateRes.body.updateCount, 1);
     assert.equal(webhookCalls.length, 1);
+    assert.equal(webhookCalls[0].referenceCode, 'SPS-PRIOR12345');
     assert.equal(webhookCalls[0].previousReferenceCode, 'SPS-PRIOR12345');
     assert.equal(webhookCalls[0].previousDate, '2026-11-19');
     assert.equal(webhookCalls[0].isUpdated, true);
+    assert.equal(webhookCalls[0].updateCount, 1);
+    assert.equal(webhookCalls[0].previousTotal, 375);
     assert.ok(webhookCalls[0].customerEmail);
     assert.equal(webhookCalls[0].customerEmail.to, 'kevin@example.com');
     assert.ok(webhookCalls[0].recurrence);
     assert.equal(webhookCalls[0].recurrence.isRecurring, false);
 
-    // If Apps Script returns HTTP 200 HTML (e.g. "Who has access" or MailApp auth error), fail closed with 502!
+    // If Apps Script reports customerEmailSent: false, fail closed with 502 EMAIL_DISPATCH_FAILED
+    failCustomerMailNextPost = true;
+    const customerMailFailRes = await webhookService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...basePayload,
+        appointment: { preferredDate: '2026-11-20', preferredWindow: '08:00-11:00' }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.87'
+    });
+    assert.equal(customerMailFailRes.status, 502);
+    assert.equal(customerMailFailRes.body.code, 'EMAIL_DISPATCH_FAILED');
+    failCustomerMailNextPost = false;
+
+    // If Apps Script returns HTTP 200 HTML (e.g. "Who has access" or MailApp auth outage), fail closed with 502!
     failHtmlNextPost = true;
     const htmlFailureRes = await webhookService.processEstimateRequest({
       rawBody: JSON.stringify({
         ...basePayload,
-        appointment: { preferredDate: '2026-11-20', preferredWindow: '08:00-11:00' }
+        appointment: { preferredDate: '2026-11-20', preferredWindow: '11:00-14:00' }
       }),
       headers: { 'content-type': 'application/json' },
       clientIp: '10.0.0.89'

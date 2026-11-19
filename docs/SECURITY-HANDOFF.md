@@ -15,27 +15,29 @@ those documents authoritative rather than duplicating their full requirements.
     - Selecting `weekly`, `biweekly`, or `monthly` creates a recurring Google Calendar series (`FREQ=WEEKLY`, `FREQ=WEEKLY;INTERVAL=2`, `FREQ=MONTHLY` in `.ics` `RRULE` and Apps Script `createEventSeries`) and projects recurring holds across the 2-month booking window.
     - Confirmed bookings dispatch **two** separate emails: an owner notification email to `smartsprosolutions@gmail.com` (with Finish-Early control) and a separate customer confirmation email (`customerEmail`, with zero owner-only Finish-Early links).
     - Editing a booking via `updateToken` passes `previousReferenceCode` and `previousDate` so Apps Script deletes any prior matching event or entire recurring series before creating the `[UPDATED]` appointment.
-  - **Signed Edit Session (`updateToken`) + Live Google Calendar Sync + Owner Finish-Early Action (`/api/finish-early`)**:
-    - `GET /api/calendar-availability` syncs anonymized `busyIntervals` (`date`, `startMinutes`, `endMinutes`, zero customer PII) from Google Apps Script (`EMAIL_WEBHOOK_URL`), and visitors have a **"Refresh Available Times"** button (`#btn-refresh-calendar`).
-    - Confirmed bookings receive an HMAC-signed `updateToken` so customers editing their estimate or add-ons can update without self-blocking against their own Google Calendar hold.
-    - Every owner email includes an HMAC-signed **Finish Early — Re-Open Remaining Time** link (`/api/finish-early?token=...`). `GET` renders a strict-CSP two-step confirmation card (zero mutations on `GET` so email link scanners cannot trigger changes); clicking **Confirm Finished Early Now** or **Release Entire Window** `POST`s to `/api/finish-early`, truncates/releases the single-day block locally and in Google Calendar (`action: 'finishEarly'`), and immediately re-opens remaining windows on the website.
-  - **Fail-Closed Delivery Boundary**: If neither `RESEND_API_KEY` nor `EMAIL_WEBHOOK_URL` is configured on the host yet (`503 EMAIL_PROVIDER_UNCONFIGURED`), or if an Apps Script webhook returns an HTML login/exception page instead of valid JSON (`502 EMAIL_DISPATCH_FAILED`), `/api/estimate-request` fails closed rather than fabricating a confirmation receipt, and returns a pre-addressed `mailto:` link and `.ics` calendar file download.
+  - **Same Reference ID, Locked Time Blocks & Unlimited Verified Edits (`updateToken`)**:
+    - Confirmed bookings receive an HMAC-signed `updateToken` keeping the **exact same `referenceCode`** (`SPS-...`) across every edit and locking the customer's reserved appointment date and time block (`400 APPOINTMENT_TIME_LOCKED` on client and server; customers call `(318) 564-4360` to reschedule a day/time).
+    - Verified `updateToken` edits are exempt from the strict `5 requests / 10 minutes` new-booking spam cap (guarded instead by a generous `60 / 10 min` edit burst cap), so real customers can add appliances, adjust hours, or change home details multiple times without hitting `429` or `409` self-blocking, while unverified new submissions remain strictly capped by IP and email.
+  - **Green `UPDATED` + Blue `Reference ID` Owner Alerts & `[UPDATED APPOINTMENT]` Customer Receipts**:
+    - Edited bookings send owner emails to `smartsprosolutions@gmail.com` with green `UPDATED` status banners/badges (`#16A34A` / `#DCFCE7`) and blue `Reference ID` badges (`#1D4ED8` / `#DBEAFE`), plus Previous Total → Updated Total comparisons and Finish-Early links.
+    - Customers receive a reset `[UPDATED APPOINTMENT]` receipt email listing `Previous Total`, `Updated Total`, all current options/add-ons, locked appointment date/time block, and `.ics` calendar attachment (with zero owner-only Finish-Early links).
+  - **Fail-Closed Delivery Boundary**: If neither `RESEND_API_KEY` nor `EMAIL_WEBHOOK_URL` is configured on the host yet (`503 EMAIL_PROVIDER_UNCONFIGURED`), if an Apps Script webhook returns an HTML login/exception page instead of valid JSON, or if Apps Script reports `customerEmailSent === false` (`502 EMAIL_DISPATCH_FAILED`), `/api/estimate-request` fails closed rather than fabricating a confirmation receipt, and returns a pre-addressed `mailto:` link and `.ics` calendar file download.
 - Security and intake changes are implemented and tested locally. **Pending live deployment push and Apps Script script/deployment verification on the owner's accounts.**
 
 ## What changed and where
 
 | Area | Implementation and reason |
 | --- | --- |
-| Customer intake, fixed time blocks & live calendar UI | `assets/js/booking-modal.js`, `assets/js/calculator.js`, and `index.html` enforce step-by-step completion before scheduling, move Specific Areas into Step 5 with safe word-wrapping, add a modal header **Edit Details** button (`#modal-edit-details-btn`), keep fixed scheduler time blocks (`8:00 AM – 11:00 AM`, `11:00 AM – 2:00 PM`, `2:00 PM – 4:30 PM`), show `Est. Cleaning Time` in the recap & confirmation view, exclude the customer's own booking during edits via `updateToken`, and provide `Refresh Available Times`. Zero raw HTML sinks or inline styles. |
-| Server intake, recurrence, dual emails & `updateToken` | `server/intake-service.mjs`, `api/calendar-availability.mjs`, `api/estimate-request.mjs`, and `api/finish-early.mjs` enforce `docs/SECURITY-ROADMAP.md` Section 1 controls, lock calendar/`.ics` times strictly to chosen scheduler blocks, emit `RRULE` for `weekly`/`biweekly`/`monthly` and project recurring local holds, generate separate owner (`finishEarlyUrl`) and customer (`customerConfirmation`) emails, mark edited appointments `[UPDATED]` with `previousReferenceCode` + `previousDate`, enforce slot locking (`409 SLOT_ALREADY_BOOKED`), fail closed on HTML/JSON webhook responses, and handle `/api/finish-early`. |
+| Customer intake, locked-edit time UI & live calendar | `assets/js/booking-modal.js`, `assets/css/security.css`, `assets/js/calculator.js`, and `index.html` enforce step-by-step completion before scheduling, move Specific Areas into Step 5 with safe word-wrapping, add a modal header **Edit Details** button (`#modal-edit-details-btn`), keep fixed scheduler time blocks (`8:00 AM – 11:00 AM`, `11:00 AM – 2:00 PM`, `2:00 PM – 4:30 PM`), lock the date and time window once booked (`#calendar-locked-banner` and disabled controls during edits), display Previous Total → Updated Total, and allow unlimited verified add-on/detail updates. Zero raw HTML sinks or inline styles. |
+| Server intake, same-Ref edits, email highlights & `updateToken` | `server/intake-service.mjs`, `api/calendar-availability.mjs`, `api/estimate-request.mjs`, and `api/finish-early.mjs` enforce `docs/SECURITY-ROADMAP.md` Section 1 controls, preserve the exact same `referenceCode` across verified edits while tracking `updateCount` and `previousTotal`, reject date/window tampering (`400 APPOINTMENT_TIME_LOCKED`), bypass strict `5/10 min` anti-spam caps for signed `updateToken` edits while enforcing them on unverified requests, highlight `UPDATED` in green and `Reference ID` in blue for owner emails, send `[UPDATED APPOINTMENT]` customer receipts, fail closed when `customerEmailSent === false` or HTML responses occur, and handle `/api/finish-early`. |
 | Legal, privacy, refund, cookie & 18+ policies | `index.html` includes an accessible `#legal-privacy-policies` footer drawer covering the Privacy & Data Minimization Policy, Terms of Service, strict No-Refunds Policy, Zero-Cookie / Zero-Tracker Policy, 18+ Age Policy, and Data Deletion / Email Opt-Out instructions (`smartsprosolutions@gmail.com` / `(318) 564-4360`). |
 | Public files & zero source maps | `security/public-files.json` publishes the explicit static allowlist into `dist/`, including `assets/js/finish-early.js`. Server code (`server/`, `api/`, `.env.example`) and `.map` source maps are never copied into static `dist/` assets. |
-| Automated security & compliance tests | `tests/security.test.mjs` and `scripts/browser-check.mjs` verify CSP compliance, wizard gating & red highlight feedback, modal word-wrapping, fixed time blocks, recurring series & local recurring holds, dual owner/customer emails, `[UPDATED]` edit replacement & `updateToken`, fail-closed webhook HTML detection, and two-step `/api/finish-early` token verification. |
+| Automated security & compliance tests | `tests/security.test.mjs` and `scripts/browser-check.mjs` verify CSP compliance, wizard gating, locked appointment date/time enforcement during edits, unlimited verified add-on edits vs unverified rate limits, same-Reference-ID preservation, green `UPDATED` + blue `Reference ID` owner email markup, `[UPDATED APPOINTMENT]` customer receipt + `customerEmailSent === false` fail-closed handling, and two-step `/api/finish-early` token verification. |
 
 ## Verification record
 
-- Locally verified via `npm run build` (`npm test` + `dist/` manifest build). (`npm run test:browser` requires Chromium on the host OS.)
-- Pending live verification on `https://www.smartsprosolutions.com`: deploy updated code to Vercel, update Google Apps Script with the new `doGet`/`doPost` code below (creating a New version deployment), verify customer confirmation email receipt, recurring weekly/monthly calendar events, fixed time blocks, and `[UPDATED]` replacement on edit.
+- Locally verified via `npm run build` (11/11 tests passing in `tests/security.test.mjs` + 26 approved public files built in `dist/`) and `node --check` on client/server scripts. (`npm run test:browser` requires Chromium on the host OS.)
+- Pending live verification on `https://www.smartsprosolutions.com`: deploy updated code to Vercel, update Google Apps Script with the `2026-11-v4` `doGet`/`doPost` code below (creating a New version deployment), verify customer receipt delivery, recurring weekly/monthly calendar events, locked edit time blocks, and duplicate-free Google Calendar replacement under the same Reference ID.
 
 ## Configuring automated email & bidirectional Google Calendar in Vercel
 
@@ -70,38 +72,54 @@ those documents authoritative rather than duplicating their full requirements.
          .setMimeType(ContentService.MimeType.JSON);
      }
 
-     function deleteBookingEventsByRef_(cal, refCode, dateHints) {
-       if (!refCode) return 0;
-       const deletedSeriesIds = {};
-       const matched = [];
+     function deleteBookingEventsByRefs_(cal, refCodes, dateHints) {
+       const refs = [];
+       for (let r = 0; r < refCodes.length; r++) {
+         const code = String(refCodes[r] || '').trim();
+         if (code && refs.indexOf(code) === -1) refs.push(code);
+       }
+       if (refs.length === 0) return 0;
 
-       const searchStart = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+       const deletedSeriesIds = {};
+       const deletedEventIds = {};
+       const candidates = [];
+
+       const searchStart = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
        const searchEnd = new Date(Date.now() + 400 * 24 * 60 * 60 * 1000);
-       const searchHits = cal.getEvents(searchStart, searchEnd, { search: refCode });
-       for (let i = 0; i < searchHits.length; i++) {
-         matched.push(searchHits[i]);
+       for (let r = 0; r < refs.length; r++) {
+         const hits = cal.getEvents(searchStart, searchEnd, { search: refs[r] });
+         for (let i = 0; i < hits.length; i++) {
+           candidates.push(hits[i]);
+         }
        }
 
        const seenDates = {};
        for (let d = 0; d < dateHints.length; d++) {
-         const iso = dateHints[d];
+         const iso = String(dateHints[d] || '').trim();
          if (!iso || seenDates[iso]) continue;
          seenDates[iso] = true;
          const dayStart = new Date(iso + 'T00:00:00-06:00');
          const dayEnd = new Date(iso + 'T23:59:59-05:00');
          const dayEvents = cal.getEvents(dayStart, dayEnd);
          for (let j = 0; j < dayEvents.length; j++) {
-           matched.push(dayEvents[j]);
+           candidates.push(dayEvents[j]);
          }
        }
 
        let deletedCount = 0;
-       for (let k = 0; k < matched.length; k++) {
-         const ev = matched[k];
+       for (let k = 0; k < candidates.length; k++) {
+         const ev = candidates[k];
          try {
            const t = ev.getTitle() || '';
            const desc = ev.getDescription() || '';
-           if (t.indexOf(refCode) === -1 && desc.indexOf(refCode) === -1) continue;
+           let matches = false;
+           for (let r = 0; r < refs.length; r++) {
+             if (t.indexOf(refs[r]) !== -1 || desc.indexOf(refs[r]) !== -1) {
+               matches = true;
+               break;
+             }
+           }
+           if (!matches) continue;
 
            if (ev.isRecurringEvent()) {
              const series = ev.getEventSeries();
@@ -112,11 +130,15 @@ those documents authoritative rather than duplicating their full requirements.
                deletedCount++;
              }
            } else {
-             ev.deleteEvent();
-             deletedCount++;
+             const evId = ev.getId ? ev.getId() : '';
+             if (!evId || !deletedEventIds[evId]) {
+               if (evId) deletedEventIds[evId] = true;
+               ev.deleteEvent();
+               deletedCount++;
+             }
            }
          } catch (err) {
-           // Already removed with series
+           // Event or series was already deleted
          }
        }
        return deletedCount;
@@ -150,39 +172,66 @@ those documents authoritative rather than duplicating their full requirements.
            .setMimeType(ContentService.MimeType.JSON);
        }
 
-       // 1. Send Owner Notification Email (includes Finish-Early link)
+       const icsBlob = data.icsContent
+         ? Utilities.newBlob(
+             data.icsContent,
+             'text/calendar; charset=UTF-8',
+             data.icsFilename || 'smartspro-appointment.ics'
+           )
+         : null;
+
+       // 1. Send Owner Notification Email (with green UPDATED / blue Ref ID highlights & Finish-Early link)
        MailApp.sendEmail({
          to: data.to || 'smartsprosolutions@gmail.com',
+         name: 'Smarts Pro Solutions',
          replyTo: data.replyTo || '',
          subject: data.subject,
          body: data.textBody,
-         htmlBody: data.htmlBody
+         htmlBody: data.htmlBody,
+         attachments: icsBlob ? [icsBlob] : []
        });
 
-       // 2. Send Customer Confirmation Email (no owner Finish-Early link)
+       // 2. Send Customer Confirmation / Updated Receipt Email (tracked for fail-closed verification)
+       let customerEmailSent = false;
+       let customerEmailError = '';
        if (data.customerEmail && data.customerEmail.to) {
-         MailApp.sendEmail({
-           to: data.customerEmail.to,
-           replyTo: data.customerEmail.replyTo || 'smartsprosolutions@gmail.com',
-           subject: data.customerEmail.subject,
-           body: data.customerEmail.textBody,
-           htmlBody: data.customerEmail.htmlBody
-         });
+         try {
+           MailApp.sendEmail({
+             to: data.customerEmail.to,
+             name: 'Smarts Pro Solutions',
+             replyTo: data.customerEmail.replyTo || 'smartsprosolutions@gmail.com',
+             subject: data.customerEmail.subject,
+             body: data.customerEmail.textBody,
+             htmlBody: data.customerEmail.htmlBody,
+             attachments: icsBlob ? [icsBlob] : []
+           });
+           customerEmailSent = true;
+         } catch (custErr) {
+           customerEmailSent = false;
+           customerEmailError = String(custErr && custErr.message ? custErr.message : custErr);
+         }
+       } else {
+         customerEmailError = 'Missing customerEmail payload.';
        }
 
-       // 3. Delete previous event or recurring series if editing an existing booking
-       if (data.previousReferenceCode) {
-         deleteBookingEventsByRef_(cal, data.previousReferenceCode, [
-           data.previousDate || '',
-           (data.appointment && data.appointment.preferredDate) || ''
-         ]);
+       // 3. Delete any previous event or recurring series matching the Reference ID before recreating
+       let deletedOldCount = 0;
+       if (data.isUpdated || data.previousReferenceCode || data.referenceCode) {
+         deletedOldCount = deleteBookingEventsByRefs_(
+           cal,
+           [data.referenceCode || '', data.previousReferenceCode || ''],
+           [data.previousDate || '', (data.appointment && data.appointment.preferredDate) || '']
+         );
        }
 
        // 4. Create fixed time-block event (or recurring series for weekly / biweekly / monthly)
        if (data.appointment && data.appointment.startIso && data.appointment.endIso) {
          const startDt = new Date(data.appointment.startIso);
          const endDt = new Date(data.appointment.endIso);
-         const prefix = (data.isUpdated || data.previousReferenceCode) ? '[UPDATED] ' : '';
+         const updateNum = Number(data.updateCount || 0);
+         const prefix = (data.isUpdated || data.previousReferenceCode)
+           ? (updateNum > 1 ? '[UPDATED #' + updateNum + '] ' : '[UPDATED] ')
+           : '';
          const summary = prefix + 'Smarts Pro Cleaning [' + data.referenceCode + ']';
          const options = {
            description: 'Ref: ' + data.referenceCode + '\n' + (data.textBody || '')
@@ -207,7 +256,15 @@ those documents authoritative rather than duplicating their full requirements.
        }
 
        return ContentService
-         .createTextOutput(JSON.stringify({ ok: true }))
+         .createTextOutput(JSON.stringify({
+           ok: true,
+           scriptVersion: '2026-11-v4',
+           referenceCode: data.referenceCode || '',
+           ownerEmailSent: true,
+           customerEmailSent: customerEmailSent,
+           customerEmailError: customerEmailError,
+           deletedOldCount: deletedOldCount
+         }))
          .setMimeType(ContentService.MimeType.JSON);
      }
      ```

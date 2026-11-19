@@ -873,7 +873,7 @@
       refs.submitBtn.disabled = !hasChanges;
       refs.submitBtn.textContent = hasChanges
         ? `Send Updated Estimate ($${grandTotal.toFixed(2)}) & Appointment Request`
-        : 'Adjust Hours, Additional Info, or Time Above to Send Update';
+        : 'Adjust Add-Ons, Hours, or Home Info Below to Send Update';
     } else {
       refs.submitBtn.disabled = false;
       refs.submitBtn.textContent = 'Send Estimate & Request Appointment';
@@ -903,12 +903,13 @@
       'div',
       `intake-confirmation-banner ${confirmed.statusType === 'warning' ? 'is-warning' : 'is-success'}`
     );
+    const updateNum = confirmed.updateCount || 1;
     const kicker = createEl(
       'span',
       'intake-confirmation-kicker',
       confirmed.isUpdated
-        ? 'UPDATED REQUEST CONFIRMED • DUPLICATE SPAM PROTECTION ACTIVE'
-        : 'REQUEST CONFIRMED • DUPLICATE SPAM PROTECTION ACTIVE'
+        ? `UPDATED APPOINTMENT CONFIRMED (#${updateNum}) • TIME BLOCK LOCKED`
+        : 'APPOINTMENT CONFIRMED • TIME BLOCK LOCKED'
     );
     const heading = createEl('h4', 'intake-confirmation-title', confirmed.headingText);
     const subcopy = createEl('p', 'intake-confirmation-copy', confirmed.detailText);
@@ -1004,8 +1005,16 @@
       false
     );
 
+    if (confirmed.isUpdated && Number.isFinite(Number(confirmed.previousTotal))) {
+      addDetailRow(
+        'Previous Estimated Total:',
+        `$${Number(confirmed.previousTotal).toFixed(2)}`,
+        false
+      );
+    }
+
     addDetailRow(
-      'Verified Flat-Rate Estimate:',
+      confirmed.isUpdated ? 'Updated Verified Total (Flat Rate):' : 'Verified Flat-Rate Estimate:',
       `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (No Online Payment Required)`,
       true
     );
@@ -1016,7 +1025,7 @@
     const editHint = createEl(
       'p',
       'intake-confirmation-edit-hint',
-      'To prevent duplicate spam, repeat submissions are locked. Need longer hours, additional home information, or extra appliance add-ons? Click "Edit Request" below and your flat-rate price will auto-adjust.'
+      'Your appointment date and time block are locked in to avoid scheduling conflicts. Need to add appliances, extra hours, or home details? Click "Edit Request" anytime to update this same Reference ID and receive an updated receipt (to change your day or time, call (318) 564-4360).'
     );
 
     // 4. Action Buttons Row
@@ -1025,7 +1034,7 @@
     const editBtn = createEl(
       'button',
       'btn btn-primary intake-edit-request-btn',
-      'Edit Request (Adjust Hours, Additional Info or Add-Ons)'
+      'Edit Request (Add Add-Ons, Adjust Hours or Home Details)'
     );
     editBtn.type = 'button';
     editBtn.id = 'btn-edit-confirmed-request';
@@ -1073,6 +1082,12 @@
     const refs = schedulerState.refs;
     schedulerState.viewMode = 'editing';
 
+    if (schedulerState.confirmedSubmission?.appointment) {
+      schedulerState.selectedDate = schedulerState.confirmedSubmission.appointment.preferredDate;
+      schedulerState.selectedWindow = schedulerState.confirmedSubmission.appointment.preferredWindow;
+      schedulerState.activeMonthKey = schedulerState.selectedDate.slice(0, 7);
+    }
+
     if (refs.confirmationSection) refs.confirmationSection.classList.add('is-hidden');
     if (refs.editAdjusterSection) refs.editAdjusterSection.classList.remove('is-hidden');
     if (refs.calSection) refs.calSection.classList.remove('is-hidden');
@@ -1084,6 +1099,7 @@
       refs.intakeTitle.textContent = '3. Review Contact Details & Send Updated Request';
     }
 
+    renderCalendarUI();
     syncEditAdjusterUI();
     updateSubmitButtonLockState();
   }
@@ -1111,6 +1127,10 @@
         'Monday – Friday, 8:00 AM to 4:30 PM. You can schedule up to 1 month in advance.'
       );
       headerWrap.append(title, subtitle);
+
+      const lockedBanner = createEl('div', 'calendar-locked-banner is-hidden');
+      lockedBanner.id = 'calendar-locked-banner';
+      lockedBanner.setAttribute('role', 'status');
 
       // Month Switcher Bar (Current Month vs. Next Month) + Refresh Live Calendar Control
       const monthNavWrap = createEl('div', 'calendar-month-nav');
@@ -1171,6 +1191,7 @@
 
       calSection.append(
         headerWrap,
+        lockedBanner,
         monthNavWrap,
         dateLabel,
         dateGrid,
@@ -1182,6 +1203,9 @@
       calendarMount.append(calSection);
 
       schedulerState.refs.calSection = calSection;
+      schedulerState.refs.calTitle = title;
+      schedulerState.refs.calSubtitle = subtitle;
+      schedulerState.refs.lockedBanner = lockedBanner;
       schedulerState.refs.monthTabs = monthTabs;
       schedulerState.refs.advanceLimitNote = advanceLimitNote;
       schedulerState.refs.refreshBtn = refreshBtn;
@@ -1639,8 +1663,17 @@
   }
 
   function renderCalendarUI() {
-    const { monthTabs, advanceLimitNote, upcomingList, dateGrid, slotGrid, selectedSummary } =
-      schedulerState.refs;
+    const {
+      calTitle,
+      calSubtitle,
+      lockedBanner,
+      monthTabs,
+      advanceLimitNote,
+      upcomingList,
+      dateGrid,
+      slotGrid,
+      selectedSummary
+    } = schedulerState.refs;
     if (!dateGrid || !slotGrid) return;
 
     const confirmedInfo = schedulerState.confirmedSubmission
@@ -1653,8 +1686,27 @@
       : { date: '', window: '', startMinutes: null, endMinutes: null };
     const confirmedDate = confirmedInfo.date;
     const confirmedWindow = confirmedInfo.window;
+    const isLockedEditMode =
+      schedulerState.viewMode === 'editing' && Boolean(confirmedDate && confirmedWindow);
     const durInfo = getActiveDurationInfo();
     const busyIntervals = schedulerState.busyIntervals || [];
+
+    if (isLockedEditMode) {
+      schedulerState.selectedDate = confirmedDate;
+      schedulerState.selectedWindow = confirmedWindow;
+      schedulerState.activeMonthKey = confirmedDate.slice(0, 7);
+    }
+
+    if (calTitle) {
+      calTitle.textContent = isLockedEditMode
+        ? '1. Reserved Cleaning Day & Arrival Window (Locked)'
+        : '1. Pick a Preferred Day & Time';
+    }
+    if (calSubtitle) {
+      calSubtitle.textContent = isLockedEditMode
+        ? 'Once booked, your appointment day and arrival window are locked. Adjust add-ons, hours, or home details below, or call (318) 564-4360 to reschedule your time.'
+        : 'Monday – Friday, 8:00 AM to 4:30 PM. You can schedule up to 1 month in advance.';
+    }
 
     const countOpenSlotsForDay = (dayObj) => {
       if (!dayObj || dayObj.holidayName || dayObj.withinAdvanceWindow === false) return 0;
@@ -1693,9 +1745,9 @@
       }
     }
 
-    // Ensure valid selectedDate from availableDates that has at least 1 eligible slot for current duration
+    // Ensure valid selectedDate from availableDates that has at least 1 eligible slot
     const dates = schedulerState.availableDates || [];
-    if (dates.length > 0) {
+    if (!isLockedEditMode && dates.length > 0) {
       const currentFound = dates.find((d) => d.date === schedulerState.selectedDate);
       if (!currentFound || countOpenSlotsForDay(currentFound) === 0) {
         const firstOpenDate = dates.find((d) => countOpenSlotsForDay(d) > 0) || dates[0];
@@ -1720,30 +1772,35 @@
         const tabLabel = idx === 0 ? `${mObj.monthLabel} (This Month)` : `${mObj.monthLabel} (Next Month)`;
         const tabBtn = createEl(
           'button',
-          `calendar-month-tab${isCurrentTab ? ' active' : ''}`,
+          `calendar-month-tab${isCurrentTab ? ' active' : ''}${isLockedEditMode ? ' is-locked-control' : ''}`,
           tabLabel
         );
         tabBtn.type = 'button';
+        tabBtn.disabled = isLockedEditMode;
         tabBtn.setAttribute('role', 'tab');
         tabBtn.setAttribute('aria-selected', isCurrentTab ? 'true' : 'false');
         tabBtn.setAttribute('data-cal-month', mObj.monthKey);
-        tabBtn.addEventListener('click', () => {
-          schedulerState.activeMonthKey = mObj.monthKey;
-          const firstSelectableInMonth = (mObj.days || []).find(
-            (d) => countOpenSlotsForDay(d) > 0
-          );
-          if (firstSelectableInMonth) {
-            schedulerState.selectedDate = firstSelectableInMonth.date;
-          }
-          renderCalendarUI();
-          updateSubmitButtonLockState();
-        });
+        if (!isLockedEditMode) {
+          tabBtn.addEventListener('click', () => {
+            schedulerState.activeMonthKey = mObj.monthKey;
+            const firstSelectableInMonth = (mObj.days || []).find(
+              (d) => countOpenSlotsForDay(d) > 0
+            );
+            if (firstSelectableInMonth) {
+              schedulerState.selectedDate = firstSelectableInMonth.date;
+            }
+            renderCalendarUI();
+            updateSubmitButtonLockState();
+          });
+        }
         monthTabs.append(tabBtn);
       });
     }
 
     if (advanceLimitNote) {
-      if (months.length >= 2) {
+      if (isLockedEditMode) {
+        advanceLimitNote.textContent = 'Time block locked for this edit session';
+      } else if (months.length >= 2) {
         advanceLimitNote.textContent = `Open for ${months[0].monthLabel} & ${months[1].monthLabel}`;
       } else {
         advanceLimitNote.textContent = 'Open for current & next month';
@@ -1751,7 +1808,7 @@
     }
 
     const activeDateObj = dates.find((d) => d.date === schedulerState.selectedDate) || dates[0];
-    if (activeDateObj) {
+    if (!isLockedEditMode && activeDateObj) {
       const evaluatedActiveSlots = activeDateObj.slots.map((s) => ({
         slot: s,
         evalResult: evaluateClientSlot(
@@ -1784,12 +1841,12 @@
       const isBeyondLimit = dayObj.withinAdvanceWindow === false && !isHoliday;
       const openCount = countOpenSlotsForDay(dayObj);
       const isFull = !isHoliday && !isBeyondLimit && openCount === 0;
-      const isDisabled = isHoliday || isBeyondLimit || isFull;
-      const isSelected = !isDisabled && dayObj.date === schedulerState.selectedDate;
+      const isSelected = dayObj.date === schedulerState.selectedDate && (!isFull || isLockedEditMode);
+      const isDisabled = isLockedEditMode || isHoliday || isBeyondLimit || isFull;
 
       const btn = createEl(
         'button',
-        `calendar-date-btn${isSelected ? ' active' : ''}${isDisabled ? ' is-full' : ''}`
+        `calendar-date-btn${isSelected ? ' active' : ''}${isDisabled && !isSelected ? ' is-full' : ''}${isLockedEditMode ? ' is-locked-control' : ''}`
       );
       btn.type = 'button';
       btn.disabled = isDisabled;
@@ -1801,7 +1858,9 @@
       const monthDay = (parts[1] || dayObj.date).trim();
 
       let metaLabel = 'Available';
-      if (isHoliday) metaLabel = 'Holiday';
+      if (isLockedEditMode && isSelected) metaLabel = 'Locked ✓';
+      else if (isLockedEditMode) metaLabel = 'Time Locked';
+      else if (isHoliday) metaLabel = 'Holiday';
       else if (isBeyondLimit) metaLabel = '1-Mo Limit';
       else if (isFull) metaLabel = 'Full';
       else if (isSelected) metaLabel = 'Selected ✓';
@@ -1824,7 +1883,6 @@
 
     // 3. Render Arrival Window Buttons for Selected Date (Mon-Fri 8:00 AM - 4:30 PM)
     slotGrid.replaceChildren();
-    let selectedSlotEvaluation = null;
     if (activeDateObj) {
       activeDateObj.slots.forEach((slot) => {
         const evalResult = evaluateClientSlot(
@@ -1836,24 +1894,25 @@
         );
         const isCustomerOwnSlot =
           activeDateObj.date === confirmedDate && slot.slotId === confirmedWindow;
-        const isUnavailable = !evalResult.selectable;
-        const isSelected = evalResult.selectable && slot.slotId === schedulerState.selectedWindow;
-        if (isSelected) {
-          selectedSlotEvaluation = evalResult;
-        }
+        const isSelected = isLockedEditMode
+          ? isCustomerOwnSlot
+          : evalResult.selectable && slot.slotId === schedulerState.selectedWindow;
+        const isUnavailable = isLockedEditMode ? !isCustomerOwnSlot : !evalResult.selectable;
 
         const btn = createEl(
           'button',
-          `calendar-slot-btn${isSelected ? ' active' : ''}${isUnavailable ? ' is-booked' : ''}`
+          `calendar-slot-btn${isSelected ? ' active' : ''}${isUnavailable ? ' is-booked' : ''}${isLockedEditMode ? ' is-locked-control' : ''}`
         );
         btn.type = 'button';
-        btn.disabled = isUnavailable;
+        btn.disabled = isLockedEditMode || isUnavailable;
         btn.setAttribute('data-cal-slot', slot.slotId);
         btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
 
         const titleRow = createEl('strong', 'cal-slot-title', slot.shortLabel);
         let statusText = evalResult.reasonText;
-        if (evalResult.selectable) {
+        if (isLockedEditMode) {
+          statusText = isCustomerOwnSlot ? 'Locked Appointment Window ✓' : 'Locked on Edit (Call to Reschedule)';
+        } else if (evalResult.selectable) {
           if (isCustomerOwnSlot && isSelected) {
             statusText = 'Your Current Slot ✓';
           } else if (isSelected) {
@@ -1863,7 +1922,7 @@
         const statusRow = createEl('span', 'cal-slot-status', statusText);
         btn.append(titleRow, statusRow);
 
-        if (evalResult.selectable) {
+        if (!isLockedEditMode && evalResult.selectable) {
           btn.addEventListener('click', () => {
             schedulerState.selectedWindow = slot.slotId;
             renderCalendarUI();
@@ -1875,14 +1934,30 @@
       });
     }
 
-    // 4. Keep Modal Recap Est. Hours synchronized with chosen arrival slot
+    // 4. Keep Modal Recap Est. Hours synchronized
     updateRecapHoursDisplay();
 
-    // 5. Update Selected Summary Banner
+    // 5. Render Locked Banner & Selected Summary Banner
+    const chosenSlot = activeDateObj?.slots?.find((s) => s.slotId === schedulerState.selectedWindow);
+    const chosenSlotText = chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow;
+    const chosenDateText = activeDateObj ? activeDateObj.dateFormatted : formatFullDateUtc(schedulerState.selectedDate);
+
+    if (lockedBanner) {
+      if (isLockedEditMode) {
+        lockedBanner.classList.remove('is-hidden');
+        lockedBanner.textContent = `Appointment Time Locked: ${chosenDateText} • ${chosenSlotText} (Ref: ${schedulerState.confirmedSubmission?.referenceCode || 'Active'}). Add appliances, hours, or home details below — or call (318) 564-4360 to change your day or time.`;
+      } else {
+        lockedBanner.classList.add('is-hidden');
+        lockedBanner.textContent = '';
+      }
+    }
+
     if (selectedSummary) {
+      selectedSummary.classList.toggle('is-locked', isLockedEditMode);
       if (activeDateObj && schedulerState.selectedWindow) {
-        const chosenSlot = activeDateObj.slots.find((s) => s.slotId === schedulerState.selectedWindow);
-        selectedSummary.textContent = `Selected Time: ${activeDateObj.dateFormatted} • ${chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow} · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`;
+        selectedSummary.textContent = isLockedEditMode
+          ? `Locked Cleaning Window: ${chosenDateText} • ${chosenSlotText} · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`
+          : `Selected Time: ${chosenDateText} • ${chosenSlotText} · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`;
       } else {
         selectedSummary.textContent = 'Please select an available day and time window above.';
       }
@@ -2146,16 +2221,27 @@
         estimatedHours: currentCalc.estimatedHours || 2
       };
 
+      const prevTotalSnapshot =
+        schedulerState.confirmedSubmission?.verifiedEstimate?.grandTotal ?? null;
+
       if (result && result.success) {
+        const nextUpdateCount = Number.isInteger(result.updateCount)
+          ? result.updateCount
+          : isUpdate
+            ? (schedulerState.confirmedSubmission?.updateCount || 0) + 1
+            : 0;
+        const confirmedIsUpdated = Boolean(result.isUpdated || isUpdate);
         schedulerState.confirmedSubmission = {
-          isUpdated: isUpdate,
+          isUpdated: confirmedIsUpdated,
+          updateCount: nextUpdateCount,
+          previousTotal: confirmedIsUpdated ? prevTotalSnapshot : null,
           statusType: 'success',
           referenceCode: result.referenceCode || '',
           updateToken: result.updateToken || schedulerState.confirmedSubmission?.updateToken || '',
           confirmedStartMinutes: result?.appointment?.startMinutes,
           confirmedEndMinutes: result?.appointment?.endMinutes,
-          headingText: isUpdate
-            ? `Updated Estimate & Appointment Sent! (Ref: ${result.referenceCode})`
+          headingText: confirmedIsUpdated
+            ? `Updated Appointment Sent! (#${Math.max(1, nextUpdateCount)} · Ref: ${result.referenceCode})`
             : `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
           detailText: `${result.message} Verified Flat-Rate Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (No online payment required).`,
           icsContent: result.icsContent || '',

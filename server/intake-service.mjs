@@ -1208,6 +1208,9 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     ok: true,
     value: {
       updateToken: rawUpdateToken,
+      isUpdated: false,
+      updateCount: 0,
+      previousTotal: null,
       previousReferenceCode: '',
       previousDate: '',
       customer: {
@@ -1293,12 +1296,21 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
   const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
   const endLabel = appointment.scheduledEndLabel || formatMinutesAsTime(appointment.windowSpec.endMinutes);
-  const isUpdated = Boolean(validatedRecord.previousReferenceCode);
-  const summaryPrefix = isUpdated ? '[UPDATED] ' : '';
+  const updateCount = Number.isInteger(validatedRecord.updateCount)
+    ? validatedRecord.updateCount
+    : validatedRecord.previousReferenceCode
+      ? 1
+      : 0;
+  const isUpdated = Boolean(validatedRecord.isUpdated || updateCount > 0 || validatedRecord.previousReferenceCode);
+  const summaryPrefix = isUpdated
+    ? updateCount > 1
+      ? `[UPDATED #${updateCount}] `
+      : '[UPDATED] '
+    : '';
   const summary = `${summaryPrefix}Smarts Pro Cleaning: ${customer.fullName} (${serviceLabel}) [${referenceCode}]`;
   const descriptionLines = [
     `Reference ID: ${referenceCode}`,
-    ...(isUpdated ? [`Replaces Prior Reference ID: ${validatedRecord.previousReferenceCode}`] : []),
+    ...(isUpdated ? [`Update Status: UPDATED APPOINTMENT (#${Math.max(1, updateCount)})`] : []),
     `Customer: ${customer.fullName}`,
     `Phone: ${customer.phone}`,
     `Email: ${customer.email}`,
@@ -1320,6 +1332,7 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
     'METHOD:REQUEST',
     'BEGIN:VEVENT',
     `UID:${referenceCode}@smartsprosolutions.com`,
+    `SEQUENCE:${Math.max(0, updateCount)}`,
     `DTSTAMP:${nowStamp}`,
     `DTSTART;TZID=${BUSINESS_TIMEZONE}:${startStr}`,
     `DTEND;TZID=${BUSINESS_TIMEZONE}:${endStr}`,
@@ -1337,8 +1350,9 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
 }
 
 /**
- * Builds the automated owner notification email, the separate customer confirmation email
- * (with zero owner-only Finish-Early links), and the .ics calendar invite.
+ * Builds the automated owner notification email (highlighting UPDATED in green and Reference ID in blue),
+ * the separate customer confirmation/updated receipt email (with zero owner-only Finish-Early links),
+ * and the .ics calendar invite.
  */
 export function buildAutomatedEmailContent(
   validatedRecord,
@@ -1348,7 +1362,15 @@ export function buildAutomatedEmailContent(
 ) {
   const { customer, appointment, quote, calculation } = validatedRecord;
   const isCommercial = quote.serviceCategory === 'commercial';
-  const isUpdated = Boolean(validatedRecord.previousReferenceCode);
+  const updateCount = Number.isInteger(validatedRecord.updateCount)
+    ? validatedRecord.updateCount
+    : validatedRecord.previousReferenceCode
+      ? 1
+      : 0;
+  const isUpdated = Boolean(validatedRecord.isUpdated || updateCount > 0 || validatedRecord.previousReferenceCode);
+  const previousTotal = Number.isFinite(Number(validatedRecord.previousTotal))
+    ? Number(validatedRecord.previousTotal)
+    : null;
   const serviceLabel = isCommercial
     ? SERVICE_DISPLAY_LABELS.commercial
     : calculation.isSpecificAreas
@@ -1377,15 +1399,18 @@ export function buildAutomatedEmailContent(
     ? 'N/A (Commercial Walkthrough)'
     : `Pets: ${quote.additionalInfo.hasPets === 'yes' ? 'Yes' : 'No'} | Last Cleaned: ${quote.additionalInfo.lastCleaned} | Occupancy: ${quote.additionalInfo.occupancy} | Condition: ${quote.additionalInfo.condition}`;
 
-  const subjectPrefix = isUpdated ? '[UPDATED] ' : '';
+  const updateTag = updateCount > 1 ? `[UPDATED #${updateCount}] ` : '[UPDATED] ';
+  const subjectPrefix = isUpdated ? updateTag : '';
   const subject = `${subjectPrefix}[Smarts Pro Estimate #${referenceCode}] ${customer.fullName} — ${appointment.preferredDateFormatted} (${appointment.preferredWindowShort})`;
 
   const textLines = [
     isUpdated
-      ? `SMARTS PRO SOLUTIONS — UPDATED ESTIMATE & APPOINTMENT REQUEST`
+      ? `SMARTS PRO SOLUTIONS — UPDATED APPOINTMENT & ESTIMATE (UPDATE #${Math.max(1, updateCount)})`
       : `SMARTS PRO SOLUTIONS — NEW ESTIMATE & APPOINTMENT REQUEST`,
     `Reference ID: ${referenceCode}`,
-    ...(isUpdated ? [`Replaces Prior Reference ID: ${validatedRecord.previousReferenceCode}`] : []),
+    ...(isUpdated && previousTotal !== null
+      ? [`Price Revision: Previously $${previousTotal.toFixed(2)} -> Updated Total $${calculation.grandTotal.toFixed(2)}`]
+      : []),
     `==========================================================`,
     ``,
     `1. CUSTOMER CONTACT INFORMATION`,
@@ -1396,7 +1421,7 @@ export function buildAutomatedEmailContent(
     `Phone:      ${customer.phone}`,
     `Email:      ${customer.email}`,
     ``,
-    `2. REQUESTED CALENDAR APPOINTMENT`,
+    `2. ${isUpdated ? 'LOCKED CALENDAR APPOINTMENT (SAME TIME BLOCK)' : 'REQUESTED CALENDAR APPOINTMENT'}`,
     `---------------------------------`,
     `Preferred Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
     `Time Block:        ${appointment.preferredWindowLabel}`,
@@ -1449,22 +1474,43 @@ export function buildAutomatedEmailContent(
         </div>`
     : '';
 
+  const ownerUpdatedGreenBanner = isUpdated
+    ? `
+        <div style="background: #DCFCE7; border: 2px solid #16A34A; border-radius: 10px; padding: 12px 16px; margin-bottom: 18px;">
+          <div style="font-size: 13px; font-weight: 900; color: #15803D; text-transform: uppercase; letter-spacing: 0.05em;">
+            <span style="display: inline-block; background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; margin-right: 6px;">UPDATED</span>
+            UPDATED APPOINTMENT #${Math.max(1, updateCount)} &bull; REPLACE PRIOR VERSION
+          </div>
+          <div style="margin-top: 4px; font-size: 13px; color: #166534;">
+            Customer modified add-ons or home details under the same booking Reference ID (<strong style="color: #1D4ED8;">${escapeHtml(referenceCode)}</strong>).${previousTotal !== null ? ` Previous Total: <strong>$${previousTotal.toFixed(2)}</strong> &rarr; New Total: <strong>$${calculation.grandTotal.toFixed(2)}</strong>.` : ''}
+          </div>
+        </div>`
+    : '';
+
   const htmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
       <div style="background: #0B1E3A; color: #FFFFFF; padding: 20px 24px;">
-        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">Smarts Pro Solutions • ${isUpdated ? 'Updated Estimate Dispatch' : 'Automated Estimate Dispatch'}</div>
-        <h2 style="margin: 6px 0 0; font-size: 20px;">${isUpdated ? 'Updated Cleaning Estimate &amp; Appointment Request' : 'New Cleaning Estimate &amp; Appointment Request'}</h2>
-        <div style="margin-top: 4px; font-size: 13px; color: #CBD5E1;">Reference: <strong>${escapeHtml(referenceCode)}</strong>${isUpdated ? ` (Replaces ${escapeHtml(validatedRecord.previousReferenceCode)})` : ''}</div>
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">
+          Smarts Pro Solutions &bull; ${isUpdated ? `<span style="background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 900;">UPDATED APPOINTMENT (#${Math.max(1, updateCount)})</span>` : 'Automated Estimate Dispatch'}
+        </div>
+        <h2 style="margin: 8px 0 0; font-size: 20px;">
+          ${isUpdated ? `<span style="color: #4ADE80; font-weight: 900;">UPDATED:</span> Cleaning Estimate &amp; Appointment` : 'New Cleaning Estimate &amp; Appointment Request'}
+        </h2>
+        <div style="margin-top: 8px; font-size: 13px; color: #CBD5E1;">
+          Reference ID: <span style="display: inline-block; background: #1D4ED8; color: #FFFFFF; padding: 2px 10px; border-radius: 6px; font-weight: 800; letter-spacing: 0.03em;">${escapeHtml(referenceCode)}</span>
+        </div>
       </div>
       <div style="padding: 24px;">
+        ${ownerUpdatedGreenBanner}
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">1. Customer Details</h3>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
-          <tr><td style="padding: 6px 0; color: #64748B; width: 150px;">First &amp; Last Name:</td><td style="padding: 6px 0; font-weight: 700;">${escapeHtml(customer.fullName)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B; width: 150px;">Reference ID:</td><td style="padding: 6px 0;"><span style="display: inline-block; background: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; padding: 2px 8px; border-radius: 6px; font-weight: 800;">${escapeHtml(referenceCode)}</span>${isUpdated ? ` <span style="display: inline-block; background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 12px;">UPDATED #${Math.max(1, updateCount)}</span>` : ''}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">First &amp; Last Name:</td><td style="padding: 6px 0; font-weight: 700;">${escapeHtml(customer.fullName)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Phone Number:</td><td style="padding: 6px 0; font-weight: 700;"><a href="tel:${escapeHtml(customer.phone)}">${escapeHtml(customer.phone)}</a></td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Email Address:</td><td style="padding: 6px 0; font-weight: 700;"><a href="mailto:${escapeHtml(customer.email)}">${escapeHtml(customer.email)}</a></td></tr>
         </table>
 
-        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">2. Requested Cleaning Appointment</h3>
+        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">2. ${isUpdated ? 'Locked Cleaning Appointment' : 'Requested Cleaning Appointment'}</h3>
         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px;">
           <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
           <div style="margin-top: 4px;"><strong>Time Block:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
@@ -1472,7 +1518,7 @@ export function buildAutomatedEmailContent(
           <div style="margin-top: 4px;"><strong>Est. Cleaning Time:</strong> ${escapeHtml(formatDurationHours(durationHours))}</div>
         </div>
 
-        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">3. Estimate Summary (Server-Verified Flat Rate)</h3>
+        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">3. ${isUpdated ? '<span style="color: #16A34A;">Updated</span> Estimate Summary (Server-Verified Flat Rate)' : 'Estimate Summary (Server-Verified Flat Rate)'}</h3>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
           <tr><td style="padding: 6px 0; color: #64748B; width: 150px;">Service Tier:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(serviceLabel)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Property Scope:</td><td style="padding: 6px 0;">${escapeHtml(specsLine)}</td></tr>
@@ -1480,7 +1526,8 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B;">Frequency:</td><td style="padding: 6px 0;">${escapeHtml(freqLabel)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">Estimated Total:</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate • No Online Payment)</span></td></tr>
+          ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Total:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? '<span style="color: #16A34A;">Updated Total:</span>' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate • No Online Payment)</span></td></tr>
         </table>
 
         <h3 style="margin: 0 0 8px; font-size: 15px; color: #0066CC; text-transform: uppercase;">4. Additional Customer Notes</h3>
@@ -1494,28 +1541,32 @@ export function buildAutomatedEmailContent(
     </div>
   `.trim();
 
-  // Separate customer confirmation email (never includes owner Finish-Early link)
-  const customerSubject = `${subjectPrefix}Your Smarts Pro Solutions Estimate & Appointment Request (#${referenceCode})`;
+  // Separate customer confirmation / updated receipt email (never includes owner Finish-Early link)
+  const customerSubject = isUpdated
+    ? `[UPDATED APPOINTMENT] Your Smarts Pro Solutions Receipt (#${referenceCode})`
+    : `Your Smarts Pro Solutions Estimate & Appointment Confirmation (#${referenceCode})`;
   const customerTextLines = [
     `Hi ${customer.firstName},`,
     ``,
     isUpdated
-      ? `Thank you for updating your cleaning estimate and appointment request with Smarts Pro Solutions! Here is a copy of your updated summary:`
-      : `Thank you for requesting a cleaning estimate with Smarts Pro Solutions! We have received your request and reserved your requested calendar window below:`,
+      ? `UPDATED APPOINTMENT RECEIPT (Update #${Math.max(1, updateCount)}): Thank you for updating your cleaning details with Smarts Pro Solutions! Below is your refreshed receipt with all currently selected options.`
+      : `Thank you for requesting a cleaning estimate with Smarts Pro Solutions! We have received your request and locked in your requested calendar time block below:`,
     ``,
     `Reference ID:      ${referenceCode}`,
-    `Requested Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
-    `Time Block:        ${appointment.preferredWindowLabel}`,
+    ...(isUpdated ? [`Receipt Status:    UPDATED APPOINTMENT (Update #${Math.max(1, updateCount)})`] : []),
+    `Scheduled Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
+    `Time Block (Locked): ${appointment.preferredWindowLabel}`,
     `Schedule:          ${freqLabel} (${recurrence.label})`,
     `Service Selected:  ${serviceLabel}`,
     `Property Scope:    ${specsLine}`,
     `Additional Info:   ${addInfoLine}`,
     `Custom Add-Ons:    ${addonsLine}`,
     `Est. Cleaning Time:${formatDurationHours(durationHours)}`,
-    `Estimated Total:   $${calculation.grandTotal.toFixed(2)} (Flat Rate • No Online Payment Required)`,
+    ...(isUpdated && previousTotal !== null ? [`Previous Total:    $${previousTotal.toFixed(2)}`] : []),
+    `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}   $${calculation.grandTotal.toFixed(2)} (Flat Rate • No Online Payment Required)`,
     ...(customer.notes ? [`Your Notes:        ${customer.notes}`] : []),
     ``,
-    `Questions or need to make a change? Call or text us at (318) 564-4360 or reply directly to smartsprosolutions@gmail.com.`,
+    `Need to change your appointment date or time window? Call or text us at (318) 564-4360 or reply directly to smartsprosolutions@gmail.com.`,
     ``,
     `Privacy & Data Deletion: Customer details are used solely to service your estimate and appointment. To opt out or request data deletion anytime, reply "DELETE" or contact smartsprosolutions@gmail.com.`
   ];
@@ -1524,18 +1575,23 @@ export function buildAutomatedEmailContent(
   const customerHtmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
       <div style="background: #0B1E3A; color: #FFFFFF; padding: 20px 24px;">
-        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">Smarts Pro Solutions &bull; Shreveport &amp; Bossier City, LA</div>
-        <h2 style="margin: 6px 0 0; font-size: 20px;">${isUpdated ? 'Updated Estimate &amp; Appointment Confirmation' : 'Your Estimate &amp; Appointment Confirmation'}</h2>
-        <div style="margin-top: 4px; font-size: 13px; color: #CBD5E1;">Reference ID: <strong>${escapeHtml(referenceCode)}</strong></div>
+        <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">
+          ${isUpdated ? `<span style="background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 800;">UPDATED APPOINTMENT RECEIPT (#${Math.max(1, updateCount)})</span> &bull; ` : ''}Smarts Pro Solutions &bull; Shreveport &amp; Bossier City, LA
+        </div>
+        <h2 style="margin: 8px 0 0; font-size: 20px;">${isUpdated ? 'Updated Appointment &amp; Estimate Receipt' : 'Your Estimate &amp; Appointment Confirmation'}</h2>
+        <div style="margin-top: 8px; font-size: 13px; color: #CBD5E1;">
+          Reference ID: <span style="display: inline-block; background: #1D4ED8; color: #FFFFFF; padding: 2px 10px; border-radius: 6px; font-weight: 800;">${escapeHtml(referenceCode)}</span>
+        </div>
       </div>
       <div style="padding: 24px;">
+        ${isUpdated ? `<div style="background: #DCFCE7; border: 1.5px solid #16A34A; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: #14532D;"><strong>UPDATED APPOINTMENT:</strong> Your booking receipt has been reset with your newly added/updated options below.</div>` : ''}
         <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5; color: #1E293B;">
-          Hi <strong>${escapeHtml(customer.firstName)}</strong>, thank you for choosing Smarts Pro Solutions! We have received your ${isUpdated ? 'updated ' : ''}estimate &amp; appointment request with the details below.
+          Hi <strong>${escapeHtml(customer.firstName)}</strong>, thank you for choosing Smarts Pro Solutions! Here is your ${isUpdated ? 'updated estimate and appointment receipt with your current selections' : 'estimate &amp; appointment confirmation details below'}.
         </p>
 
         <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 14px;">
-          <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
-          <div style="margin-top: 4px;"><strong>Time Block:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
+          <div><strong>Date (Locked):</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
+          <div style="margin-top: 4px;"><strong>Time Block (Locked):</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
           <div style="margin-top: 4px;"><strong>Schedule:</strong> ${escapeHtml(freqLabel)} (${escapeHtml(recurrence.label)})</div>
         </div>
 
@@ -1545,13 +1601,14 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B;">Additional Info:</td><td style="padding: 6px 0;">${escapeHtml(addInfoLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">Estimated Total:</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate &bull; No Online Payment)</span></td></tr>
+          ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Estimate:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? 'Updated Total:' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate &bull; No Online Payment)</span></td></tr>
         </table>
 
         ${customer.notes ? `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 13px;"><strong>Your Notes:</strong> ${escapeHtml(customer.notes)}</div>` : ''}
 
         <p style="margin: 0 0 14px; font-size: 14px; color: #334155; line-height: 1.5;">
-          Need to adjust anything or have a question? Call us at <strong>(318) 564-4360</strong> or reply directly to <a href="mailto:${escapeHtml(ownerEmail)}">${escapeHtml(ownerEmail)}</a>.
+          Need to reschedule your date/time or have a question? Call or text us at <strong>(318) 564-4360</strong> or reply directly to <a href="mailto:${escapeHtml(ownerEmail)}">${escapeHtml(ownerEmail)}</a>.
         </p>
 
         <p style="margin: 16px 0 0; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; line-height: 1.5;">
@@ -1663,6 +1720,11 @@ async function assertWebhookJsonSuccess(response, label) {
     if (parsed && (parsed.ok === false || parsed.error)) {
       throw new Error(`${label} reported an error: ${parsed.error || 'execution failed'}`);
     }
+    if (parsed && parsed.customerEmailSent === false) {
+      throw new Error(
+        `${label} could not send the customer confirmation email: ${parsed.customerEmailError || 'mail dispatch declined'}`
+      );
+    }
   }
 }
 
@@ -1730,13 +1792,15 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
     }
 
     const timestamp = String(Math.floor(Date.now() / 1000));
-    const isUpdated = Boolean(validatedRecord.previousReferenceCode);
+    const isUpdated = Boolean(validatedRecord.isUpdated || validatedRecord.previousReferenceCode);
     const bodyString = JSON.stringify({
       action: 'createBooking',
       referenceCode,
       previousReferenceCode: validatedRecord.previousReferenceCode || '',
       previousDate: validatedRecord.previousDate || '',
       isUpdated,
+      updateCount: Number(validatedRecord.updateCount || 0),
+      previousTotal: validatedRecord.previousTotal ?? null,
       to: emailPackage.to,
       replyTo: emailPackage.replyTo,
       subject: emailPackage.subject,
@@ -1909,7 +1973,6 @@ export function createIntakeService({
     excludeBooking = null
   ) {
     const intervals = getEffectiveBusyIntervals();
-    let skippedRemoteMatch = false;
     for (const interval of intervals) {
       if (interval.date !== isoDate) continue;
       if (excludeBooking) {
@@ -1917,13 +1980,11 @@ export function createIntakeService({
           continue;
         }
         if (
-          !skippedRemoteMatch &&
           interval.source === 'gcal' &&
           interval.date === excludeBooking.date &&
           interval.startMinutes === excludeBooking.startMin &&
           interval.endMinutes === excludeBooking.endMin
         ) {
-          skippedRemoteMatch = true;
           continue;
         }
       }
@@ -2162,13 +2223,13 @@ export function createIntakeService({
     };
   }
 
-  function checkRateLimit(bucketKey, nowMs) {
+  function checkRateLimit(bucketKey, nowMs, maxLimit = rateLimitMax) {
     const existing = rateLimits.get(bucketKey);
     if (!existing || nowMs >= existing.resetAt) {
       rateLimits.set(bucketKey, { count: 1, resetAt: nowMs + rateLimitWindowMs });
       return { allowed: true, retryAfterSeconds: 0 };
     }
-    if (existing.count >= rateLimitMax) {
+    if (existing.count >= maxLimit) {
       const retryAfterSeconds = Math.max(1, Math.ceil((existing.resetAt - nowMs) / 1000));
       return { allowed: false, retryAfterSeconds };
     }
@@ -2261,24 +2322,7 @@ export function createIntakeService({
       };
     }
 
-    // 4. Rate limit by client IP before expensive work
-    const ipLimit = checkRateLimit(`ip:${clientIp}`, nowMs);
-    if (!ipLimit.allowed) {
-      return {
-        status: 429,
-        headers: {
-          'Cache-Control': 'no-store',
-          'Retry-After': String(ipLimit.retryAfterSeconds)
-        },
-        body: {
-          success: false,
-          code: 'RATE_LIMITED',
-          message: 'Too many estimate requests. Please wait a few minutes or call (318) 564-4360.'
-        }
-      };
-    }
-
-    // 5. Idempotency key validation
+    // 4. Idempotency key validation
     const idempotencyKey = headers['idempotency-key'] ? String(headers['idempotency-key']).trim() : '';
     if (idempotencyKey && !/^[A-Za-z0-9._-]{8,128}$/.test(idempotencyKey)) {
       return {
@@ -2309,11 +2353,23 @@ export function createIntakeService({
       };
     }
 
-    // 6. Strict JSON parse
+    // 5. Strict JSON parse
     let parsed;
     try {
       parsed = JSON.parse(rawBody);
     } catch {
+      const malIpLimit = checkRateLimit(`ip:${clientIp}`, nowMs);
+      if (!malIpLimit.allowed) {
+        return {
+          status: 429,
+          headers: { 'Cache-Control': 'no-store', 'Retry-After': String(malIpLimit.retryAfterSeconds) },
+          body: {
+            success: false,
+            code: 'RATE_LIMITED',
+            message: 'Too many estimate requests. Please wait a few minutes or call (318) 564-4360.'
+          }
+        };
+      }
       return {
         status: 400,
         headers: { 'Cache-Control': 'no-store' },
@@ -2321,7 +2377,78 @@ export function createIntakeService({
       };
     }
 
-    // 7. Schema, bounds, closing cutoff & authoritative calculation
+    // 6. Verify signed updateToken BEFORE strict anti-spam rate limiting so real customers editing
+    //    their confirmed booking can add/adjust options multiple times without hitting 429 lockouts.
+    let verifiedUpdate = null;
+    const rawUpdateCandidate =
+      parsed && typeof parsed === 'object' && !Array.isArray(parsed) && typeof parsed.updateToken === 'string'
+        ? parsed.updateToken.trim()
+        : '';
+
+    if (rawUpdateCandidate) {
+      const updateCheck = verifyBookingUpdateToken(
+        rawUpdateCandidate,
+        resolveEffectiveSecret(),
+        nowMs
+      );
+      if (!updateCheck.ok) {
+        const badIpLimit = checkRateLimit(`ip:${clientIp}`, nowMs);
+        if (!badIpLimit.allowed) {
+          return {
+            status: 429,
+            headers: { 'Cache-Control': 'no-store', 'Retry-After': String(badIpLimit.retryAfterSeconds) },
+            body: {
+              success: false,
+              code: 'RATE_LIMITED',
+              message: 'Too many estimate requests. Please wait a few minutes or call (318) 564-4360.'
+            }
+          };
+        }
+        return {
+          status: 400,
+          headers: { 'Cache-Control': 'no-store' },
+          body: {
+            success: false,
+            code: updateCheck.code,
+            message: updateCheck.message
+          }
+        };
+      }
+      verifiedUpdate = updateCheck.payload;
+      const editBurstLimit = checkRateLimit(`edit:${clientIp}`, nowMs, Math.max(60, rateLimitMax * 10));
+      if (!editBurstLimit.allowed) {
+        return {
+          status: 429,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': String(editBurstLimit.retryAfterSeconds)
+          },
+          body: {
+            success: false,
+            code: 'RATE_LIMITED',
+            message: 'Too many rapid updates. Please wait a moment or call (318) 564-4360.'
+          }
+        };
+      }
+    } else {
+      const ipLimit = checkRateLimit(`ip:${clientIp}`, nowMs);
+      if (!ipLimit.allowed) {
+        return {
+          status: 429,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': String(ipLimit.retryAfterSeconds)
+          },
+          body: {
+            success: false,
+            code: 'RATE_LIMITED',
+            message: 'Too many estimate requests. Please wait a few minutes or call (318) 564-4360.'
+          }
+        };
+      }
+    }
+
+    // 7. Schema, bounds & authoritative calculation
     const validation = validateEstimateRequest(parsed, { now });
     if (!validation.ok) {
       return {
@@ -2337,45 +2464,54 @@ export function createIntakeService({
 
     const record = validation.value;
 
-    // 7b. Verify signed update token when customer edits a confirmed booking
-    let verifiedUpdate = null;
-    if (record.updateToken) {
-      const updateCheck = verifyBookingUpdateToken(
-        record.updateToken,
-        resolveEffectiveSecret(),
-        nowMs
-      );
-      if (!updateCheck.ok) {
+    // 7b. Enforce locked appointment date & time block when editing an existing booking,
+    //     preserving the exact same Reference ID across every revision.
+    if (verifiedUpdate) {
+      if (
+        record.appointment.preferredDate !== verifiedUpdate.date ||
+        record.appointment.startMinutes !== verifiedUpdate.startMin ||
+        record.appointment.endMinutes !== verifiedUpdate.endMin
+      ) {
         return {
           status: 400,
           headers: { 'Cache-Control': 'no-store' },
           body: {
             success: false,
-            code: updateCheck.code,
-            message: updateCheck.message
+            code: 'APPOINTMENT_TIME_LOCKED',
+            message:
+              'Appointment dates and time blocks are locked once booked. You can add add-ons or adjust home details, or call (318) 564-4360 to reschedule your time.'
           }
         };
       }
-      verifiedUpdate = updateCheck.payload;
+      const nextUpdateCount = Number.isInteger(verifiedUpdate.updateCount)
+        ? verifiedUpdate.updateCount + 1
+        : 1;
+      record.isUpdated = true;
+      record.updateCount = nextUpdateCount;
+      record.previousTotal = Number.isFinite(Number(verifiedUpdate.prevTotal))
+        ? Number(verifiedUpdate.prevTotal)
+        : null;
       record.previousReferenceCode = verifiedUpdate.ref;
       record.previousDate = verifiedUpdate.date;
     }
 
-    // 8. Per-contact rate limit
-    const contactLimit = checkRateLimit(`contact:${record.customer.email}`, nowMs);
-    if (!contactLimit.allowed) {
-      return {
-        status: 429,
-        headers: {
-          'Cache-Control': 'no-store',
-          'Retry-After': String(contactLimit.retryAfterSeconds)
-        },
-        body: {
-          success: false,
-          code: 'RATE_LIMITED',
-          message: 'Too many requests for this contact address. Please wait before submitting again.'
-        }
-      };
+    // 8. Per-contact rate limit applies to brand-new unverified submissions (verified edits skip this cap)
+    if (!verifiedUpdate) {
+      const contactLimit = checkRateLimit(`contact:${record.customer.email}`, nowMs);
+      if (!contactLimit.allowed) {
+        return {
+          status: 429,
+          headers: {
+            'Cache-Control': 'no-store',
+            'Retry-After': String(contactLimit.retryAfterSeconds)
+          },
+          body: {
+            success: false,
+            code: 'RATE_LIMITED',
+            message: 'Too many requests for this contact address. Please wait before submitting again.'
+          }
+        };
+      }
     }
 
     // 8b. Live DNS MX mail-server verification on email domain
@@ -2419,8 +2555,10 @@ export function createIntakeService({
       };
     }
 
-    // 10. Generate opaque server reference ID, signed Finish-Early URL & email/calendar package
-    const referenceCode = `SPS-${randomBytes(5).toString('hex').toUpperCase()}`;
+    // 10. Keep the same Reference ID when editing, or generate a fresh one for new bookings
+    const referenceCode = verifiedUpdate
+      ? verifiedUpdate.ref
+      : `SPS-${randomBytes(5).toString('hex').toUpperCase()}`;
     const finishEarlyUrl = buildFinishEarlyConfirmationUrl(record, referenceCode, headers);
     const emailPackage = buildAutomatedEmailContent(record, referenceCode, ownerEmail, {
       finishEarlyUrl
@@ -2502,19 +2640,11 @@ export function createIntakeService({
 
     if (verifiedUpdate && verifiedUpdate.ref) {
       localBookings.delete(verifiedUpdate.ref);
-      let removedRemoteSelf = false;
-      remoteBusyIntervals = remoteBusyIntervals.filter((item) => {
-        if (
-          !removedRemoteSelf &&
-          item.date === verifiedUpdate.date &&
-          item.startMinutes === verifiedUpdate.startMin &&
-          item.endMinutes === verifiedUpdate.endMin
-        ) {
-          removedRemoteSelf = true;
-          return false;
-        }
-        return true;
-      });
+      remoteBusyIntervals = remoteBusyIntervals.filter((item) => !(
+        item.date === verifiedUpdate.date &&
+        item.startMinutes === verifiedUpdate.startMin &&
+        item.endMinutes === verifiedUpdate.endMin
+      ));
     }
 
     for (const [existingRef, existingItem] of localBookings.entries()) {
@@ -2547,6 +2677,8 @@ export function createIntakeService({
         date: record.appointment.preferredDate,
         startMin: record.appointment.startMinutes,
         endMin: record.appointment.endMinutes,
+        updateCount: record.updateCount || 0,
+        prevTotal: record.calculation.grandTotal,
         exp: Date.parse(`${record.appointment.preferredDate}T23:59:59Z`) + 2 * 24 * 60 * 60 * 1000
       },
       resolveEffectiveSecret()
@@ -2557,8 +2689,11 @@ export function createIntakeService({
       code: 'ESTIMATE_DISPATCHED',
       referenceCode,
       isUpdated: Boolean(verifiedUpdate),
+      updateCount: record.updateCount || 0,
       updateToken,
-      message: `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions and your email address.`,
+      message: verifiedUpdate
+        ? `Updated appointment receipt (#${record.updateCount || 1}, Ref: ${referenceCode}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) schedule have been emailed to Smarts Pro Solutions and your email address.`
+        : `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions and your email address.`,
       verifiedEstimate: verifiedEstimateSummary,
       appointment: appointmentSummary,
       icsContent: emailPackage.icsContent,

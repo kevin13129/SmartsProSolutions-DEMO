@@ -71,7 +71,15 @@ body:has(.construction-screen) { overflow: hidden; }
 .calendar-slot-btn.is-cutoff .cal-slot-status { color: #92400E; font-weight: 600; }
 .calendar-slot-btn.active .cal-slot-status { color: var(--green-dark); font-weight: 700; }
 
+.calendar-locked-banner { margin-bottom: 0.85rem; padding: 0.78rem 0.95rem; border-radius: 10px; background: #EFF6FF; border: 1.5px solid #93C5FD; color: #1E3A8A; font-size: 0.88rem; font-weight: 700; line-height: 1.45; }
+.calendar-month-tab.is-locked-control,
+.calendar-date-btn.is-locked-control,
+.calendar-slot-btn.is-locked-control { cursor: not-allowed; }
+.calendar-date-btn.is-locked-control:not(.active),
+.calendar-slot-btn.is-locked-control:not(.active),
+.calendar-month-tab.is-locked-control:not(.active) { opacity: 0.55; }
 .selected-appointment-banner { margin-top: 0.85rem; padding: 0.7rem 0.95rem; border-radius: 8px; background: #F0FDF4; border: 1px solid #BBF7D0; color: #14532D; font-size: 0.92rem; font-weight: 700; }
+.selected-appointment-banner.is-locked { background: #EFF6FF; border-color: #93C5FD; color: #1E3A8A; }
 
 .upcoming-bookings-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 0.45rem; margin-top: 0.7rem; padding-top: 0.65rem; border-top: 1px solid #E2E8F0; font-size: 0.82rem; color: #64748B; }
 .upcoming-bookings-title { font-weight: 700; color: #475569; }
