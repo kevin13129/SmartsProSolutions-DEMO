@@ -761,7 +761,7 @@ export function calculateAuthoritativeQuote(quoteInput) {
     });
   }
 
-  const isSpecificAreas = serviceCategory === 'residential' && quoteInput.scopeMode === 'specific';
+  const isSpecificAreas = !isCommercial && quoteInput.scopeMode === 'specific';
   const effectiveServiceType =
     serviceCategory === 'moveinout'
       ? 'moveinout'
@@ -771,34 +771,25 @@ export function calculateAuthoritativeQuote(quoteInput) {
           ? 'deep'
           : 'standard';
 
-  let basePrice = 0;
-  let estimatedHours = 1;
-  let hourlyRate = cfg.hourlyRates[effectiveServiceType] || 50;
+  const hourlyRate = cfg.hourlyRates[effectiveServiceType] || 50;
+  const tf = cfg.timeFactors;
+  const extraSqft = Math.max(0, quoteInput.sqft - tf.sqftBaseline);
+  const sqftHours = (extraSqft / tf.sqftStepSize) * tf.hoursPerSqftStep;
+  const rawHours =
+    tf.baseHours +
+    quoteInput.bedrooms * tf.perBedroomHours +
+    quoteInput.fullBaths * tf.perFullBathHours +
+    quoteInput.halfBaths * tf.perHalfBathHours +
+    sqftHours;
+  const serviceMult = cfg.serviceMultipliers[effectiveServiceType] || 1.0;
+  const estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
+  const rawPrice = Math.round(estimatedHours * hourlyRate);
+  const basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
 
-  if (isSpecificAreas) {
-    const bookedHours = Math.min(
-      cfg.specificAreas.maxHours,
-      Math.max(cfg.specificAreas.minHours, quoteInput.specificHours)
-    );
-    estimatedHours = bookedHours;
-    const extraHours = Math.max(0, bookedHours - cfg.specificAreas.minHours);
-    basePrice = cfg.specificAreas.baseOneHourFlatRate + extraHours * cfg.specificAreas.extraHourRate;
-    hourlyRate = cfg.specificAreas.extraHourRate;
-  } else {
-    const tf = cfg.timeFactors;
-    const extraSqft = Math.max(0, quoteInput.sqft - tf.sqftBaseline);
-    const sqftHours = (extraSqft / tf.sqftStepSize) * tf.hoursPerSqftStep;
-    const rawHours =
-      tf.baseHours +
-      quoteInput.bedrooms * tf.perBedroomHours +
-      quoteInput.fullBaths * tf.perFullBathHours +
-      quoteInput.halfBaths * tf.perHalfBathHours +
-      sqftHours;
-    const serviceMult = cfg.serviceMultipliers[effectiveServiceType] || 1.0;
-    estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
-    const rawPrice = Math.round(estimatedHours * hourlyRate);
-    basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
-  }
+  const specificAddonHours = isSpecificAreas
+    ? Math.min(cfg.specificAreas.maxHours, Math.max(cfg.specificAreas.minHours, quoteInput.specificHours))
+    : 0;
+  const specificAddonPrice = specificAddonHours * cfg.specificAreas.extraHourRate;
 
   const hasPets = quoteInput.additionalInfo?.hasPets || '';
   const petsAddonCount =
@@ -814,11 +805,13 @@ export function calculateAuthoritativeQuote(quoteInput) {
     quoteInput.addons.fridge * cfg.addons.fridge +
     quoteInput.addons.fridgeDouble * cfg.addons.fridgeDouble +
     quoteInput.addons.oven * cfg.addons.oven +
-    petsAddonCount * cfg.addons.pets;
+    petsAddonCount * cfg.addons.pets +
+    specificAddonPrice;
 
   const addonHours =
     (quoteInput.addons.fridge + quoteInput.addons.fridgeDouble + quoteInput.addons.oven) * 0.5 +
-    petsAddonCount * 0.25;
+    petsAddonCount * 0.25 +
+    specificAddonHours;
   const totalEstimatedHours = Number((estimatedHours + addonHours).toFixed(2));
   const durationMinutes = Math.max(60, Math.round(totalEstimatedHours * 60));
 
@@ -829,6 +822,8 @@ export function calculateAuthoritativeQuote(quoteInput) {
     pricingModel: 'FLAT_RATE_NO_ONLINE_PAYMENT',
     isCommercial: false,
     isSpecificAreas,
+    specificAddonHours,
+    specificAddonPrice,
     hourlyRate,
     estimatedHours,
     addonHours,
@@ -1131,7 +1126,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     return { ok: false, status: 400, code: 'INVALID_SPECIFIC_AREAS', error: 'Specific areas description is invalid.' };
   }
 
-  if (serviceCategory === 'residential' && scopeMode === 'specific' && specificAreasText.length === 0) {
+  if (serviceCategory !== 'commercial' && scopeMode === 'specific' && specificAreasText.length === 0) {
     return { ok: false, status: 400, code: 'MISSING_SPECIFIC_AREAS', error: 'Please specify which areas you want cleaned.' };
   }
 
@@ -1214,6 +1209,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
       previousSnapshot: null,
       previousReferenceCode: '',
       previousDate: '',
+      previousFrequency: '',
       customer: {
         firstName: rawFirst,
         lastName: rawLast,
@@ -1290,9 +1286,7 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
   const serviceLabel =
     quote.serviceCategory === 'commercial'
       ? SERVICE_DISPLAY_LABELS.commercial
-      : calculation.isSpecificAreas
-        ? `Specific Areas (${quote.specificHours} Hours)`
-        : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
+      : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
   const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
@@ -1309,6 +1303,7 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
       : '[UPDATED] '
     : '';
   const summary = `${summaryPrefix}Smarts Pro Cleaning: ${customer.fullName} (${serviceLabel}) [${referenceCode}]`;
+  const specificAddonHours = calculation.isSpecificAreas ? Math.max(1, Number(quote.specificHours) || 1) : 0;
   const descriptionLines = [
     `Reference ID: ${referenceCode}`,
     ...(isUpdated ? [`Update Status: UPDATED APPOINTMENT (#${Math.max(1, updateCount)})`] : []),
@@ -1316,6 +1311,9 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
     `Phone: ${customer.phone}`,
     `Email: ${customer.email}`,
     `Service: ${serviceLabel}`,
+    ...(calculation.isSpecificAreas
+      ? [`Specific Areas Add-On: +${specificAddonHours} hr(s) (+$${specificAddonHours * 50}.00) — ${quote.specificAreasText}`]
+      : []),
     `Scheduled Window: ${startLabel} – ${endLabel}`,
     `Est. Cleaning Time: ${formatDurationHours(durationHours)}`,
     `Schedule: ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`,
@@ -1361,6 +1359,10 @@ function buildUpdateTokenSnapshot(validatedRecord) {
     type: quote.serviceType || 'standard',
     mode: quote.scopeMode || 'full',
     sh: quote.specificHours || 1,
+    saTxt:
+      quote.scopeMode === 'specific'
+        ? String(quote.specificAreasText || '').trim().slice(0, 80)
+        : '',
     beds: quote.bedrooms ?? 3,
     fb: quote.fullBaths ?? 2,
     hb: quote.halfBaths ?? 1,
@@ -1379,11 +1381,8 @@ function buildUpdateTokenSnapshot(validatedRecord) {
   };
 }
 
-function formatScopeLabelForSnapshot(cat, type, mode, sh) {
+function formatScopeLabelForSnapshot(cat, type) {
   if (cat === 'commercial') return SERVICE_DISPLAY_LABELS.commercial;
-  if (cat === 'residential' && mode === 'specific') {
-    return `Specific Areas (${sh || 1} Hours Booked)`;
-  }
   if (cat === 'moveinout') return SERVICE_DISPLAY_LABELS.moveinout;
   if (cat === 'airbnb') return SERVICE_DISPLAY_LABELS.airbnb;
   return SERVICE_DISPLAY_LABELS[type] || SERVICE_DISPLAY_LABELS.standard;
@@ -1458,34 +1457,56 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
     });
   }
 
-  // 2. Service Tier / Mode / Booked Hours
-  if (
-    prevSnap.cat !== quote.serviceCategory ||
-    prevSnap.type !== quote.serviceType ||
-    prevSnap.mode !== quote.scopeMode
-  ) {
+  const prevSpecificOn = prevSnap.mode === 'specific';
+  const curSpecificOn = quote.serviceCategory !== 'commercial' && quote.scopeMode === 'specific';
+  const prevSh = Number(prevSnap.sh || 1);
+  const curSh = Number(quote.specificHours || 1);
+  const prevSaTxt = String(prevSnap.saTxt || '').trim();
+  const curSaTxt = String(quote.specificAreasText || '').trim();
+
+  if (!prevSpecificOn && curSpecificOn) {
+    items.push({
+      badge: 'ADDED',
+      label: 'Specific Areas Add-On (+$50/hr)',
+      detail: `Added +${curSh} hr(s) (+$${curSh * 50}.00)${curSaTxt ? ` — ${curSaTxt}` : ''}`
+    });
+  } else if (prevSpecificOn && !curSpecificOn) {
     items.push({
       badge: 'UPDATED',
-      label: 'Service Tier / Scope Mode',
-      detail: `${formatScopeLabelForSnapshot(prevSnap.cat, prevSnap.type, prevSnap.mode, prevSnap.sh)} → ${formatScopeLabelForSnapshot(quote.serviceCategory, quote.serviceType, quote.scopeMode, quote.specificHours)}`
+      label: 'Specific Areas Add-On',
+      detail: `Removed Specific Areas Add-On (${prevSh} hr(s), -$${prevSh * 50}.00)`
     });
+  } else if (prevSpecificOn && curSpecificOn) {
+    if (curSh !== prevSh) {
+      items.push({
+        badge: curSh > prevSh ? 'ADDED' : 'UPDATED',
+        label: curSh > prevSh ? 'Specific Areas Add-On Hours (+$50/hr)' : 'Specific Areas Add-On Hours',
+        detail:
+          curSh > prevSh
+            ? `+${curSh - prevSh} hr(s) added (${prevSh} hrs → ${curSh} hrs, +$${(curSh - prevSh) * 50}.00)`
+            : `Adjusted from ${prevSh} hrs → ${curSh} hrs`
+      });
+    }
+    if (curSaTxt && curSaTxt !== prevSaTxt) {
+      items.push({
+        badge: 'UPDATED',
+        label: 'Specific Areas Add-On Details',
+        detail: `"${curSaTxt}"`
+      });
+    }
   }
 
-  if (quote.scopeMode === 'specific' && prevSnap.mode === 'specific' && Number(prevSnap.sh) !== Number(quote.specificHours)) {
-    const prevSh = Number(prevSnap.sh || 1);
-    const curSh = Number(quote.specificHours || 1);
+  // 2. Service Tier (never overwritten by Specific Areas Add-On)
+  if (prevSnap.cat !== quote.serviceCategory || prevSnap.type !== quote.serviceType) {
     items.push({
-      badge: curSh > prevSh ? 'ADDED' : 'UPDATED',
-      label: curSh > prevSh ? 'Additional Booked Hours (+$50/hr)' : 'Booked Hours',
-      detail:
-        curSh > prevSh
-          ? `+${curSh - prevSh} hr(s) added (${prevSh} hrs → ${curSh} hrs)`
-          : `${prevSh} hrs → ${curSh} hrs`
+      badge: 'UPDATED',
+      label: 'Service Tier',
+      detail: `${formatScopeLabelForSnapshot(prevSnap.cat, prevSnap.type)} → ${formatScopeLabelForSnapshot(quote.serviceCategory, quote.serviceType)}`
     });
   }
 
   // 3. Property Specs
-  if (quote.serviceCategory !== 'commercial' && quote.scopeMode !== 'specific') {
+  if (quote.serviceCategory !== 'commercial') {
     if (Number(prevSnap.beds) !== Number(quote.bedrooms)) {
       items.push({
         badge: Number(quote.bedrooms) > Number(prevSnap.beds) ? 'ADDED' : 'UPDATED',
@@ -1607,9 +1628,7 @@ export function buildAutomatedEmailContent(
     : null;
   const serviceLabel = isCommercial
     ? SERVICE_DISPLAY_LABELS.commercial
-    : calculation.isSpecificAreas
-      ? `Specific Areas (${quote.specificHours} Hours Booked)`
-      : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
+    : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
   const freqLabel = FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency;
   const recurrence = appointment.recurrence || getRecurrenceForFrequency(quote.frequency);
@@ -1618,14 +1637,20 @@ export function buildAutomatedEmailContent(
 
   const specsLine = isCommercial
     ? 'On-Site Facility Walkthrough Requested'
-    : calculation.isSpecificAreas
-      ? `${quote.specificHours} Hours Booked • Areas: ${quote.specificAreasText}`
-      : `${quote.bedrooms} Bed, ${quote.fullBaths} Full Bath, ${quote.halfBaths} Half Bath • ${quote.sqft.toLocaleString()} sq ft${quote.propertyType ? ` (${quote.propertyType})` : ''}`;
+    : `${quote.bedrooms} Bed, ${quote.fullBaths} Full Bath, ${quote.halfBaths} Half Bath • ${quote.sqft.toLocaleString()} sq ft${quote.propertyType ? ` (${quote.propertyType})` : ''}`;
 
   const addonParts = [];
   if (quote.addons.fridge > 0) addonParts.push(`${quote.addons.fridge}x Single Fridge ($65)`);
   if (quote.addons.fridgeDouble > 0) addonParts.push(`${quote.addons.fridgeDouble}x Double Fridge ($75)`);
   if (quote.addons.oven > 0) addonParts.push(`${quote.addons.oven}x Inside Oven ($80)`);
+  if (calculation.isSpecificAreas) {
+    const specHrs = Math.max(1, Number(quote.specificHours) || 1);
+    const specCost = specHrs * 50;
+    const hrUnit = specHrs === 1 ? 'hr' : 'hrs';
+    addonParts.push(
+      `Specific Areas Add-On (+${specHrs} ${hrUnit} / +$${specCost}.00${quote.specificAreasText ? `: ${quote.specificAreasText}` : ''})`
+    );
+  }
   if (quote.addons.pets > 0) addonParts.push('Pet Hair & Detailing ($35 flat fee)');
   const addonsLine = addonParts.length > 0 ? addonParts.join(', ') : 'None selected';
 
@@ -2094,6 +2119,7 @@ async function defaultMailTransport(emailPackage, validatedRecord, referenceCode
       referenceCode,
       previousReferenceCode: validatedRecord.previousReferenceCode || '',
       previousDate: validatedRecord.previousDate || '',
+      previousFrequency: validatedRecord.previousFrequency || '',
       isUpdated,
       updateCount: Number(validatedRecord.updateCount || 0),
       previousTotal: validatedRecord.previousTotal ?? null,
@@ -2798,6 +2824,7 @@ export function createIntakeService({
       record.previousSnapshot = verifiedUpdate.snap || null;
       record.previousReferenceCode = verifiedUpdate.ref;
       record.previousDate = verifiedUpdate.date;
+      record.previousFrequency = verifiedUpdate.snap?.freq || '';
     }
 
     // 8. Per-contact rate limit applies to brand-new unverified submissions (verified edits skip this cap)
@@ -2873,6 +2900,8 @@ export function createIntakeService({
       grandTotal: record.calculation.grandTotal,
       basePrice: record.calculation.basePrice,
       addonsTotal: record.calculation.addonsTotal,
+      specificAddonHours: record.calculation.specificAddonHours || 0,
+      specificAddonPrice: record.calculation.specificAddonPrice || 0,
       estimatedHours: record.calculation.estimatedHours,
       addonHours: record.calculation.addonHours,
       totalEstimatedHours: record.calculation.totalEstimatedHours,

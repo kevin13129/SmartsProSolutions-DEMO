@@ -107,7 +107,7 @@
         propertyType: String(q.propertyType || ''),
         scopeMode: String(q.scopeMode || 'full'),
         specificAreasText: String(q.specificAreasText || ''),
-        specificHours: Number(q.specificHours) || 2,
+        specificHours: Number(q.specificHours) || 1,
         bedrooms: Number(q.bedrooms) || 3,
         fullBaths: Number(q.fullBaths) || 2,
         halfBaths: Number(q.halfBaths) || 0,

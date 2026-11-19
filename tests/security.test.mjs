@@ -480,7 +480,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(leapYearRes.status, 200);
     assert.equal(leapYearRes.body.appointment.preferredDate, '2028-02-29');
 
-    // 7b. Verify updated pricing rules: $50 min (no 2-hr/$120 min) & higher 2000 sqft Standard ($250) and Deep ($330) quotes
+    // 7b. Verify Specific Areas (+$50/hr) stacks on top of base services & 2000 sqft Standard ($250) and Deep ($330) quotes
     const oneHrSpecificQuote = calculateAuthoritativeQuote({
       serviceCategory: 'residential',
       serviceType: 'standard',
@@ -496,7 +496,53 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       frequency: 'onetime',
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
     });
-    assert.equal(oneHrSpecificQuote.grandTotal, 50);
+    assert.equal(oneHrSpecificQuote.basePrice, 250);
+    assert.equal(oneHrSpecificQuote.specificAddonHours, 1);
+    assert.equal(oneHrSpecificQuote.specificAddonPrice, 50);
+    assert.equal(oneHrSpecificQuote.addonsTotal, 50);
+    assert.equal(oneHrSpecificQuote.totalEstimatedHours, 6);
+    assert.equal(oneHrSpecificQuote.grandTotal, 300);
+
+    const deepPlusSpecificQuote = calculateAuthoritativeQuote({
+      serviceCategory: 'residential',
+      serviceType: 'deep',
+      propertyType: '',
+      scopeMode: 'specific',
+      specificAreasText: 'Extra detail on master bath & kitchen backsplash',
+      specificHours: 2,
+      bedrooms: 3,
+      fullBaths: 2,
+      halfBaths: 0,
+      sqft: 2000,
+      additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+      frequency: 'onetime',
+      addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+    });
+    assert.equal(deepPlusSpecificQuote.basePrice, 330);
+    assert.equal(deepPlusSpecificQuote.specificAddonHours, 2);
+    assert.equal(deepPlusSpecificQuote.specificAddonPrice, 100);
+    assert.equal(deepPlusSpecificQuote.addonsTotal, 100);
+    assert.equal(deepPlusSpecificQuote.totalEstimatedHours, 7.5);
+    assert.equal(deepPlusSpecificQuote.grandTotal, 430);
+
+    const movePlusSpecificQuote = calculateAuthoritativeQuote({
+      serviceCategory: 'moveinout',
+      serviceType: 'moveinout',
+      propertyType: 'House',
+      scopeMode: 'specific',
+      specificAreasText: 'Garage sweep and patio doors',
+      specificHours: 1,
+      bedrooms: 3,
+      fullBaths: 2,
+      halfBaths: 0,
+      sqft: 2000,
+      additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Empty / Unfurnished', condition: 'Average, normal use' },
+      frequency: 'onetime',
+      addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+    });
+    assert.equal(movePlusSpecificQuote.specificAddonHours, 1);
+    assert.equal(movePlusSpecificQuote.specificAddonPrice, 50);
+    assert.equal(movePlusSpecificQuote.grandTotal, movePlusSpecificQuote.basePrice + 50);
 
     const standard2000Quote = calculateAuthoritativeQuote({
       serviceCategory: 'residential',
@@ -635,14 +681,14 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(doubleBookRes.status, 409);
     assert.equal(doubleBookRes.body.code, 'SLOT_ALREADY_BOOKED');
 
-    // 11b. Same customer (matching email) can edit their confirmed request (e.g., longer hours or additional info/add-ons) and receive auto-adjusted server total
+    // 11b. Same customer (matching email) can edit their confirmed request to add Specific Areas (+4 hrs = +$200) on top of base Standard Clean ($275) + Fridge ($65) + Pets ($35) = $575
     const editedSameCustomerRes = await intakeService.processEstimateRequest({
       rawBody: JSON.stringify({
         ...validPayload,
         quote: {
           ...validPayload.quote,
           scopeMode: 'specific',
-          specificHours: 4, // 4 hrs * $50 = $200 base + $65 fridge + $35 pets = $300
+          specificHours: 4, // +4 hrs * $50 = +$200 add-on stacked on top of $275 base + $65 fridge + $35 pets = $575
           specificAreasText: 'Kitchen, living room, and master bath'
         }
       }),
@@ -651,9 +697,15 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     });
     assert.equal(editedSameCustomerRes.status, 200);
     assert.equal(editedSameCustomerRes.body.success, true);
-    assert.equal(editedSameCustomerRes.body.verifiedEstimate.basePrice, 200);
-    assert.equal(editedSameCustomerRes.body.verifiedEstimate.addonsTotal, 100);
-    assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 300);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.basePrice, 275);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.specificAddonHours, 4);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.specificAddonPrice, 200);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.addonsTotal, 300);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 575);
+    const sameCustEditEmail = sentEmails[sentEmails.length - 1].emailPackage;
+    assert.match(sameCustEditEmail.htmlBody, /Residential Standard Clean/);
+    assert.match(sameCustEditEmail.htmlBody, /4 Bed, 2 Full Bath, 1 Half Bath/);
+    assert.match(sameCustEditEmail.htmlBody, /Specific Areas Add-On/);
 
     // 12. Verify GET /api/calendar-availability now shows the initial date AND recurring weekly dates as BOOKED with zero customer PII
     const availAfter = await (await fetch(`${base}/api/calendar-availability`)).json();
@@ -1234,6 +1286,76 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     assert.equal(webhookCalls[0].customerEmail.to, 'kevin@example.com');
     assert.ok(webhookCalls[0].recurrence);
     assert.equal(webhookCalls[0].recurrence.isRecurring, false);
+
+    // Also test a Weekly recurring booking edited TWICE in a row (adding Specific Areas +$100 and Inside Oven +$80):
+    // verifies previousFrequency='weekly' is sent for Code.gs in-place update, referenceCode stays identical,
+    // green + ADDED diff renders for Specific Areas Add-On, and base Deep Clean + specs remain intact.
+    const weeklyInitialRes = await webhookService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...basePayload,
+        appointment: { preferredDate: '2026-11-24', preferredWindow: '08:00-11:00' },
+        quote: { ...basePayload.quote, frequency: 'weekly' }
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.91'
+    });
+    assert.equal(weeklyInitialRes.status, 200);
+    const weeklyRef = weeklyInitialRes.body.referenceCode;
+    const weeklyEdit1Res = await webhookService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...basePayload,
+        appointment: { preferredDate: '2026-11-24', preferredWindow: '08:00-11:00' },
+        quote: {
+          ...basePayload.quote,
+          frequency: 'weekly',
+          scopeMode: 'specific',
+          specificHours: 2,
+          specificAreasText: 'Pantry shelves and mudroom baseboards'
+        },
+        updateToken: weeklyInitialRes.body.updateToken
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.91'
+    });
+    assert.equal(weeklyEdit1Res.status, 200);
+    assert.equal(weeklyEdit1Res.body.referenceCode, weeklyRef);
+    assert.equal(weeklyEdit1Res.body.verifiedEstimate.basePrice, 330);
+    assert.equal(weeklyEdit1Res.body.verifiedEstimate.specificAddonPrice, 100);
+    assert.equal(weeklyEdit1Res.body.verifiedEstimate.grandTotal, 430);
+    const weeklyEdit1Webhook = webhookCalls[webhookCalls.length - 1];
+    assert.equal(weeklyEdit1Webhook.previousFrequency, 'weekly');
+    assert.equal(weeklyEdit1Webhook.recurrence.frequency, 'weekly');
+    assert.match(weeklyEdit1Webhook.htmlBody, /#16A34A/);
+    assert.match(weeklyEdit1Webhook.htmlBody, /\+ ADDED/);
+    assert.match(weeklyEdit1Webhook.htmlBody, /Specific Areas Add-On \(\+\$50\/hr\)/);
+    assert.match(weeklyEdit1Webhook.htmlBody, /Residential Deep Clean/);
+    assert.match(weeklyEdit1Webhook.htmlBody, /3 Bed, 2 Full Bath/);
+
+    const weeklyEdit2Res = await webhookService.processEstimateRequest({
+      rawBody: JSON.stringify({
+        ...basePayload,
+        appointment: { preferredDate: '2026-11-24', preferredWindow: '08:00-11:00' },
+        quote: {
+          ...basePayload.quote,
+          frequency: 'weekly',
+          scopeMode: 'specific',
+          specificHours: 2,
+          specificAreasText: 'Pantry shelves and mudroom baseboards',
+          addons: { fridge: 0, fridgeDouble: 0, oven: 1, pets: 0 }
+        },
+        updateToken: weeklyEdit1Res.body.updateToken
+      }),
+      headers: { 'content-type': 'application/json' },
+      clientIp: '10.0.0.91'
+    });
+    assert.equal(weeklyEdit2Res.status, 200);
+    assert.equal(weeklyEdit2Res.body.referenceCode, weeklyRef);
+    assert.equal(weeklyEdit2Res.body.updateCount, 2);
+    assert.equal(weeklyEdit2Res.body.verifiedEstimate.grandTotal, 510);
+    const weeklyEdit2Webhook = webhookCalls[webhookCalls.length - 1];
+    assert.equal(weeklyEdit2Webhook.previousFrequency, 'weekly');
+    assert.equal(weeklyEdit2Webhook.recurrence.frequency, 'weekly');
+    assert.match(weeklyEdit2Webhook.htmlBody, /Inside Oven Cleaning/);
 
     // If Apps Script reports customerEmailSent: false, fail closed with 502 EMAIL_DISPATCH_FAILED
     failCustomerMailNextPost = true;

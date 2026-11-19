@@ -405,12 +405,12 @@
 
     if (stepId === 5) {
       if (
-        state.serviceCategory === 'residential' &&
+        state.serviceCategory !== 'commercial' &&
         state.scopeMode === 'specific' &&
         state.specificAreasText.trim().length === 0
       ) {
         showValidationError(
-          'Please enter which specific areas you want cleaned (or click Specific Areas again to switch back) before continuing.',
+          'Please enter which extra specific areas you want cleaned (or click Specific Areas Add-On again to remove it) before continuing.',
           [els.specificAreasInputGroup, els.inputSpecificAreas]
         );
         if (els.inputSpecificAreas) els.inputSpecificAreas.focus();
@@ -476,72 +476,57 @@
     }
 
     const isSpecificAreas =
-      state.serviceCategory === 'residential' && state.scopeMode === 'specific';
+      state.serviceCategory !== 'commercial' && state.scopeMode === 'specific';
 
-    let basePrice = 0;
-    let estimatedHours = 1;
-    let minApplied = false;
-    let hourlyRate = cfg.hourlyRates[state.serviceType] || 50;
+    const hourlyRate = cfg.hourlyRates[state.serviceType] || 50;
+    const tf = cfg.timeFactors;
+    const extraSqft = Math.max(0, state.sqft - tf.sqftBaseline);
+    const sqftHours = (extraSqft / tf.sqftStepSize) * tf.hoursPerSqftStep;
 
-    if (isSpecificAreas) {
-      const bookedHours = Math.min(
-        cfg.specificAreas.maxHours,
-        Math.max(cfg.specificAreas.minHours, state.specificHours)
-      );
-      estimatedHours = bookedHours;
-      const extraHours = Math.max(0, bookedHours - cfg.specificAreas.minHours);
-      basePrice =
-        cfg.specificAreas.baseOneHourFlatRate +
-        extraHours * cfg.specificAreas.extraHourRate;
-      minApplied = bookedHours === cfg.specificAreas.minHours;
-      hourlyRate = cfg.specificAreas.extraHourRate;
-    } else {
-      const tf = cfg.timeFactors;
-      const extraSqft = Math.max(0, state.sqft - tf.sqftBaseline);
-      const sqftHours = (extraSqft / tf.sqftStepSize) * tf.hoursPerSqftStep;
+    const rawHours =
+      tf.baseHours +
+      state.bedrooms * tf.perBedroomHours +
+      state.fullBaths * tf.perFullBathHours +
+      state.halfBaths * tf.perHalfBathHours +
+      sqftHours;
 
-      const rawHours =
-        tf.baseHours +
-        state.bedrooms * tf.perBedroomHours +
-        state.fullBaths * tf.perFullBathHours +
-        state.halfBaths * tf.perHalfBathHours +
-        sqftHours;
+    const serviceMult = cfg.serviceMultipliers[state.serviceType] || 1.0;
+    const estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
 
-      const serviceMult = cfg.serviceMultipliers[state.serviceType] || 1.0;
-      estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
+    const rawPrice = Math.round(estimatedHours * hourlyRate);
+    const basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
+    const minApplied = rawPrice < cfg.minimumJobCharge;
 
-      const rawPrice = Math.round(estimatedHours * hourlyRate);
-      basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
-      minApplied = rawPrice < cfg.minimumJobCharge;
-    }
+    // Specific Areas Add-On adds 1 to 6 hours at $50/hr on top of base service
+    const specificAddonHours = isSpecificAreas
+      ? Math.min(
+          cfg.specificAreas.maxHours,
+          Math.max(cfg.specificAreas.minHours, state.specificHours)
+        )
+      : 0;
+    const specificAddonPrice = specificAddonHours * cfg.specificAreas.extraHourRate;
 
     // Add-ons total
     const addonsTotal =
       state.addons.fridge * cfg.addons.fridge +
       state.addons.fridgeDouble * cfg.addons.fridgeDouble +
       state.addons.oven * cfg.addons.oven +
-      state.addons.pets * cfg.addons.pets;
+      state.addons.pets * cfg.addons.pets +
+      specificAddonPrice;
 
     const grandTotal = basePrice + addonsTotal;
 
     const addonHours =
       (state.addons.fridge + state.addons.fridgeDouble + state.addons.oven) * 0.5 +
-      state.addons.pets * 0.25;
+      state.addons.pets * 0.25 +
+      specificAddonHours;
     const totalHours = estimatedHours + addonHours;
     const totalEstimatedHours = Number(totalHours.toFixed(2));
     const durationMinutes = Math.max(60, Math.round(totalEstimatedHours * 60));
 
-    let timeRangeText = '';
-    if (isSpecificAreas) {
-      timeRangeText =
-        addonHours > 0
-          ? `${estimatedHours} hrs + ${addonHours.toFixed(1)}h add-ons`
-          : `${estimatedHours} Hours Booked`;
-    } else {
-      const minHrs = Math.max(1.5, Math.round((totalHours - 0.5) * 2) / 2);
-      const maxHrs = Math.round((totalHours + 0.5) * 2) / 2;
-      timeRangeText = `${minHrs} – ${maxHrs} hrs`;
-    }
+    const minHrs = Math.max(1.5, Math.round((totalHours - 0.5) * 2) / 2);
+    const maxHrs = Math.round((totalHours + 0.5) * 2) / 2;
+    const timeRangeText = `${minHrs} – ${maxHrs} hrs`;
 
     let crewSize = '1 – 2 Pros';
     if (totalHours >= 4.5) crewSize = '2 – 3 Pros';
@@ -550,6 +535,8 @@
     return {
       isCommercial: false,
       isSpecificAreas,
+      specificAddonHours,
+      specificAddonPrice,
       hourlyRate,
       estimatedHours,
       addonHours,
@@ -714,11 +701,11 @@
       }
     }
 
-    // Specific Areas option in Step 5 applies exclusively to Residential Homes
+    // Specific Areas Add-On in Step 5 applies to all non-commercial services (Residential, Move-In/Out, Airbnb)
     if (els.step5SpecificAreasBlock) {
       els.step5SpecificAreasBlock.classList.toggle(
         'is-hidden',
-        state.serviceCategory !== 'residential'
+        state.serviceCategory === 'commercial'
       );
     }
 
@@ -820,11 +807,10 @@
 
     updateServiceOverviewUI();
 
-    // 1. Update Residential Tier Buttons & Scope Panels
+    // 1. Update Residential Tier Buttons & Scope Panels (keep base Standard/Deep tier active even with Specific Areas Add-On)
     els.residentialTierBtns.forEach((btn) => {
       const tier = btn.getAttribute('data-res-tier');
-      const currentTier = state.scopeMode === 'specific' ? 'specific' : state.serviceType;
-      const isActive = state.step2ResidentialFulfilled && tier === currentTier;
+      const isActive = state.step2ResidentialFulfilled && tier === state.serviceType;
       btn.classList.toggle('active', isActive);
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
@@ -846,8 +832,8 @@
     }
     if (els.specificAreasToggleBadge) {
       els.specificAreasToggleBadge.textContent = isSpecific
-        ? 'Selected · Click to switch back'
-        : 'Click to select';
+        ? 'Added ✓ · Click to remove'
+        : 'Click to add';
     }
     if (els.scopePanelSpecific) {
       els.scopePanelSpecific.classList.toggle('is-hidden', !isSpecific);
@@ -949,9 +935,6 @@
       if (isCommercial) {
         els.quoteMinimumNoteText.textContent =
           'Commercial walkthrough confirms final facility pricing';
-      } else if (isSpecific) {
-        els.quoteMinimumNoteText.textContent =
-          'Flat-rate package (1–6 hrs) • No Online Payment Required';
       } else {
         els.quoteMinimumNoteText.textContent =
           'Flat-Rate Property Estimate • No Online Payment Required';
@@ -967,8 +950,6 @@
     if (els.summaryServiceType) {
       if (isCommercial) {
         els.summaryServiceType.textContent = 'Commercial Walkthrough';
-      } else if (isSpecific) {
-        els.summaryServiceType.textContent = `Specific Areas · ${state.specificHours} hrs`;
       } else {
         els.summaryServiceType.textContent =
           serviceNames[state.serviceType] || 'Standard Clean';
@@ -992,12 +973,6 @@
       if (isCommercial) {
         els.summaryScopeTitle.textContent = 'Facility Scope';
         els.summaryBaseRate.textContent = 'Confirmed during owner walkthrough';
-      } else if (isSpecific) {
-        els.summaryScopeTitle.textContent = 'Booked Time';
-        els.summaryBaseRate.textContent =
-          state.specificHours > 1
-            ? `${state.specificHours} Hours Booked (Flat-Rate Package)`
-            : '1 hr ($50 Flat Minimum)';
       } else {
         els.summaryScopeTitle.textContent = 'Property Size';
         const bathText =
@@ -1012,8 +987,11 @@
       if (isSpecific) {
         els.summarySpecificAreasRow.classList.remove('is-hidden');
         const cleanedText = state.specificAreasText.trim();
+        const hrUnit = calc.specificAddonHours === 1 ? 'hr' : 'hrs';
         els.summarySpecificAreasVal.textContent =
-          cleanedText.length > 0 ? cleanedText : 'Specify in Step 5';
+          cleanedText.length > 0
+            ? `+${calc.specificAddonHours} ${hrUnit} (+$${calc.specificAddonPrice}): ${cleanedText}`
+            : `+${calc.specificAddonHours} ${hrUnit} (+$${calc.specificAddonPrice}) — Specify in Step 5`;
       } else {
         els.summarySpecificAreasRow.classList.add('is-hidden');
       }
@@ -1097,10 +1075,8 @@
         state.serviceType = 'standard';
       }
     } else if (category === 'moveinout') {
-      state.scopeMode = 'full';
       state.serviceType = 'moveinout';
     } else if (category === 'airbnb') {
-      state.scopeMode = 'full';
       state.serviceType = 'airbnb';
       state.frequency = 'turnover';
     } else if (category === 'commercial') {
@@ -1135,28 +1111,21 @@
       });
     });
 
-    // Step 2: Residential Tier Buttons (Standard Clean, Deep Clean)
+    // Step 2: Residential Tier Buttons (Standard Clean, Deep Clean — preserves Specific Areas Add-On)
     els.residentialTierBtns.forEach((btn) => {
       btn.addEventListener('click', () => {
         const tier = btn.getAttribute('data-res-tier');
         state.step2ResidentialFulfilled = true;
         clearValidationErrors();
-        if (tier === 'deep') {
-          state.scopeMode = 'full';
-          state.serviceType = 'deep';
-        } else {
-          state.scopeMode = 'full';
-          state.serviceType = 'standard';
-        }
+        state.serviceType = tier === 'deep' ? 'deep' : 'standard';
         updateUI();
       });
     });
 
-    // Step 5: Specific Areas Toggle Button
+    // Step 5: Specific Areas Add-On Toggle Button (stacks +$50/hr on top of base service)
     if (els.btnScopeSpecific) {
       els.btnScopeSpecific.addEventListener('click', () => {
-        if (state.serviceCategory !== 'residential') return;
-        state.step2ResidentialFulfilled = true;
+        if (state.serviceCategory === 'commercial') return;
         state.scopeMode = state.scopeMode === 'specific' ? 'full' : 'specific';
         clearValidationErrors();
         updateUI();
@@ -1228,7 +1197,6 @@
       els.btnBedMinus.addEventListener('click', () => {
         if (state.bedrooms > 1) {
           state.bedrooms--;
-          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           state.step2AirbnbConfirmed = true;
           clearValidationErrors();
@@ -1240,7 +1208,6 @@
       els.btnBedPlus.addEventListener('click', () => {
         if (state.bedrooms < 8) {
           state.bedrooms++;
-          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           state.step2AirbnbConfirmed = true;
           clearValidationErrors();
@@ -1254,7 +1221,6 @@
       els.btnBathMinus.addEventListener('click', () => {
         if (state.fullBaths > 1) {
           state.fullBaths--;
-          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           state.step2AirbnbConfirmed = true;
           clearValidationErrors();
@@ -1266,7 +1232,6 @@
       els.btnBathPlus.addEventListener('click', () => {
         if (state.fullBaths < 6) {
           state.fullBaths++;
-          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           state.step2AirbnbConfirmed = true;
           clearValidationErrors();
@@ -1280,7 +1245,6 @@
       els.btnHalfBathMinus.addEventListener('click', () => {
         if (state.halfBaths > 0) {
           state.halfBaths--;
-          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           state.step2AirbnbConfirmed = true;
           clearValidationErrors();
@@ -1292,7 +1256,6 @@
       els.btnHalfBathPlus.addEventListener('click', () => {
         if (state.halfBaths < 4) {
           state.halfBaths++;
-          state.scopeMode = 'full';
           state.step2ResidentialFulfilled = true;
           state.step2AirbnbConfirmed = true;
           clearValidationErrors();
@@ -1306,7 +1269,6 @@
       els.sliderSqft.addEventListener('input', (e) => {
         const val = parseInt(e.target.value, 10) || 1800;
         state.sqft = Math.min(6000, Math.max(400, val));
-        state.scopeMode = 'full';
         state.step2ResidentialFulfilled = true;
         state.step2AirbnbConfirmed = true;
         clearValidationErrors();
@@ -1321,7 +1283,6 @@
         let val = parseInt(e.target.value, 10);
         if (isNaN(val)) val = 400;
         state.sqft = Math.min(6000, Math.max(400, val));
-        state.scopeMode = 'full';
         state.step2ResidentialFulfilled = true;
         state.step2AirbnbConfirmed = true;
         clearValidationErrors();
@@ -1549,7 +1510,7 @@
     }
 
     if (typeof patch.specificAreasText === 'string') {
-      state.specificAreasText = patch.specificAreasText.slice(0, 400);
+      state.specificAreasText = patch.specificAreasText.slice(0, 180);
       if (els.inputSpecificAreas) {
         els.inputSpecificAreas.value = state.specificAreasText;
       }

@@ -187,12 +187,13 @@ try {
   assert.equal(await evaluate('!!document.querySelector("#calc-step-5 #btn-scope-specific")'), true);
   assert.equal(await evaluate('!!document.querySelector("#calc-step-5 #scope-panel-specific")'), true);
 
-  // Advance to Step 5, toggle Specific Areas on ($50 1hr + $65 fridge = $115), validate required text, then toggle off ($340)
+  // Advance to Step 5, toggle Specific Areas Add-On (+1 hr / +$50 on top of $275 base + $65 fridge = $390), validate required text, then toggle off ($340)
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 5);
   await evaluate('document.getElementById("btn-scope-specific").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.scopeMode'), 'specific');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 115);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 390);
+  assert.equal(await evaluate('document.getElementById("summary-service-type").textContent'), 'Standard Clean');
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('document.getElementById("specific-areas-input-group").classList.contains("wizard-field-missing")'), true);
   await evaluate('document.getElementById("btn-scope-specific").click()');

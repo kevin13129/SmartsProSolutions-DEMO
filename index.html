@@ -502,7 +502,7 @@
                       <div class="service-radio-custom"></div>
                     </div>
                     <div class="service-card-name">Residential Homes</div>
-                    <p class="service-card-desc">Standard upkeep, Deep Restoration, or Specific Priority Areas (packages from $50).</p>
+                    <p class="service-card-desc">Standard upkeep or Deep Restoration, plus optional Specific Areas add-on (+$50/hr).</p>
                     <span class="service-multiplier-tag">Flat-Rate Custom Quote</span>
                   </label>
 
@@ -561,7 +561,7 @@
                   <div class="service-overview-grid" id="overview-items-grid">
                     <div class="overview-check-item">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      <span id="overview-bullet-1"><strong>Residential Homes:</strong> Kitchens, baths, floors, dusting (Standard Clean, Deep Clean, or Specific Areas from $50)</span>
+                      <span id="overview-bullet-1"><strong>Residential Homes:</strong> Kitchens, baths, floors, dusting (Standard Clean or Deep Clean, plus optional +$50/hr Specific Areas add-on)</span>
                     </div>
                     <div class="overview-check-item">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -973,7 +973,7 @@
                   <div class="step-num" id="step-badge-5">5</div>
                   <div class="step-info">
                     <h3>Custom Add-Ons</h3>
-                    <p>Optional: add inside refrigerator or oven cleaning, or switch to a timed Specific Areas package ($50 min)</p>
+                    <p>Optional: add inside refrigerator, oven cleaning, or extra Specific Areas hours (+$50/hr) on top of your selected service</p>
                   </div>
                 </div>
 
@@ -1033,11 +1033,11 @@
                   </div>
                 </div>
 
-                <!-- Specific Areas Option & Package Panel (Moved from Step 2 into Step 5 Add-Ons) -->
+                <!-- Specific Areas Add-On Option (Stacks +$50/hr on top of selected base service) -->
                 <div class="step5-specific-areas-block" id="step5-specific-areas-block">
                   <div class="substep-label-row">
-                    <span class="substep-title">Specific Areas Package (Optional)</span>
-                    <span class="substep-req-badge">Flat Rate from $50</span>
+                    <span class="substep-title">Specific Areas Add-On (Optional)</span>
+                    <span class="substep-req-badge">+$50/hr Add-On (1–6 hrs)</span>
                   </div>
 
                   <button type="button" class="scope-mode-btn step5-specific-toggle" id="btn-scope-specific" data-res-tier="specific" data-scope-mode="specific" aria-pressed="false">
@@ -1045,10 +1045,10 @@
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
                     </span>
                     <span class="scope-mode-copy">
-                      <strong>Specific Areas</strong>
-                      <span>1 to 6 hrs booked • Flat-rate packages from $50</span>
+                      <strong>Specific Areas Add-On (+$50/hr)</strong>
+                      <span>Adds 1 to 6 extra hours ($50/hr) on top of your selected service</span>
                     </span>
-                    <span class="specific-toggle-badge" id="specific-areas-toggle-badge">Click to select</span>
+                    <span class="specific-toggle-badge" id="specific-areas-toggle-badge">Click to add</span>
                   </button>
 
                   <!-- PANEL: Specific Areas Custom Text Entry & Booked Hours (1-6 Hours) -->
@@ -1057,49 +1057,49 @@
                       <div class="specific-input-group" id="specific-areas-input-group">
                         <label for="input-specific-areas" class="specific-input-label">
                           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                          <span>Which specific areas would you like cleaned? (Required)</span>
+                          <span>Which extra specific areas would you like added? (Required)</span>
                         </label>
-                        <input id="input-specific-areas" class="specific-areas-input" placeholder="Type your specific areas (e.g., Kitchen, master bathroom, living room &amp; hallways)..." maxlength="180" autocomplete="off" aria-label="Type your specific areas to clean">
-                        <span class="specific-input-hint">Describe the rooms, surfaces, or priority tasks you want our team to focus on during your booked time.</span>
+                        <input id="input-specific-areas" class="specific-areas-input" placeholder="Type your specific areas (e.g., Patio, sunroom, garage sweep, extra playroom)..." maxlength="180" autocomplete="off" aria-label="Type your specific areas to add">
+                        <span class="specific-input-hint">Describe the extra rooms, surfaces, or priority tasks to add on top of your selected service.</span>
                       </div>
 
                       <div class="specific-hours-card">
                         <div class="specific-hours-header">
                           <div class="specific-hours-title-wrap">
-                            <h4>How many hours are you booking?</h4>
-                            <p><strong>1-hour minimum flat rate = $50</strong> • Select a <strong>1 to 6 hour</strong> flat-rate package below</p>
+                            <h4>How many extra hours are you adding?</h4>
+                            <p><strong>$50 per added hour</strong> • Select <strong>1 to 6 hours</strong> to add on top of your base service</p>
                           </div>
                           <div class="stepper-control specific-hours-stepper">
-                            <button type="button" class="stepper-btn" id="btn-hours-minus" aria-label="Decrease Booked Hours">−</button>
+                            <button type="button" class="stepper-btn" id="btn-hours-minus" aria-label="Decrease Specific Areas Hours">−</button>
                             <span class="stepper-value" id="val-specific-hours">1</span>
-                            <button type="button" class="stepper-btn" id="btn-hours-plus" aria-label="Increase Booked Hours">+</button>
+                            <button type="button" class="stepper-btn" id="btn-hours-plus" aria-label="Increase Specific Areas Hours">+</button>
                           </div>
                         </div>
 
-                        <div class="specific-hours-pills" role="group" aria-label="Select Booked Hours">
+                        <div class="specific-hours-pills" role="group" aria-label="Select Specific Areas Add-On Hours">
                           <button type="button" class="hour-tier-btn active" data-hours-val="1">
-                            <strong>1 Hour</strong>
-                            <span>$50 Flat Min</span>
+                            <strong>+1 Hour</strong>
+                            <span>+$50 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="2">
-                            <strong>2 Hours</strong>
-                            <span>$100 Flat Rate</span>
+                            <strong>+2 Hours</strong>
+                            <span>+$100 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="3">
-                            <strong>3 Hours</strong>
-                            <span>$150 Flat Rate</span>
+                            <strong>+3 Hours</strong>
+                            <span>+$150 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="4">
-                            <strong>4 Hours</strong>
-                            <span>$200 Flat Rate</span>
+                            <strong>+4 Hours</strong>
+                            <span>+$200 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="5">
-                            <strong>5 Hours</strong>
-                            <span>$250 Flat Rate</span>
+                            <strong>+5 Hours</strong>
+                            <span>+$250 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="6">
-                            <strong>6 Hours</strong>
-                            <span>$300 Flat Rate</span>
+                            <strong>+6 Hours</strong>
+                            <span>+$300 Add-On</span>
                           </button>
                         </div>
                       </div>
@@ -1176,7 +1176,7 @@
                 <div class="breakdown-row is-hidden" id="summary-specific-areas-row">
                   <span class="breakdown-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
-                    Requested Areas
+                    Specific Areas Add-On
                   </span>
                   <span class="breakdown-value" id="summary-specific-areas-val">Specify in Step 5</span>
                 </div>
@@ -2031,7 +2031,7 @@
           <div class="recap-row"><span>Service Selected:</span><strong id="modal-recap-service">Standard Clean</strong></div>
           <div class="recap-row is-hidden" id="modal-recap-proptype-row"><span>Property Type:</span><strong id="modal-recap-proptype">House</strong></div>
           <div class="recap-row"><span id="modal-recap-specs-label">Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
-          <div class="recap-row is-hidden" id="modal-recap-areas-row"><span>Specific Areas:</span><strong id="modal-recap-areas">—</strong></div>
+          <div class="recap-row is-hidden" id="modal-recap-areas-row"><span>Specific Areas Add-On:</span><strong id="modal-recap-areas">—</strong></div>
           <div class="recap-row is-hidden" id="modal-recap-addinfo-row"><span>Additional Info:</span><strong id="modal-recap-addinfo">—</strong></div>
           <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Every 2 Weeks</strong></div>
           <div class="recap-row" id="modal-recap-addons-row"><span>Add-Ons &amp; Pets:</span><span id="modal-recap-addons">None selected</span></div>

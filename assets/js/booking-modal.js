@@ -430,10 +430,7 @@
           ? rawState.propertyType || 'House'
           : rawState.propertyType || '',
       scopeMode: rawState.scopeMode || 'full',
-      specificAreasText:
-        rawState.scopeMode === 'specific'
-          ? rawState.specificAreasText || 'General priority rooms'
-          : rawState.specificAreasText || '',
+      specificAreasText: String(rawState.specificAreasText || '').trim(),
       specificHours: Number(rawState.specificHours) || 1,
       bedrooms: Number(rawState.bedrooms) || 3,
       fullBaths: Number(rawState.fullBaths) || 2,
@@ -477,7 +474,9 @@
     if (!quote) return;
 
     const isCommercial = quote.state.serviceCategory === 'commercial';
-    const isSpecific = quote.calculation.isSpecificAreas;
+    const isSpecific = !isCommercial && Boolean(quote.calculation.isSpecificAreas || quote.state.scopeMode === 'specific');
+    const specHrs = Math.max(1, Number(quote.state.specificHours) || 1);
+    const specPrice = specHrs * 50;
 
     if (modalBookingTitle) {
       modalBookingTitle.textContent = isCommercial
@@ -488,8 +487,6 @@
     if (recapService) {
       if (isCommercial) {
         recapService.textContent = serviceLabels.commercial;
-      } else if (isSpecific) {
-        recapService.textContent = `Specific Areas (${quote.state.specificHours} Hours Booked)`;
       } else {
         recapService.textContent =
           serviceLabels[quote.state.serviceType] || 'Residential Standard Clean';
@@ -516,27 +513,21 @@
       if (recapAddinfoRow) recapAddinfoRow.classList.add('is-hidden');
       if (recapAddonsRow) recapAddonsRow.classList.add('is-hidden');
       if (recapTotalLabel) recapTotalLabel.textContent = 'Commercial Walkthrough Baseline:';
-    } else if (isSpecific) {
-      if (recapSpecsLabel) recapSpecsLabel.textContent = 'Booked Time:';
-      if (recapSpecs) {
-        recapSpecs.textContent =
-          quote.state.specificHours > 1
-            ? `${quote.state.specificHours} Hours Booked (Flat-Rate Package)`
-            : '1 Hour ($50 Flat Minimum)';
-      }
-      if (recapAreasRow) recapAreasRow.classList.remove('is-hidden');
-      if (recapAreas) {
-        const customText = (quote.state.specificAreasText || '').trim();
-        recapAreas.textContent = customText || 'General priority rooms';
-      }
-      if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
-      if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote (Flat Rate):';
     } else {
       if (recapSpecsLabel) recapSpecsLabel.textContent = 'Property Specs:';
       if (recapSpecs) {
         recapSpecs.textContent = `${quote.state.bedrooms} Bed, ${quote.state.fullBaths} Full, ${quote.state.halfBaths} Half / ${quote.state.sqft.toLocaleString()} sq ft`;
       }
-      if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
+      if (recapAreasRow) {
+        recapAreasRow.classList.toggle('is-hidden', !isSpecific);
+      }
+      if (recapAreas && isSpecific) {
+        const customText = (quote.state.specificAreasText || '').trim();
+        const hrUnit = specHrs === 1 ? 'hr' : 'hrs';
+        recapAreas.textContent = customText
+          ? `+${specHrs} ${hrUnit} (+$${specPrice}): ${customText}`
+          : `+${specHrs} ${hrUnit} (+$${specPrice}) — Describe areas below`;
+      }
       if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
       if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote (Flat Rate):';
     }
@@ -576,6 +567,10 @@
     }
     if (quote.state.addons.oven > 0) {
       addonParts.push(`${quote.state.addons.oven}x Inside Oven ($80)`);
+    }
+    if (isSpecific) {
+      const hrUnit = specHrs === 1 ? 'hr' : 'hrs';
+      addonParts.push(`Specific Areas (+${specHrs} ${hrUnit}, +$${specPrice})`);
     }
     if (quote.state.addons.pets > 0) {
       addonParts.push('Pet Hair & Detailing ($35 flat fee)');
@@ -783,39 +778,53 @@
 
     const st = quote.state;
     const calc = quote.calculation;
-    const isSpecific = st.scopeMode === 'specific';
+    const isCommercial = st.serviceCategory === 'commercial';
+    const isSpecific = !isCommercial && st.scopeMode === 'specific';
 
     if (refs.editLivePriceBadge) {
       refs.editLivePriceBadge.textContent = `Auto-Adjusted Total: $${calc.grandTotal.toFixed(2)}`;
     }
 
+    if (refs.modeGroup) {
+      refs.modeGroup.classList.toggle('is-hidden', st.serviceCategory !== 'residential');
+    }
+
     if (refs.modeBtnStandard) {
-      const active = st.scopeMode === 'full' && st.serviceType === 'standard';
+      const active = st.serviceType === 'standard';
       refs.modeBtnStandard.classList.toggle('active', active);
       refs.modeBtnStandard.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
     if (refs.modeBtnDeep) {
-      const active = st.scopeMode === 'full' && st.serviceType === 'deep';
+      const active = st.serviceType === 'deep';
       refs.modeBtnDeep.classList.toggle('active', active);
       refs.modeBtnDeep.setAttribute('aria-pressed', active ? 'true' : 'false');
     }
-    if (refs.modeBtnSpecific) {
-      const active = st.scopeMode === 'specific';
-      refs.modeBtnSpecific.classList.toggle('active', active);
-      refs.modeBtnSpecific.setAttribute('aria-pressed', active ? 'true' : 'false');
+
+    if (refs.editRoomsRow) {
+      refs.editRoomsRow.classList.toggle('is-hidden', isCommercial);
     }
 
-    if (refs.editHourlyRow) {
-      refs.editHourlyRow.classList.toggle('is-hidden', !isSpecific);
+    if (refs.editSpecificCard) {
+      refs.editSpecificCard.classList.toggle('is-hidden', isCommercial);
     }
-    if (refs.editRoomsRow) {
-      refs.editRoomsRow.classList.toggle('is-hidden', isSpecific);
+    if (refs.editSpecificToggleBtn) {
+      refs.editSpecificToggleBtn.classList.toggle('active', isSpecific);
+      refs.editSpecificToggleBtn.setAttribute('aria-pressed', isSpecific ? 'true' : 'false');
+      refs.editSpecificToggleBtn.textContent = isSpecific
+        ? 'Specific Areas Add-On: Included ✓ (Click to Remove)'
+        : '+ Add Specific Areas (+$50/hr, 1–6 hrs)';
+    }
+    if (refs.editSpecificFields) {
+      refs.editSpecificFields.classList.toggle('is-hidden', !isSpecific);
+    }
+    if (refs.editSpecificAreasInput && document.activeElement !== refs.editSpecificAreasInput) {
+      refs.editSpecificAreasInput.value = st.specificAreasText || '';
     }
 
     if (refs.editHoursVal) {
       const hrs = Math.max(1, Number(st.specificHours) || 1);
-      const packageCost = hrs * 50;
-      refs.editHoursVal.textContent = `${hrs} ${hrs === 1 ? 'Hour' : 'Hours'} ($${packageCost})`;
+      const addonCost = hrs * 50;
+      refs.editHoursVal.textContent = `+${hrs} ${hrs === 1 ? 'Hr' : 'Hrs'} (+$${addonCost})`;
     }
     if (refs.editBedVal) {
       refs.editBedVal.textContent = `${st.bedrooms} Bed`;
@@ -954,16 +963,13 @@
     );
 
     const q = confirmed.quote;
-    const isSpecific = q.scopeMode === 'specific';
     const isCommercial = q.serviceCategory === 'commercial';
+    const isSpecific = !isCommercial && q.scopeMode === 'specific';
+    const specHrs = Math.max(1, Number(q.specificHours) || 1);
+    const specPrice = specHrs * 50;
+    const specUnit = specHrs === 1 ? 'hr' : 'hrs';
     if (isCommercial) {
       addDetailRow('Service Scope:', 'Commercial & Offices (On-Site Walkthrough)', false);
-    } else if (isSpecific) {
-      addDetailRow(
-        'Service & Booked Hours:',
-        `Specific Areas / Timed Package • ${q.specificHours} Hours Booked (${q.specificAreasText || 'General priority rooms'})`,
-        false
-      );
     } else {
       const tierLabel = serviceLabels[q.serviceType] || 'Residential Standard Clean';
       addDetailRow(
@@ -971,6 +977,13 @@
         `${tierLabel} • ${q.bedrooms} Bed, ${q.fullBaths} Full Bath, ${q.halfBaths} Half Bath (${Number(q.sqft).toLocaleString()} sq ft)`,
         false
       );
+      if (isSpecific) {
+        addDetailRow(
+          'Specific Areas Add-On:',
+          `+${specHrs} ${specUnit} (+$${specPrice})${q.specificAreasText ? `: ${q.specificAreasText}` : ''}`,
+          false
+        );
+      }
     }
 
     if (!isCommercial && q.additionalInfo) {
@@ -988,6 +1001,7 @@
     if (q.addons?.fridge > 0) addonItems.push(`${q.addons.fridge}x Single Fridge ($65)`);
     if (q.addons?.fridgeDouble > 0) addonItems.push(`${q.addons.fridgeDouble}x Double Fridge ($75)`);
     if (q.addons?.oven > 0) addonItems.push(`${q.addons.oven}x Inside Oven ($80)`);
+    if (isSpecific) addonItems.push(`Specific Areas (+${specHrs} ${specUnit}, +$${specPrice})`);
     if (q.addons?.pets > 0) addonItems.push('Pet Hair & Detailing ($35 flat fee)');
     addDetailRow(
       'Selected Add-Ons:',
@@ -1280,81 +1294,44 @@
       editLivePriceBadge.id = 'edit-live-price-badge';
       editHeaderRow.append(editTitleWrap, editLivePriceBadge);
 
-      // Control Group 1: Service Tier / Package Mode
+      // Control Group 1: Service Tier (Residential Standard vs Deep — never replaced by add-ons)
       const modeGroup = createEl('div', 'edit-adjuster-group');
       const modeLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Service Type & Package Mode:'
+        'Base Cleaning Service Tier:'
       );
       const modeBtnGrid = createEl('div', 'edit-chip-grid');
 
       const modeBtnStandard = createEl(
         'button',
         'edit-option-chip',
-        'Full Home Standard Clean'
+        'Standard Clean'
       );
       modeBtnStandard.type = 'button';
       modeBtnStandard.addEventListener('click', () => {
-        handleModalQuoteAdjustment({ scopeMode: 'full', serviceType: 'standard' });
+        handleModalQuoteAdjustment({ serviceType: 'standard' });
       });
 
       const modeBtnDeep = createEl(
         'button',
         'edit-option-chip',
-        'Full Home Deep Clean'
+        'Deep Clean'
       );
       modeBtnDeep.type = 'button';
       modeBtnDeep.addEventListener('click', () => {
-        handleModalQuoteAdjustment({ scopeMode: 'full', serviceType: 'deep' });
+        handleModalQuoteAdjustment({ serviceType: 'deep' });
       });
 
-      const modeBtnSpecific = createEl(
-        'button',
-        'edit-option-chip',
-        'Specific Areas ($50 min, 1–6 hrs)'
-      );
-      modeBtnSpecific.type = 'button';
-      modeBtnSpecific.addEventListener('click', () => {
-        handleModalQuoteAdjustment({ scopeMode: 'specific' });
-      });
-
-      modeBtnGrid.append(modeBtnStandard, modeBtnDeep, modeBtnSpecific);
+      modeBtnGrid.append(modeBtnStandard, modeBtnDeep);
       modeGroup.append(modeLabel, modeBtnGrid);
 
-      // Control Group 1B: Booked Hours Stepper (for Specific Areas Mode)
-      const editHourlyRow = createEl('div', 'edit-adjuster-group');
-      const hoursLabel = createEl(
-        'div',
-        'scheduler-step-label',
-        'Adjust Booked Cleaning Hours (1 to 6 Hours — Price Auto-Adjusts):'
-      );
-      const hoursStepperWrap = createEl('div', 'edit-stepper-row');
-      const btnHoursMinus = createEl('button', 'edit-stepper-btn', '− 1 Hr');
-      btnHoursMinus.type = 'button';
-      btnHoursMinus.id = 'btn-edit-hours-minus';
-      btnHoursMinus.addEventListener('click', () => {
-        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
-        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(1, cur - 1) });
-      });
-      const editHoursVal = createEl('strong', 'edit-stepper-val', '1 Hour ($50)');
-      editHoursVal.id = 'edit-hours-val';
-      const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Hr');
-      btnHoursPlus.type = 'button';
-      btnHoursPlus.id = 'btn-edit-hours-plus';
-      btnHoursPlus.addEventListener('click', () => {
-        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
-        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.min(6, cur + 1) });
-      });
-      hoursStepperWrap.append(btnHoursMinus, editHoursVal, btnHoursPlus);
-      editHourlyRow.append(hoursLabel, hoursStepperWrap);
-
-      // Control Group 1C: Bedrooms / Baths / Switch to Longer Hours (for Full Home Mode)
+      // Control Group 1B: Bedrooms / Baths (Always available for non-commercial properties)
       const editRoomsRow = createEl('div', 'edit-adjuster-group');
       const roomsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Adjust Rooms or Switch to Custom Booked Hours:'
+        'Adjust Property Bedrooms & Bathrooms:'
       );
       const roomsStepperGrid = createEl('div', 'edit-rooms-grid');
 
@@ -1449,12 +1426,12 @@
       });
       addInfoGroup.append(petsLabel, petsGrid, condLabel, condGrid);
 
-      // Control Group 3: Appliance Add-Ons
+      // Control Group 3: Custom Add-Ons (Appliances + Stackable Specific Areas +$50/hr Add-On)
       const addonsGroup = createEl('div', 'edit-adjuster-group');
       const addonsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Custom Appliance Add-Ons (Auto-Adjusts Flat Rate):'
+        'Custom Add-Ons (Added On Top of Base Service — Auto-Adjusts Flat Rate):'
       );
       const addonsGrid = createEl('div', 'edit-rooms-grid');
 
@@ -1490,7 +1467,70 @@
         'edit-fridge-double-val'
       );
       const editOvenVal = buildAddonStepper('Inside Oven (+$80)', 'oven', 'edit-oven-val');
-      addonsGroup.append(addonsLabel, addonsGrid);
+
+      // Specific Areas (+$50/hr, 1–6 hrs) Stackable Add-On Card
+      const editSpecificCard = createEl('div', 'edit-specific-addon-card');
+      const editSpecificTop = createEl('div', 'edit-specific-addon-top');
+      const editSpecificTitle = createEl(
+        'span',
+        'edit-addon-name',
+        'Specific Areas Add-On (+$50/hr, 1–6 extra hrs)'
+      );
+      const editSpecificToggleBtn = createEl(
+        'button',
+        'edit-option-chip',
+        '+ Add Specific Areas (+$50/hr, 1–6 hrs)'
+      );
+      editSpecificToggleBtn.type = 'button';
+      editSpecificToggleBtn.id = 'btn-edit-specific-toggle';
+      editSpecificToggleBtn.addEventListener('click', () => {
+        const curMode = window.SmartsProCurrentQuote?.state?.scopeMode || 'full';
+        handleModalQuoteAdjustment({ scopeMode: curMode === 'specific' ? 'full' : 'specific' });
+      });
+      editSpecificTop.append(editSpecificTitle, editSpecificToggleBtn);
+
+      const editSpecificFields = createEl('div', 'edit-specific-fields is-hidden');
+      const hoursStepperWrap = createEl('div', 'edit-stepper-row');
+      const btnHoursMinus = createEl('button', 'edit-stepper-btn', '− 1 Hr');
+      btnHoursMinus.type = 'button';
+      btnHoursMinus.id = 'btn-edit-hours-minus';
+      btnHoursMinus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
+        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(1, cur - 1) });
+      });
+      const editHoursVal = createEl('strong', 'edit-stepper-val', '+1 Hr (+$50)');
+      editHoursVal.id = 'edit-hours-val';
+      const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Hr');
+      btnHoursPlus.type = 'button';
+      btnHoursPlus.id = 'btn-edit-hours-plus';
+      btnHoursPlus.addEventListener('click', () => {
+        const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
+        handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.min(6, cur + 1) });
+      });
+      hoursStepperWrap.append(btnHoursMinus, editHoursVal, btnHoursPlus);
+
+      const editSpecificAreasLabel = createEl(
+        'label',
+        'intake-label',
+        'Specific Areas Description (Required when Specific Areas Add-On is enabled):'
+      );
+      editSpecificAreasLabel.setAttribute('for', 'edit-specific-areas-input');
+      const editSpecificAreasInput = createEl('input', 'intake-input');
+      editSpecificAreasInput.id = 'edit-specific-areas-input';
+      editSpecificAreasInput.type = 'text';
+      editSpecificAreasInput.maxLength = 180;
+      editSpecificAreasInput.autocomplete = 'off';
+      editSpecificAreasInput.placeholder = 'e.g., Patio, sunroom, garage sweep, extra playroom';
+      editSpecificAreasInput.addEventListener('input', (e) => {
+        handleModalQuoteAdjustment({
+          scopeMode: 'specific',
+          specificAreasText: String(e.target.value || '')
+        });
+      });
+
+      editSpecificFields.append(hoursStepperWrap, editSpecificAreasLabel, editSpecificAreasInput);
+      editSpecificCard.append(editSpecificTop, editSpecificFields);
+      addonsGroup.append(addonsLabel, addonsGrid, editSpecificCard);
 
       // Cancel Edit Button (return to Confirmation Card without resending)
       const cancelEditRow = createEl('div', 'edit-cancel-row');
@@ -1507,7 +1547,6 @@
       editAdjusterSection.append(
         editHeaderRow,
         modeGroup,
-        editHourlyRow,
         editRoomsRow,
         addInfoGroup,
         addonsGroup,
@@ -1665,11 +1704,14 @@
       schedulerState.refs.confirmationSection = confirmationSection;
       schedulerState.refs.editAdjusterSection = editAdjusterSection;
       schedulerState.refs.editLivePriceBadge = editLivePriceBadge;
+      schedulerState.refs.modeGroup = modeGroup;
       schedulerState.refs.modeBtnStandard = modeBtnStandard;
       schedulerState.refs.modeBtnDeep = modeBtnDeep;
-      schedulerState.refs.modeBtnSpecific = modeBtnSpecific;
-      schedulerState.refs.editHourlyRow = editHourlyRow;
       schedulerState.refs.editRoomsRow = editRoomsRow;
+      schedulerState.refs.editSpecificCard = editSpecificCard;
+      schedulerState.refs.editSpecificToggleBtn = editSpecificToggleBtn;
+      schedulerState.refs.editSpecificFields = editSpecificFields;
+      schedulerState.refs.editSpecificAreasInput = editSpecificAreasInput;
       schedulerState.refs.editHoursVal = editHoursVal;
       schedulerState.refs.editBedVal = editBedVal;
       schedulerState.refs.editBathVal = editBathVal;
@@ -2200,6 +2242,22 @@
     }
 
     const quotePayload = buildCurrentQuotePayload();
+    if (
+      quotePayload.serviceCategory !== 'commercial' &&
+      quotePayload.scopeMode === 'specific' &&
+      !quotePayload.specificAreasText
+    ) {
+      showIntakeStatus(
+        'error',
+        'Specific Areas Description Required',
+        'Please describe which extra areas you want cleaned for the Specific Areas Add-On (or click to remove it).'
+      );
+      if (refs.editSpecificAreasInput && schedulerState.viewMode === 'editing') {
+        refs.editSpecificAreasInput.focus();
+      }
+      return;
+    }
+
     const payload = {
       customer: {
         firstName,
