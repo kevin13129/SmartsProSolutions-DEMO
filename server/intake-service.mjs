@@ -879,7 +879,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
       : typeof payload.updateToken === 'string'
         ? payload.updateToken.trim()
         : null;
-  if (rawUpdateToken === null || rawUpdateToken.length > 1024) {
+  if (rawUpdateToken === null || rawUpdateToken.length > 2048) {
     return { ok: false, status: 400, code: 'INVALID_UPDATE_TOKEN', error: 'Invalid booking update token.' };
   }
 
@@ -1211,6 +1211,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
       isUpdated: false,
       updateCount: 0,
       previousTotal: null,
+      previousSnapshot: null,
       previousReferenceCode: '',
       previousDate: '',
       customer: {
@@ -1349,8 +1350,241 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
   return lines.join('\r\n') + '\r\n';
 }
 
+function buildUpdateTokenSnapshot(validatedRecord) {
+  const quote = validatedRecord?.quote || {};
+  const calc = validatedRecord?.calculation || {};
+  const addInfo = quote.additionalInfo || {};
+  const addons = quote.addons || {};
+  const notesStr = String(validatedRecord?.customer?.notes || '').trim();
+  return {
+    cat: quote.serviceCategory || 'residential',
+    type: quote.serviceType || 'standard',
+    mode: quote.scopeMode || 'full',
+    sh: quote.specificHours || 1,
+    beds: quote.bedrooms ?? 3,
+    fb: quote.fullBaths ?? 2,
+    hb: quote.halfBaths ?? 1,
+    sqft: quote.sqft ?? 1800,
+    freq: quote.frequency || 'onetime',
+    pets: addInfo.hasPets || 'no',
+    lc: addInfo.lastCleaned || '',
+    occ: addInfo.occupancy || '',
+    cond: addInfo.condition || '',
+    fr: addons.fridge || 0,
+    fr2: addons.fridgeDouble || 0,
+    ov: addons.oven || 0,
+    hrs: calc.totalEstimatedHours || calc.estimatedHours || 1,
+    tot: calc.grandTotal || 0,
+    nHash: createHash('sha256').update(notesStr, 'utf8').digest('hex').slice(0, 12)
+  };
+}
+
+function formatScopeLabelForSnapshot(cat, type, mode, sh) {
+  if (cat === 'commercial') return SERVICE_DISPLAY_LABELS.commercial;
+  if (cat === 'residential' && mode === 'specific') {
+    return `Specific Areas (${sh || 1} Hours Booked)`;
+  }
+  if (cat === 'moveinout') return SERVICE_DISPLAY_LABELS.moveinout;
+  if (cat === 'airbnb') return SERVICE_DISPLAY_LABELS.airbnb;
+  return SERVICE_DISPLAY_LABELS[type] || SERVICE_DISPLAY_LABELS.standard;
+}
+
+function computeBookingChangeItems(prevSnap, validatedRecord) {
+  if (!prevSnap || typeof prevSnap !== 'object') return [];
+  const items = [];
+  const { quote, calculation, customer } = validatedRecord;
+  const addons = quote.addons || {};
+  const addInfo = quote.additionalInfo || {};
+
+  // 1. Add-ons (ordered: Single Fridge, Double Fridge, Inside Oven, Pets)
+  const prevFr = Number(prevSnap.fr || 0);
+  const curFr = Number(addons.fridge || 0);
+  if (curFr > prevFr) {
+    const added = curFr - prevFr;
+    items.push({
+      badge: 'ADDED',
+      label: 'Single Fridge Cleaning (+$65/ea)',
+      detail: `+${added} added (${prevFr}x → ${curFr}x, +$${added * 65}.00)`
+    });
+  } else if (curFr < prevFr) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Single Fridge Cleaning',
+      detail: `Adjusted from ${prevFr}x → ${curFr}x`
+    });
+  }
+
+  const prevFr2 = Number(prevSnap.fr2 || 0);
+  const curFr2 = Number(addons.fridgeDouble || 0);
+  if (curFr2 > prevFr2) {
+    const added = curFr2 - prevFr2;
+    items.push({
+      badge: 'ADDED',
+      label: 'Double Fridge Cleaning (+$75/ea)',
+      detail: `+${added} added (${prevFr2}x → ${curFr2}x, +$${added * 75}.00)`
+    });
+  } else if (curFr2 < prevFr2) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Double Fridge Cleaning',
+      detail: `Adjusted from ${prevFr2}x → ${curFr2}x`
+    });
+  }
+
+  const prevOv = Number(prevSnap.ov || 0);
+  const curOv = Number(addons.oven || 0);
+  if (curOv > prevOv) {
+    const added = curOv - prevOv;
+    items.push({
+      badge: 'ADDED',
+      label: 'Inside Oven Cleaning (+$80/ea)',
+      detail: `+${added} added (${prevOv}x → ${curOv}x, +$${added * 80}.00)`
+    });
+  } else if (curOv < prevOv) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Inside Oven Cleaning',
+      detail: `Adjusted from ${prevOv}x → ${curOv}x`
+    });
+  }
+
+  const prevPets = prevSnap.pets || 'no';
+  const curPets = addInfo.hasPets || 'no';
+  if (prevPets !== curPets) {
+    items.push({
+      badge: curPets === 'yes' ? 'ADDED' : 'UPDATED',
+      label: curPets === 'yes' ? 'Pet Hair & Detailing (+$35 flat fee)' : 'Pets in Home Setting',
+      detail: curPets === 'yes' ? 'Added Pets: No → Yes (+$35.00)' : 'Updated Pets: Yes → No'
+    });
+  }
+
+  // 2. Service Tier / Mode / Booked Hours
+  if (
+    prevSnap.cat !== quote.serviceCategory ||
+    prevSnap.type !== quote.serviceType ||
+    prevSnap.mode !== quote.scopeMode
+  ) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Service Tier / Scope Mode',
+      detail: `${formatScopeLabelForSnapshot(prevSnap.cat, prevSnap.type, prevSnap.mode, prevSnap.sh)} → ${formatScopeLabelForSnapshot(quote.serviceCategory, quote.serviceType, quote.scopeMode, quote.specificHours)}`
+    });
+  }
+
+  if (quote.scopeMode === 'specific' && prevSnap.mode === 'specific' && Number(prevSnap.sh) !== Number(quote.specificHours)) {
+    const prevSh = Number(prevSnap.sh || 1);
+    const curSh = Number(quote.specificHours || 1);
+    items.push({
+      badge: curSh > prevSh ? 'ADDED' : 'UPDATED',
+      label: curSh > prevSh ? 'Additional Booked Hours (+$50/hr)' : 'Booked Hours',
+      detail:
+        curSh > prevSh
+          ? `+${curSh - prevSh} hr(s) added (${prevSh} hrs → ${curSh} hrs)`
+          : `${prevSh} hrs → ${curSh} hrs`
+    });
+  }
+
+  // 3. Property Specs
+  if (quote.serviceCategory !== 'commercial' && quote.scopeMode !== 'specific') {
+    if (Number(prevSnap.beds) !== Number(quote.bedrooms)) {
+      items.push({
+        badge: Number(quote.bedrooms) > Number(prevSnap.beds) ? 'ADDED' : 'UPDATED',
+        label: 'Bedrooms',
+        detail: `${prevSnap.beds} Bed → ${quote.bedrooms} Bed`
+      });
+    }
+    if (Number(prevSnap.fb) !== Number(quote.fullBaths)) {
+      items.push({
+        badge: Number(quote.fullBaths) > Number(prevSnap.fb) ? 'ADDED' : 'UPDATED',
+        label: 'Full Bathrooms',
+        detail: `${prevSnap.fb} Full Bath → ${quote.fullBaths} Full Bath`
+      });
+    }
+    if (Number(prevSnap.hb) !== Number(quote.halfBaths)) {
+      items.push({
+        badge: Number(quote.halfBaths) > Number(prevSnap.hb) ? 'ADDED' : 'UPDATED',
+        label: 'Half Bathrooms',
+        detail: `${prevSnap.hb} Half Bath → ${quote.halfBaths} Half Bath`
+      });
+    }
+    if (Number(prevSnap.sqft) !== Number(quote.sqft)) {
+      items.push({
+        badge: 'UPDATED',
+        label: 'Square Footage',
+        detail: `${Number(prevSnap.sqft).toLocaleString()} sq ft → ${Number(quote.sqft).toLocaleString()} sq ft`
+      });
+    }
+  }
+
+  // 4. Home Condition / Last Cleaned / Occupancy / Frequency
+  if (prevSnap.cond && addInfo.condition && prevSnap.cond !== addInfo.condition) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Home Condition',
+      detail: `${prevSnap.cond} → ${addInfo.condition}`
+    });
+  }
+  if (prevSnap.lc && addInfo.lastCleaned && prevSnap.lc !== addInfo.lastCleaned) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Last Cleaned',
+      detail: `${prevSnap.lc} → ${addInfo.lastCleaned}`
+    });
+  }
+  if (prevSnap.occ && addInfo.occupancy && prevSnap.occ !== addInfo.occupancy) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Home Occupancy',
+      detail: `${prevSnap.occ} → ${addInfo.occupancy}`
+    });
+  }
+  if (prevSnap.freq && quote.frequency && prevSnap.freq !== quote.frequency) {
+    items.push({
+      badge: 'UPDATED',
+      label: 'Cleaning Frequency',
+      detail: `${FREQUENCY_DISPLAY_LABELS[prevSnap.freq] || prevSnap.freq} → ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`
+    });
+  }
+
+  // 5. Customer Notes
+  const curNotesHash = createHash('sha256')
+    .update(String(customer?.notes || '').trim(), 'utf8')
+    .digest('hex')
+    .slice(0, 12);
+  if (prevSnap.nHash && curNotesHash !== prevSnap.nHash) {
+    items.push({
+      badge: customer?.notes ? 'ADDED' : 'UPDATED',
+      label: 'Customer Notes',
+      detail: customer?.notes ? `"${customer.notes}"` : 'Customer notes cleared'
+    });
+  }
+
+  // 6. Cleaning Duration & Price Summary
+  const prevHrs = Number(prevSnap.hrs);
+  const curHrs = Number(calculation.totalEstimatedHours || calculation.estimatedHours);
+  if (Number.isFinite(prevHrs) && prevHrs !== curHrs) {
+    items.push({
+      badge: curHrs > prevHrs ? 'ADDED' : 'UPDATED',
+      label: 'Estimated Cleaning Duration',
+      detail: `${formatDurationHours(prevHrs)} → ${formatDurationHours(curHrs)}`
+    });
+  }
+  const prevTot = Number(prevSnap.tot);
+  const curTot = Number(calculation.grandTotal);
+  if (Number.isFinite(prevTot) && prevTot !== curTot) {
+    const delta = curTot - prevTot;
+    items.push({
+      badge: delta > 0 ? 'ADDED' : 'UPDATED',
+      label: 'Quote Total Change',
+      detail: `$${prevTot.toFixed(2)} → $${curTot.toFixed(2)} (${delta >= 0 ? `+$${delta.toFixed(2)}` : `-$${Math.abs(delta).toFixed(2)}`})`
+    });
+  }
+
+  return items;
+}
+
 /**
- * Builds the automated owner notification email (highlighting UPDATED in green and Reference ID in blue),
+ * Builds the automated owner notification email (highlighting UPDATED in green with an ordered diff list and Reference ID in blue),
  * the separate customer confirmation/updated receipt email (with zero owner-only Finish-Early links),
  * and the .ics calendar invite.
  */
@@ -1403,6 +1637,10 @@ export function buildAutomatedEmailContent(
   const subjectPrefix = isUpdated ? updateTag : '';
   const subject = `${subjectPrefix}[Smarts Pro Estimate #${referenceCode}] ${customer.fullName} — ${appointment.preferredDateFormatted} (${appointment.preferredWindowShort})`;
 
+  const changeItems = isUpdated
+    ? computeBookingChangeItems(validatedRecord.previousSnapshot, validatedRecord)
+    : [];
+
   const textLines = [
     isUpdated
       ? `SMARTS PRO SOLUTIONS — UPDATED APPOINTMENT & ESTIMATE (UPDATE #${Math.max(1, updateCount)})`
@@ -1410,6 +1648,16 @@ export function buildAutomatedEmailContent(
     `Reference ID: ${referenceCode}`,
     ...(isUpdated && previousTotal !== null
       ? [`Price Revision: Previously $${previousTotal.toFixed(2)} -> Updated Total $${calculation.grandTotal.toFixed(2)}`]
+      : []),
+    ...(isUpdated
+      ? [
+          ``,
+          `ADDED & UPDATED DETAILS (APPLIED TO SAME APPOINTMENT & TIME BLOCK)`,
+          `-------------------------------------------------------------------`,
+          ...(changeItems.length > 0
+            ? changeItems.map((ch, idx) => `${idx + 1}. [+ ${ch.badge}] ${ch.label}: ${ch.detail}`)
+            : [`1. [UPDATED] Appointment refreshed under Reference ID ${referenceCode} (Locked Window: ${appointment.preferredWindowLabel}).`])
+        ]
       : []),
     `==========================================================`,
     ``,
@@ -1444,6 +1692,16 @@ export function buildAutomatedEmailContent(
     customer.notes ? customer.notes : 'No additional notes provided by customer.'
   ];
 
+  const footerTextLines = [
+    ``,
+    `==========================================================`,
+    `An iCalendar (.ics) appointment file is attached to add this booking directly to your calendar.`,
+    `Privacy, Opt-Out & Data Deletion: Customer details are used solely to service this estimate request. To opt out of follow-up emails or request immediate data deletion, reply "DELETE" or contact smartsprosolutions@gmail.com / (318) 564-4360.`
+  ];
+
+  // Never include owner-only Finish Early controls or URLs in customer-facing fallback mailto drafts.
+  const customerSafeMailtoBody = [...textLines, ...footerTextLines].join('\n');
+
   if (finishEarlyUrl) {
     textLines.push(
       ``,
@@ -1454,12 +1712,7 @@ export function buildAutomatedEmailContent(
     );
   }
 
-  textLines.push(
-    ``,
-    `==========================================================`,
-    `An iCalendar (.ics) appointment file is attached to add this booking directly to your calendar.`,
-    `Privacy, Opt-Out & Data Deletion: Customer details are used solely to service this estimate request. To opt out of follow-up emails or request immediate data deletion, reply "DELETE" or contact smartsprosolutions@gmail.com / (318) 564-4360.`
-  );
+  textLines.push(...footerTextLines);
 
   const textBody = textLines.join('\n');
 
@@ -1474,16 +1727,35 @@ export function buildAutomatedEmailContent(
         </div>`
     : '';
 
+  const ownerChangesOrderedRows =
+    changeItems.length > 0
+      ? `
+          <div style="margin-top: 12px; background: #FFFFFF; border: 1.5px solid #86EFAC; border-radius: 8px; padding: 12px 14px;">
+            <div style="font-size: 12px; font-weight: 800; color: #15803D; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px;">
+              What Was Added / Updated (Applied to Same Appointment)
+            </div>
+            <ol style="margin: 0; padding-left: 20px; font-size: 13px; color: #0F172A; line-height: 1.6;">
+              ${changeItems
+                .map(
+                  (ch) =>
+                    `<li style="margin-bottom: 5px;"><span style="display: inline-block; background: ${ch.badge === 'ADDED' ? '#16A34A' : '#15803D'}; color: #FFFFFF; padding: 1px 6px; border-radius: 4px; font-size: 11px; font-weight: 800; margin-right: 6px;">${ch.badge === 'ADDED' ? '+ ADDED' : 'UPDATED'}</span><strong>${escapeHtml(ch.label)}:</strong> <span style="color: #166534; font-weight: 600;">${escapeHtml(ch.detail)}</span></li>`
+                )
+                .join('')}
+            </ol>
+          </div>`
+      : '';
+
   const ownerUpdatedGreenBanner = isUpdated
     ? `
-        <div style="background: #DCFCE7; border: 2px solid #16A34A; border-radius: 10px; padding: 12px 16px; margin-bottom: 18px;">
+        <div style="background: #DCFCE7; border: 2px solid #16A34A; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
           <div style="font-size: 13px; font-weight: 900; color: #15803D; text-transform: uppercase; letter-spacing: 0.05em;">
             <span style="display: inline-block; background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; margin-right: 6px;">UPDATED</span>
             UPDATED APPOINTMENT #${Math.max(1, updateCount)} &bull; REPLACE PRIOR VERSION
           </div>
-          <div style="margin-top: 4px; font-size: 13px; color: #166534;">
-            Customer modified add-ons or home details under the same booking Reference ID (<strong style="color: #1D4ED8;">${escapeHtml(referenceCode)}</strong>).${previousTotal !== null ? ` Previous Total: <strong>$${previousTotal.toFixed(2)}</strong> &rarr; New Total: <strong>$${calculation.grandTotal.toFixed(2)}</strong>.` : ''}
+          <div style="margin-top: 6px; font-size: 13px; color: #166534;">
+            Applied to original booking (<strong style="color: #1D4ED8;">${escapeHtml(referenceCode)}</strong>) in locked window <strong>${escapeHtml(appointment.preferredWindowLabel)}</strong>.${previousTotal !== null ? ` Previous Total: <strong>$${previousTotal.toFixed(2)}</strong> &rarr; New Total: <strong>$${calculation.grandTotal.toFixed(2)}</strong>.` : ''}
           </div>
+          ${ownerChangesOrderedRows}
         </div>`
     : '';
 
@@ -1572,6 +1844,22 @@ export function buildAutomatedEmailContent(
   ];
   const customerTextBody = customerTextLines.join('\n');
 
+  const customerUpdatedChangesBlock =
+    isUpdated && changeItems.length > 0
+      ? `
+          <div style="background: #F0FDF4; border: 1.5px solid #86EFAC; border-radius: 8px; padding: 12px 14px; margin-bottom: 18px; font-size: 13px;">
+            <div style="font-weight: 800; color: #15803D; text-transform: uppercase; font-size: 12px; margin-bottom: 6px;">Summary of Your Additions &amp; Updates</div>
+            <ol style="margin: 0; padding-left: 18px; color: #14532D; line-height: 1.55;">
+              ${changeItems
+                .map(
+                  (ch) =>
+                    `<li style="margin-bottom: 3px;"><strong>${escapeHtml(ch.label)}:</strong> ${escapeHtml(ch.detail)}</li>`
+                )
+                .join('')}
+            </ol>
+          </div>`
+      : '';
+
   const customerHtmlBody = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
       <div style="background: #0B1E3A; color: #FFFFFF; padding: 20px 24px;">
@@ -1584,7 +1872,8 @@ export function buildAutomatedEmailContent(
         </div>
       </div>
       <div style="padding: 24px;">
-        ${isUpdated ? `<div style="background: #DCFCE7; border: 1.5px solid #16A34A; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: #14532D;"><strong>UPDATED APPOINTMENT:</strong> Your booking receipt has been reset with your newly added/updated options below.</div>` : ''}
+        ${isUpdated ? `<div style="background: #DCFCE7; border: 1.5px solid #16A34A; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: #14532D;"><strong>UPDATED APPOINTMENT:</strong> Applied to your existing appointment under the same Reference ID and locked time block.</div>` : ''}
+        ${customerUpdatedChangesBlock}
         <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5; color: #1E293B;">
           Hi <strong>${escapeHtml(customer.firstName)}</strong>, thank you for choosing Smarts Pro Solutions! Here is your ${isUpdated ? 'updated estimate and appointment receipt with your current selections' : 'estimate &amp; appointment confirmation details below'}.
         </p>
@@ -1623,7 +1912,7 @@ export function buildAutomatedEmailContent(
   const mailtoUrl =
     `mailto:${encodeURIComponent(ownerEmail)}` +
     `?subject=${encodeURIComponent(subject)}` +
-    `&body=${encodeURIComponent(textBody)}`;
+    `&body=${encodeURIComponent(customerSafeMailtoBody)}`;
 
   return {
     to: ownerEmail,
@@ -1993,8 +2282,12 @@ export function createIntakeService({
         if (
           interval.source === 'gcal' &&
           interval.date === excludeBooking.date &&
-          interval.startMinutes === excludeBooking.startMin &&
-          interval.endMinutes === excludeBooking.endMin
+          intervalsOverlap(
+            interval.startMinutes,
+            interval.endMinutes,
+            excludeBooking.startMin,
+            excludeBooking.endMin
+          )
         ) {
           continue;
         }
@@ -2502,6 +2795,7 @@ export function createIntakeService({
       record.previousTotal = Number.isFinite(Number(verifiedUpdate.prevTotal))
         ? Number(verifiedUpdate.prevTotal)
         : null;
+      record.previousSnapshot = verifiedUpdate.snap || null;
       record.previousReferenceCode = verifiedUpdate.ref;
       record.previousDate = verifiedUpdate.date;
     }
@@ -2690,6 +2984,7 @@ export function createIntakeService({
         endMin: record.appointment.endMinutes,
         updateCount: record.updateCount || 0,
         prevTotal: record.calculation.grandTotal,
+        snap: buildUpdateTokenSnapshot(record),
         exp: Date.parse(`${record.appointment.preferredDate}T23:59:59Z`) + 2 * 24 * 60 * 60 * 1000
       },
       resolveEffectiveSecret()

@@ -903,13 +903,17 @@
       'div',
       `intake-confirmation-banner ${confirmed.statusType === 'warning' ? 'is-warning' : 'is-success'}`
     );
+    const isWarningFallback = confirmed.statusType === 'warning';
+    const hasVerifiedUpdateToken = Boolean(confirmed.updateToken);
     const updateNum = confirmed.updateCount || 1;
     const kicker = createEl(
       'span',
       'intake-confirmation-kicker',
-      confirmed.isUpdated
-        ? `UPDATED APPOINTMENT CONFIRMED (#${updateNum}) • TIME BLOCK LOCKED`
-        : 'APPOINTMENT CONFIRMED • TIME BLOCK LOCKED'
+      isWarningFallback
+        ? 'ACTION REQUIRED • AUTOMATED EMAIL INCOMPLETE'
+        : confirmed.isUpdated
+          ? `UPDATED APPOINTMENT CONFIRMED (#${updateNum}) • TIME BLOCK LOCKED`
+          : 'APPOINTMENT CONFIRMED • TIME BLOCK LOCKED'
     );
     const heading = createEl('h4', 'intake-confirmation-title', confirmed.headingText);
     const subcopy = createEl('p', 'intake-confirmation-copy', confirmed.detailText);
@@ -1021,25 +1025,52 @@
 
     detailsCard.append(detailsHeading, list);
 
-    // 3. Edit Explanation Callout
+    // 3. Edit / Next-Step Explanation Callout
     const editHint = createEl(
       'p',
       'intake-confirmation-edit-hint',
-      'Your appointment date and time block are locked in to avoid scheduling conflicts. Need to add appliances, extra hours, or home details? Click "Edit Request" anytime to update this same Reference ID and receive an updated receipt (to change your day or time, call (318) 564-4360).'
+      isWarningFallback
+        ? 'Automated email confirmation did not finish yet. Click "Open Pre-Filled Email to smartsprosolutions@gmail.com" below or call (318) 564-4360 so we can confirm your appointment — or retry sending below.'
+        : 'Your appointment date and time block are locked in to avoid scheduling conflicts. Need to add appliances, extra hours, or home details? Click "Edit Request" anytime to update this same Reference ID and receive an updated receipt (to change your day or time, call (318) 564-4360).'
     );
 
     // 4. Action Buttons Row
     const actionsRow = createEl('div', 'intake-confirmation-actions');
 
-    const editBtn = createEl(
-      'button',
-      'btn btn-primary intake-edit-request-btn',
-      'Edit Request (Add Add-Ons, Adjust Hours or Home Details)'
-    );
-    editBtn.type = 'button';
-    editBtn.id = 'btn-edit-confirmed-request';
-    editBtn.addEventListener('click', enterEditRequestView);
-    actionsRow.append(editBtn);
+    if (!isWarningFallback || hasVerifiedUpdateToken) {
+      const editBtn = createEl(
+        'button',
+        'btn btn-primary intake-edit-request-btn',
+        'Edit Request (Add Add-Ons, Adjust Hours or Home Details)'
+      );
+      editBtn.type = 'button';
+      editBtn.id = 'btn-edit-confirmed-request';
+      editBtn.addEventListener('click', enterEditRequestView);
+      actionsRow.append(editBtn);
+    } else {
+      const retryBtn = createEl(
+        'button',
+        'btn btn-primary intake-edit-request-btn',
+        'Retry Automated Dispatch / Edit Details'
+      );
+      retryBtn.type = 'button';
+      retryBtn.id = 'btn-retry-dispatch-request';
+      retryBtn.addEventListener('click', () => {
+        schedulerState.confirmedSubmission = null;
+        schedulerState.viewMode = 'initial';
+        if (refs.confirmationSection) refs.confirmationSection.classList.add('is-hidden');
+        if (refs.editAdjusterSection) refs.editAdjusterSection.classList.add('is-hidden');
+        if (refs.calSection) refs.calSection.classList.remove('is-hidden');
+        if (refs.intakeSection) refs.intakeSection.classList.remove('is-hidden');
+        if (refs.statusBanner) refs.statusBanner.classList.add('is-hidden');
+        if (refs.intakeTitle) {
+          refs.intakeTitle.textContent = '2. Your Contact Information';
+        }
+        renderCalendarUI();
+        updateSubmitButtonLockState();
+      });
+      actionsRow.append(retryBtn);
+    }
 
     if (confirmed.fallbackMailtoUrl) {
       const mailLink = createEl(
@@ -2262,10 +2293,16 @@
         result &&
         (result.code === 'EMAIL_PROVIDER_UNCONFIGURED' || result.code === 'EMAIL_DISPATCH_FAILED')
       ) {
+        const priorToken = schedulerState.confirmedSubmission?.updateToken || '';
+        const priorRef = schedulerState.confirmedSubmission?.referenceCode || '';
+        const priorUpdateCount = schedulerState.confirmedSubmission?.updateCount || 0;
         schedulerState.confirmedSubmission = {
-          isUpdated: isUpdate,
+          isUpdated: isUpdate && Boolean(priorToken),
+          updateCount: priorUpdateCount,
+          previousTotal: isUpdate ? prevTotalSnapshot : null,
           statusType: 'warning',
-          referenceCode: result.referenceCode || '',
+          referenceCode: result.referenceCode || priorRef,
+          updateToken: priorToken,
           headingText: isUpdate
             ? 'Updated Estimate Validated — Complete Email Dispatch Below'
             : 'Estimate Validated — Complete Email Dispatch Below',

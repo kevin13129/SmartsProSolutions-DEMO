@@ -697,6 +697,9 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(unconfRes.body.success, false);
     assert.equal(unconfRes.body.code, 'EMAIL_PROVIDER_UNCONFIGURED');
     assert.match(unconfRes.body.fallbackMailtoUrl, /^mailto:smartsprosolutions%40gmail\.com/);
+    const decodedUnconfMailto = decodeURIComponent(unconfRes.body.fallbackMailtoUrl);
+    assert.doesNotMatch(decodedUnconfMailto, /finish-early|EARLY COMPLETION CONTROL/i);
+    assert.doesNotMatch(unconfRes.body.icsContent || '', /finish-early/i);
   } finally {
     server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
@@ -835,6 +838,10 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     assert.match(morningEmail.emailPackage.subject, /^\[UPDATED\] /);
     assert.match(morningEmail.emailPackage.htmlBody, /#16A34A/);
     assert.match(morningEmail.emailPackage.htmlBody, /#1D4ED8/);
+    assert.match(morningEmail.emailPackage.htmlBody, /What Was Added \/ Updated/);
+    assert.match(morningEmail.emailPackage.htmlBody, /\+ ADDED/);
+    assert.match(morningEmail.emailPackage.htmlBody, /Single Fridge Cleaning/);
+    assert.match(morningEmail.emailPackage.htmlBody, /\+1 added \(0x → 1x, \+\$65\.00\)/);
     assert.match(morningEmail.emailPackage.icsContent, /UID:/);
     assert.match(morningEmail.emailPackage.icsContent, /SEQUENCE:1/);
     assert.match(morningEmail.emailPackage.icsContent, /SUMMARY:\\\[UPDATED\\\] |SUMMARY:\[UPDATED\] /);
@@ -858,6 +865,8 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     assert.equal(morningEdit2Data.updateCount, 2);
     assert.equal(morningEdit2Data.verifiedEstimate.grandTotal, 475);
     assert.match(sentEmails[sentEmails.length - 1].emailPackage.subject, /^\[UPDATED #2\] /);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.htmlBody, /Inside Oven Cleaning/);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.htmlBody, /\+1 added \(0x → 1x, \+\$80\.00\)/);
     assert.match(sentEmails[sentEmails.length - 1].emailPackage.icsContent, /SEQUENCE:2/);
     assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$395\.00/);
     assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$475\.00/);
@@ -1097,10 +1106,10 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
   let failCustomerMailNextPost = false;
   let omitCustomerMailFlagNextPost = false;
   const originalFetch = globalThis.fetch;
-  // Intentionally include duplicate Google Calendar holds for the customer's locked window
+  // Intentionally include duplicate & non-exact overlapping Google Calendar holds for the customer's locked window
   const remoteEvents = [
     { date: '2026-11-19', startMinutes: 480, endMinutes: 660 },
-    { date: '2026-11-19', startMinutes: 480, endMinutes: 660 }
+    { date: '2026-11-19', startMinutes: 480, endMinutes: 810 }
   ];
 
   process.env.EMAIL_WEBHOOK_URL = 'https://script.google.com/macros/s/test-deploy-id/exec';
@@ -1237,7 +1246,10 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
       clientIp: '10.0.0.87'
     });
     assert.equal(customerMailFailRes.status, 502);
-    assert.equal(customerMailFailRes.body.code, 'EMAIL_DISPATCH_FAILED');
+    const customerMailFailBody = customerMailFailRes.body;
+    assert.equal(customerMailFailBody.code, 'EMAIL_DISPATCH_FAILED');
+    assert.doesNotMatch(decodeURIComponent(customerMailFailBody.fallbackMailtoUrl), /finish-early|EARLY COMPLETION CONTROL/i);
+    assert.doesNotMatch(customerMailFailBody.icsContent || '', /finish-early/i);
     failCustomerMailNextPost = false;
 
     // If an older Apps Script deployment returns { ok: true } without customerEmailSent: true, fail closed with 502
@@ -1251,7 +1263,9 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
       clientIp: '10.0.0.86'
     });
     assert.equal(staleScriptRes.status, 502);
-    assert.equal(staleScriptRes.body.code, 'EMAIL_DISPATCH_FAILED');
+    const staleScriptBody = staleScriptRes.body;
+    assert.equal(staleScriptBody.code, 'EMAIL_DISPATCH_FAILED');
+    assert.doesNotMatch(decodeURIComponent(staleScriptBody.fallbackMailtoUrl), /finish-early|EARLY COMPLETION CONTROL/i);
     omitCustomerMailFlagNextPost = false;
 
     // If Apps Script returns HTTP 200 HTML (e.g. "Who has access" or MailApp auth outage), fail closed with 502!
@@ -1266,6 +1280,7 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     });
     assert.equal(htmlFailureRes.status, 502);
     assert.equal(htmlFailureRes.body.code, 'EMAIL_DISPATCH_FAILED');
+    assert.doesNotMatch(decodeURIComponent(htmlFailureRes.body.fallbackMailtoUrl), /finish-early|EARLY COMPLETION CONTROL/i);
   } finally {
     delete process.env.EMAIL_WEBHOOK_URL;
     globalThis.fetch = originalFetch;
