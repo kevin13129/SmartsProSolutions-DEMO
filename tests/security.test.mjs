@@ -14,9 +14,14 @@ import {
   verifyEmailDomainHasMx
 } from '../server/intake-service.mjs';
 
-// Keep build-time unit tests hermetic even when EMAIL_WEBHOOK_URL or RESEND_API_KEY is set in Vercel build environment
+import { createMapsConfigService } from '../api/maps-config.mjs';
+
+// Keep build-time unit tests hermetic even when webhook/API keys are set in the deployment environment
 delete process.env.EMAIL_WEBHOOK_URL;
 delete process.env.RESEND_API_KEY;
+delete process.env.GOOGLE_MAPS_API_KEY;
+delete process.env.VITE_GOOGLE_MAPS_API_KEY;
+delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
 
 const read = file => readFile(resolve(root, file), 'utf8');
 
@@ -68,12 +73,16 @@ test('unavailable browser storage never breaks initialization or fabricates conf
   assert.equal((await context.window.SmartsProBackend.submitEstimateRequest(null)).success, false);
 });
 
-test('security policy denies injection, framing, third-party connections, and form posts while allowing same-origin API requests', async () => {
+test('security policy denies injection, framing, third-party connections, and form posts while allowing same-origin API requests and Google Maps Embed frames', async () => {
   const csp = headers['Content-Security-Policy'];
-  for (const directive of ["default-src 'none'", "script-src 'self'", "script-src-attr 'none'", "style-src 'self'", "style-src-attr 'none'", "connect-src 'self'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-src 'none'", 'upgrade-insecure-requests']) {
+  for (const directive of ["default-src 'none'", "script-src 'self'", "script-src-attr 'none'", "style-src 'self'", "style-src-attr 'none'", "connect-src 'self'", "frame-ancestors 'none'", "base-uri 'none'", "form-action 'none'", "object-src 'none'", "frame-src https://www.google.com", 'upgrade-insecure-requests']) {
     assert.ok(csp.split('; ').includes(directive), directive);
   }
-  assert.doesNotMatch(csp, /unsafe-|https:|\*/);
+  assert.doesNotMatch(csp, /unsafe-|\*/);
+  for (const directive of csp.split('; ')) {
+    if (directive === 'frame-src https://www.google.com') continue;
+    assert.doesNotMatch(directive, /https:/, directive);
+  }
   assert.equal(headers['X-Content-Type-Options'], 'nosniff');
   assert.equal(headers['X-Frame-Options'], 'DENY');
   assert.equal(headers['Referrer-Policy'], 'no-referrer');
@@ -106,8 +115,12 @@ test('public HTML has no static personal-data forms when JS is off, no inline co
       assert.ok(publicFiles.includes(asset[1]), 'Unpublished asset: ' + asset[1]);
     }
     assert.doesNotMatch(html, /\bsrc="(?:https?:)?\/\//i);
+    const allowedExternalUrls = new Set([
+      'https://builtforbusiness.net/',
+      'https://share.google/qxRaiWqPZy8jyHRL2'
+    ]);
     for (const extHref of html.matchAll(/\bhref="((?:https?:)?\/\/[^"]+)"/gi)) {
-      assert.equal(extHref[1], 'https://builtforbusiness.net/');
+      assert.ok(allowedExternalUrls.has(extHref[1]), `Unexpected external URL in ${file}: ${extHref[1]}`);
     }
   }
   const indexHtml = await read('index.html');
@@ -119,6 +132,14 @@ test('public HTML has no static personal-data forms when JS is off, no inline co
   assert.match(indexHtml, /18 years of age or older/i);
   assert.match(indexHtml, /Data Deletion/i);
   assert.match(indexHtml, /smartsprosolutions@gmail\.com/);
+  for (const gbpId of ['nav-gbp-widget', 'drawer-gbp-link', 'bottom-gbp-link', 'footer-gbp-link']) {
+    const linkPattern = new RegExp(`<a[^>]*id="${gbpId}"[^>]*>|href="https:\\/\\/share\\.google\\/qxRaiWqPZy8jyHRL2"[^>]*id="${gbpId}"`, 'i');
+    assert.match(indexHtml, linkPattern, `Missing Google Business Profile link #${gbpId}`);
+  }
+  assert.match(indexHtml, /href="https:\/\/share\.google\/qxRaiWqPZy8jyHRL2"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*id="nav-gbp-widget"/);
+  assert.match(indexHtml, /id="google-profile"[^>]*aria-labelledby="gbp-section-title"/);
+  assert.match(indexHtml, /id="gbp-map-canvas"[\s\S]*id="gbp-map-fallback"/);
+  assert.doesNotMatch(indexHtml, /id="gbp-zone-readout"|data-map-city=|gbp-map-legend/);
 });
 
 test('browser scripts have no unsafe HTML sinks, credential signatures, or browser storage writes, and only api.js performs same-origin fetch calls', async () => {
@@ -1501,3 +1522,82 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     globalThis.fetch = originalFetch;
   }
 });
+
+test('/api/maps-config enforces GET/HEAD methods, fails safely when unconfigured, and builds Maps Embed API URLs with attribution', async () => {
+  const unconfiguredService = createMapsConfigService({ env: {} });
+  const previewUnconfigured = createPreviewServer({ mapsConfigService: unconfiguredService });
+  await new Promise(resolve => previewUnconfigured.listen(0, '127.0.0.1', resolve));
+  const unconfBase = `http://127.0.0.1:${previewUnconfigured.address().port}`;
+  try {
+    const postRes = await fetch(`${unconfBase}/api/maps-config`, { method: 'POST' });
+    assert.equal(postRes.status, 405);
+    assert.equal(postRes.headers.get('allow'), 'GET, HEAD');
+
+    const getRes = await fetch(`${unconfBase}/api/maps-config`);
+    assert.equal(getRes.status, 200);
+    assert.equal(getRes.headers.get('cache-control'), 'no-store');
+    const unconfJson = await getRes.json();
+    assert.equal(unconfJson.ok, true);
+    assert.equal(unconfJson.configured, false);
+    assert.equal(unconfJson.profileUrl, 'https://share.google/qxRaiWqPZy8jyHRL2');
+    assert.equal(unconfJson.attributionId, 'gmp_mcp_codeassist_v1_aistudio');
+  } finally {
+    previewUnconfigured.closeAllConnections();
+    await new Promise(resolve => previewUnconfigured.close(resolve));
+  }
+
+  let placesCallCount = 0;
+  let capturedPlacesHeaders = null;
+  let capturedPlacesBody = null;
+  const areaLookupService = createMapsConfigService({
+    env: { GOOGLE_MAPS_API_KEY: 'test-maps-key-123' },
+    fetchFn: async (url, init) => {
+      placesCallCount++;
+      capturedPlacesHeaders = init.headers;
+      capturedPlacesBody = JSON.parse(init.body);
+      assert.equal(url, 'https://places.googleapis.com/v1/places:searchText');
+      return new Response(
+        JSON.stringify({
+          places: [
+            {
+              id: 'ChIJAreaId123',
+              displayName: { text: 'Bossier City' },
+              location: { latitude: 32.5159852, longitude: -93.7321228 }
+            }
+          ]
+        }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  });
+
+  const firstLookup = await areaLookupService.getMapsConfigAsync();
+  const cachedLookup = await areaLookupService.getMapsConfigAsync();
+  assert.equal(placesCallCount, 1);
+  assert.equal(capturedPlacesHeaders['X-Goog-Maps-Solution-ID'], 'gmp_mcp_codeassist_v1_aistudio');
+  assert.equal(capturedPlacesBody.textQuery, 'Shreveport Bossier City LA');
+  assert.equal(firstLookup.configured, true);
+  assert.equal(cachedLookup.configured, true);
+  assert.equal(firstLookup.attributionId, 'gmp_mcp_codeassist_v1_aistudio');
+  assert.equal(firstLookup.locationLabel, 'Shreveport & Bossier City, LA');
+  assert.doesNotMatch(JSON.stringify(firstLookup), /Ashley Ridge/i);
+  const embedParsed = new URL(firstLookup.embedUrl);
+  assert.equal(embedParsed.origin, 'https://www.google.com');
+  assert.equal(embedParsed.pathname, '/maps/embed/v1/view');
+  assert.equal(embedParsed.searchParams.get('center'), '32.515985,-93.732123');
+  assert.equal(embedParsed.searchParams.get('zoom'), '11');
+  assert.equal(embedParsed.searchParams.get('solution_id'), null);
+
+  // When Places API fails or returns empty, gracefully fall back to city-wide Shreveport, LA query
+  const fallbackService = createMapsConfigService({
+    env: { GOOGLE_MAPS_API_KEY: 'test-maps-key-456' },
+    fetchFn: async () => new Response('Server Error', { status: 500 })
+  });
+  const fallbackConfig = await fallbackService.getMapsConfigAsync();
+  assert.equal(fallbackConfig.configured, true);
+  const fallbackUrl = new URL(fallbackConfig.embedUrl);
+  assert.equal(fallbackUrl.pathname, '/maps/embed/v1/place');
+  assert.equal(fallbackUrl.searchParams.get('q'), 'Shreveport, LA');
+  assert.equal(fallbackUrl.searchParams.get('solution_id'), null);
+});
+

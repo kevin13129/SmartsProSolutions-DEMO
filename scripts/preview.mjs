@@ -4,6 +4,7 @@ import { extname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { headers, output, publicFiles } from './build.mjs';
 import { defaultIntakeService, MAX_BODY_BYTES } from '../server/intake-service.mjs';
+import { defaultMapsConfigService } from '../api/maps-config.mjs';
 
 const mime = { '.html': 'text/html; charset=utf-8', '.css': 'text/css; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.png': 'image/png', '.jpg': 'image/jpeg', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
 
@@ -23,7 +24,11 @@ async function readBoundedRequest(req) {
 
 // Local preview only: binds to loopback and serves the public manifest, never
 // the repository root. Production TLS/edge protections belong to the host.
-export function createPreviewServer({ allowFraming = false, intakeService = defaultIntakeService } = {}) {
+export function createPreviewServer({
+  allowFraming = false,
+  intakeService = defaultIntakeService,
+  mapsConfigService = defaultMapsConfigService
+} = {}) {
   return http.createServer(async (req, res) => {
     const localHeaders = { ...headers };
     delete localHeaders['Strict-Transport-Security'];
@@ -43,6 +48,19 @@ export function createPreviewServer({ allowFraming = false, intakeService = defa
     } catch {
       res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
       res.end(req.method === 'HEAD' ? undefined : 'Bad request');
+      return;
+    }
+
+    if (pathname === '/api/maps-config') {
+      res.setHeader('Cache-Control', 'no-store');
+      if (!['GET', 'HEAD'].includes(req.method)) {
+        res.writeHead(405, { Allow: 'GET, HEAD', 'Content-Type': 'application/json; charset=utf-8' });
+        res.end(JSON.stringify({ ok: false, code: 'METHOD_NOT_ALLOWED', message: 'Method not allowed' }));
+        return;
+      }
+      const mapsPayload = await mapsConfigService.getMapsConfigAsync();
+      res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8' });
+      res.end(req.method === 'HEAD' ? undefined : JSON.stringify(mapsPayload));
       return;
     }
 

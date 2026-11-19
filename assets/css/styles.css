@@ -5615,17 +5615,17 @@ html.js-ready .reveal-on-scroll.is-visible {
 @media (max-width: 480px) {
   .brand-logo-img {
     height: 42px;
-    max-width: 132px;
+    max-width: 120px;
   }
 
   .nav-calc-btn {
-    padding: 0.38rem 0.58rem;
-    font-size: 0.71rem;
+    padding: 0.38rem 0.54rem;
+    font-size: 0.7rem;
   }
 
   .mobile-nav-toggle {
-    padding: 0.38rem 0.56rem;
-    font-size: 0.72rem;
+    padding: 0.38rem 0.54rem;
+    font-size: 0.71rem;
   }
 
   .hero-trust-row {
@@ -5636,6 +5636,436 @@ html.js-ready .reveal-on-scroll.is-visible {
 @media (max-width: 360px) {
   .nav-calc-btn {
     display: none;
+  }
+}
+
+/* ==========================================================================
+   GOOGLE BUSINESS PROFILE NAVIGATION WIDGET & MOBILE GOOGLE G BUTTON
+   ========================================================================== */
+.nav-gbp-widget {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.36rem 0.72rem 0.36rem 0.45rem;
+  border-radius: 10px;
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  color: var(--navy-primary);
+  box-shadow: 0 2px 8px rgba(11, 37, 69, 0.06);
+  flex-shrink: 0;
+  transition: transform 0.18s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
+}
+
+.nav-gbp-widget:hover {
+  transform: translateY(-1px);
+  border-color: #4285F4;
+  background: #F8FAFC;
+  box-shadow: 0 6px 16px rgba(66, 133, 244, 0.16);
+}
+
+.nav-gbp-widget:focus-visible {
+  outline: 3px solid var(--blue-primary);
+  outline-offset: 2px;
+}
+
+.gbp-g-emblem {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: #FFFFFF;
+  border: 1px solid #E2E8F0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+}
+
+.gbp-g-emblem-lg {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+}
+
+.nav-gbp-copy {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.12;
+  white-space: nowrap;
+}
+
+.nav-gbp-label {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--navy-primary);
+}
+
+.nav-gbp-sub {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.drawer-gbp-link {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 12px;
+  border: 1px solid #CBD5E1;
+  background: #FFFFFF;
+  color: var(--navy-primary);
+  transition: border-color 0.18s ease, background-color 0.18s ease, transform 0.18s ease;
+}
+
+.drawer-gbp-link:hover {
+  border-color: #4285F4;
+  background: #F0F7FF;
+  transform: translateX(3px);
+}
+
+.drawer-gbp-copy {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+
+.drawer-gbp-copy strong {
+  font-size: 0.9rem;
+  font-weight: 800;
+  color: var(--navy-primary);
+}
+
+.drawer-gbp-copy span {
+  font-size: 0.76rem;
+  color: var(--text-muted);
+}
+
+@media (max-width: 1280px) {
+  .nav-links {
+    gap: 1.15rem;
+  }
+
+  .nav-phone-btn {
+    display: none;
+  }
+}
+
+@media (max-width: 1024px) {
+  .nav-gbp-widget {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .nav-gbp-widget .gbp-g-emblem {
+    border: none;
+    box-shadow: none;
+    background: transparent;
+    width: 24px;
+    height: 24px;
+  }
+
+  .nav-gbp-copy {
+    display: none;
+  }
+}
+
+/* ==========================================================================
+   BOTTOM GOOGLE BUSINESS PROFILE & NORTHWEST LOUISIANA INTERACTIVE MAP
+   ========================================================================== */
+.gbp-profile-section {
+  padding: 4.5rem 0;
+  background: linear-gradient(180deg, #F8FAFC 0%, #EEF4FA 100%);
+  border-top: 1px solid var(--border-light);
+}
+
+.gbp-showcase-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.25fr);
+  gap: 2rem;
+  align-items: stretch;
+}
+
+.gbp-profile-card,
+.gbp-map-panel {
+  background: #FFFFFF;
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  padding: 2rem;
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.gbp-card-top {
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 1.25rem;
+}
+
+.gbp-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  margin-bottom: 0.85rem;
+}
+
+.gbp-kicker-text {
+  font-size: 0.74rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--blue-primary);
+  margin-bottom: 0.15rem;
+}
+
+.gbp-title-wrap h2 {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--navy-dark);
+  margin: 0;
+}
+
+.gbp-meta-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.gbp-details-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1.35rem;
+}
+
+.gbp-detail-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.25rem 1rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px dashed var(--border-light);
+  font-size: 0.88rem;
+}
+
+.gbp-detail-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.gbp-detail-label {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.gbp-detail-val {
+  color: var(--navy-primary);
+  font-weight: 700;
+  text-align: right;
+}
+
+.gbp-detail-val a {
+  color: var(--blue-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.gbp-card-actions {
+  margin-top: auto;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.gbp-primary-btn {
+  flex: 1 1 210px;
+}
+
+.gbp-btn-g {
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: #FFFFFF;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.gbp-secondary-btn {
+  flex: 0 1 auto;
+}
+
+/* Google Map Embed Panel */
+.gbp-map-panel {
+  background: var(--navy-dark);
+  border-color: rgba(255, 255, 255, 0.14);
+  color: #FFFFFF;
+  padding: 1.5rem;
+}
+
+.gbp-map-topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  margin-bottom: 1rem;
+}
+
+.gbp-map-title-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.12rem;
+}
+
+.gbp-map-eyebrow {
+  font-size: 0.76rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #A3E635;
+}
+
+.gbp-map-coords {
+  font-size: 0.84rem;
+  color: #CBD5E1;
+}
+
+.gbp-map-external-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #93C5FD;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.gbp-map-external-link:hover {
+  color: #FFFFFF;
+}
+
+.gbp-map-canvas {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 360px;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: #081A33;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+.gbp-google-map-iframe {
+  width: 100%;
+  height: 100%;
+  min-height: 360px;
+  border: 0;
+  display: block;
+}
+
+.gbp-map-fallback {
+  width: 100%;
+  min-height: 360px;
+  padding: 2rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 0.75rem;
+  background: radial-gradient(circle at top, rgba(0, 102, 204, 0.2), transparent 65%), #081B36;
+}
+
+.gbp-map-fallback-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  background: rgba(59, 130, 246, 0.18);
+  border: 1px solid rgba(147, 197, 253, 0.35);
+  color: #93C5FD;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.gbp-map-fallback h3 {
+  margin: 0;
+  font-size: 1.12rem;
+  font-weight: 800;
+  color: #FFFFFF;
+}
+
+.gbp-map-fallback p {
+  margin: 0 0 0.35rem 0;
+  max-width: 38ch;
+  font-size: 0.88rem;
+  line-height: 1.5;
+  color: #CBD5E1;
+}
+
+@media (max-width: 1024px) {
+  .gbp-showcase-grid {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .gbp-profile-section {
+    padding: 3rem 0;
+  }
+
+  .gbp-profile-card,
+  .gbp-map-panel {
+    padding: 1.35rem 1.1rem;
+  }
+
+  .gbp-card-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .gbp-card-actions .btn {
+    width: 100%;
+  }
+
+  .gbp-map-canvas,
+  .gbp-google-map-iframe,
+  .gbp-map-fallback {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 480px) {
+  .nav-gbp-widget {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .gbp-map-canvas,
+  .gbp-google-map-iframe,
+  .gbp-map-fallback {
+    min-height: 260px;
   }
 }
 

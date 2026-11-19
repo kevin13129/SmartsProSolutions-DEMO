@@ -335,5 +335,36 @@
       triggerPricePulse();
     });
   }
+
+  // --- 8. Bottom Google Map (Maps Embed API via /api/maps-config) ---
+  const gbpMapCanvas = document.getElementById('gbp-map-canvas');
+  const gbpMapSubtitle = document.getElementById('gbp-map-subtitle');
+
+  const loadGoogleBusinessMap = async () => {
+    if (!gbpMapCanvas || !window.SmartsProBackend?.fetchMapsConfig) return;
+
+    const result = await window.SmartsProBackend.fetchMapsConfig();
+    if (!result?.ok || !result.data) return;
+
+    const { configured, embedUrl, embedTitle, locationLabel } = result.data;
+    if (configured && typeof embedUrl === 'string' && embedUrl.startsWith('https://www.google.com/maps/embed/v1/')) {
+      const iframe = document.createElement('iframe');
+      iframe.className = 'gbp-google-map-iframe';
+      iframe.title = embedTitle || 'Smarts Pro Solutions on Google Maps';
+      iframe.loading = 'lazy';
+      iframe.allowFullscreen = true;
+      iframe.setAttribute('frameborder', '0');
+      iframe.setAttribute('referrerpolicy', 'strict-origin-when-cross-origin');
+      iframe.src = embedUrl;
+      gbpMapCanvas.replaceChildren(iframe);
+
+      if (gbpMapSubtitle && typeof locationLabel === 'string' && locationLabel.trim()) {
+        gbpMapSubtitle.textContent = locationLabel.trim();
+      }
+    }
+  };
+
+  loadGoogleBusinessMap();
 })();
+
 
