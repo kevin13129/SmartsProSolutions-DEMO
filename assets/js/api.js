@@ -65,45 +65,6 @@
   }
 
   /**
-   * Fetches Google Maps Embed configuration from same-origin /api/maps-config.
-   */
-  async function fetchMapsConfig() {
-    if (typeof fetch !== 'function') {
-      return Object.freeze({
-        ok: false,
-        code: 'FETCH_UNAVAILABLE',
-        message: 'Network client is not available in this environment.'
-      });
-    }
-    try {
-      const response = await fetch('/api/maps-config', {
-        method: 'GET',
-        headers: { Accept: 'application/json' },
-        credentials: 'same-origin',
-        cache: 'no-store'
-      });
-      if (!response.ok) {
-        return Object.freeze({
-          ok: false,
-          code: `HTTP_${response.status}`,
-          message: 'Unable to load Google Map configuration.'
-        });
-      }
-      const data = await response.json();
-      return Object.freeze({
-        ok: true,
-        data
-      });
-    } catch {
-      return Object.freeze({
-        ok: false,
-        code: 'NETWORK_ERROR',
-        message: 'Unable to reach map configuration service.'
-      });
-    }
-  }
-
-  /**
    * Submits a completed estimate, selected calendar window, and customer contact details
    * (First Name, Last Name, Phone, Email, Additional Notes) to the same-origin server endpoint.
    * Strips any browser-computed price totals so the server always recalculates authoritatively.
@@ -258,7 +219,6 @@
   window.SmartsProBackend = Object.freeze({
     intakeAvailable: true,
     onlinePaymentsEnabled: false,
-    fetchMapsConfig,
     fetchCalendarAvailability,
     submitEstimateRequest,
     confirmFinishEarly,
