@@ -195,3 +195,90 @@ body:has(.construction-screen) { overflow: hidden; }
   .intake-confirmation-value { flex: 0 0 auto; width: 100%; text-align: left; }
   .finish-early-card { padding: 1.35rem 1.1rem; }
 }
+
+/* Weekly-Anchor Hybrid Schedule Badges & Commercial-Only Overnight Request UI */
+.frequency-options-grid.has-overnight {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.freq-card-option.is-hidden {
+  display: none !important;
+}
+
+.freq-badge-tag {
+  display: inline-block;
+  margin-bottom: 0.35rem;
+  padding: 0.16rem 0.55rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+}
+
+.freq-badge-anchor {
+  background: #DCFCE7;
+  color: #166534;
+  border: 1px solid #86EFAC;
+}
+
+.freq-badge-surcharge {
+  background: #EFF6FF;
+  color: #1E40AF;
+  border: 1px solid #BFDBFE;
+}
+
+.freq-badge-overnight {
+  background: #FEF3C7;
+  color: #92400E;
+  border: 1px solid #FCD34D;
+}
+
+.freq-card-option.freq-overnight-card.active {
+  border-color: #D97706;
+  background: #FFFBEB;
+  box-shadow: 0 4px 14px rgba(217, 119, 6, 0.18);
+}
+
+.freq-card-option.freq-overnight-card.active .freq-sub {
+  color: #92400E;
+}
+
+.freq-overnight-banner,
+.modal-overnight-banner {
+  margin-top: 0.85rem;
+  padding: 0.72rem 0.95rem;
+  border-radius: 10px;
+  background: #FFFBEB;
+  border: 1px solid #FCD34D;
+  color: #78350F;
+  font-size: 0.82rem;
+  line-height: 1.48;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+}
+
+.modal-overnight-banner {
+  margin-top: 0;
+  margin-bottom: 0.85rem;
+  font-weight: 600;
+}
+
+.freq-overnight-banner svg,
+.modal-overnight-banner svg {
+  flex-shrink: 0;
+  margin-top: 0.12rem;
+  color: #B45309;
+}
+
+@media (max-width: 640px) {
+  .frequency-options-grid.has-overnight {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .frequency-options-grid:not(.has-overnight) .freq-card-option[data-freq="onetime"] {
+    grid-column: 1 / -1;
+  }
+}
+

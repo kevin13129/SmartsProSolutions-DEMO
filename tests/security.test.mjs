@@ -46,11 +46,12 @@ test('the browser boundary cleans legacy storage, rejects unvalidated legacy sub
   assert.ok(Object.isFrozen(dispatch));
   const envelope = dispatch.buildJobEnvelope({
     state: { serviceCategory: 'residential', frequency: 'weekly' },
-    calculation: { grandTotal: 200, estimatedHours: 4 }
+    calculation: { grandTotal: 200, estimatedHours: 4, frequencySurcharge: 0 }
   });
-  assert.equal(envelope.pricingModel, 'FLAT_RATE_NO_RECURRING_DISCOUNTS');
+  assert.equal(envelope.pricingModel, 'WEEKLY_ANCHOR_HYBRID_PRICING');
   assert.equal(envelope.paymentPolicy, 'NO_ONLINE_PAYMENT_REQUIRED');
   assert.equal(envelope.onlinePaymentEnabled, false);
+  assert.equal(envelope.frequencySurcharge, 0);
   assert.equal(envelope.recurringDiscountRate, 0);
   assert.equal(envelope.estimatedTotal, 200);
   assert.equal(envelope.adapters.calendarAvailabilityFeed, '/api/calendar-availability');
@@ -281,7 +282,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     const availData = await availRes.json();
     assert.equal(availData.businessHours, 'Mon – Fri · 8:00 AM – 4:30 PM');
     assert.equal(availData.maxAdvanceDate, '2026-12-31');
-    assert.equal(availData.paymentPolicy, 'No Online Payment Required • Flat-Rate Estimate Sent to Owner Email');
+    assert.equal(availData.paymentPolicy, 'No Online Payment Required • Weekly-Anchor Estimate Sent to Owner Email');
     assert.ok(Array.isArray(availData.availableDates));
     assert.ok(availData.availableDates.some(d => d.date === '2026-11-30'));
     assert.ok(availData.availableDates.some(d => d.date === '2026-12-31'));
@@ -511,11 +512,12 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
     });
     assert.equal(oneHrSpecificQuote.basePrice, 250);
+    assert.equal(oneHrSpecificQuote.frequencySurcharge, 65);
     assert.equal(oneHrSpecificQuote.specificAddonHours, 1);
     assert.equal(oneHrSpecificQuote.specificAddonPrice, 50);
     assert.equal(oneHrSpecificQuote.addonsTotal, 50);
     assert.equal(oneHrSpecificQuote.totalEstimatedHours, 6);
-    assert.equal(oneHrSpecificQuote.grandTotal, 300);
+    assert.equal(oneHrSpecificQuote.grandTotal, 365);
 
     const deepPlusSpecificQuote = calculateAuthoritativeQuote({
       serviceCategory: 'residential',
@@ -533,11 +535,12 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
     });
     assert.equal(deepPlusSpecificQuote.basePrice, 330);
+    assert.equal(deepPlusSpecificQuote.frequencySurcharge, 86);
     assert.equal(deepPlusSpecificQuote.specificAddonHours, 2);
     assert.equal(deepPlusSpecificQuote.specificAddonPrice, 100);
     assert.equal(deepPlusSpecificQuote.addonsTotal, 100);
     assert.equal(deepPlusSpecificQuote.totalEstimatedHours, 7.5);
-    assert.equal(deepPlusSpecificQuote.grandTotal, 430);
+    assert.equal(deepPlusSpecificQuote.grandTotal, 516);
 
     const movePlusSpecificQuote = calculateAuthoritativeQuote({
       serviceCategory: 'moveinout',
@@ -556,7 +559,10 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     });
     assert.equal(movePlusSpecificQuote.specificAddonHours, 1);
     assert.equal(movePlusSpecificQuote.specificAddonPrice, 50);
-    assert.equal(movePlusSpecificQuote.grandTotal, movePlusSpecificQuote.basePrice + 50);
+    assert.equal(
+      movePlusSpecificQuote.grandTotal,
+      movePlusSpecificQuote.basePrice + movePlusSpecificQuote.frequencySurcharge + 50
+    );
 
     const standard2000Quote = calculateAuthoritativeQuote({
       serviceCategory: 'residential',
@@ -574,8 +580,9 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
     });
     assert.equal(standard2000Quote.basePrice, 250);
+    assert.equal(standard2000Quote.frequencySurcharge, 65);
     assert.equal(standard2000Quote.totalEstimatedHours, 5);
-    assert.ok(standard2000Quote.grandTotal > 200);
+    assert.equal(standard2000Quote.grandTotal, 315);
 
     const deep2000Quote = calculateAuthoritativeQuote({
       serviceCategory: 'residential',
@@ -593,10 +600,11 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
     });
     assert.equal(deep2000Quote.basePrice, 330);
+    assert.equal(deep2000Quote.frequencySurcharge, 86);
     assert.equal(deep2000Quote.totalEstimatedHours, 5.5);
-    assert.ok(deep2000Quote.grandTotal > 275);
+    assert.equal(deep2000Quote.grandTotal, 416);
 
-    // 8. Valid request recalculates authoritative flat-rate total ($275 base + $65 fridge + $35 pets = $375),
+    // 8. Valid weekly anchor request recalculates authoritative total ($275 base + $0 weekly surcharge + $65 fridge + $35 pets = $375),
     // sends automated email + .ics invite to smartsprosolutions@gmail.com, and locks the calendar slot!
     const idemKey = 'sps-test-idempotency-key-0001';
     const validRes = await fetch(`${base}/api/estimate-request`, {
@@ -615,8 +623,9 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.match(validData.referenceCode, /^SPS-[0-9A-F]{10}$/);
     assert.equal(validData.verifiedEstimate.grandTotal, 375);
     assert.equal(validData.verifiedEstimate.basePrice, 275);
+    assert.equal(validData.verifiedEstimate.frequencySurcharge, 0);
     assert.equal(validData.verifiedEstimate.addonsTotal, 100);
-    assert.equal(validData.verifiedEstimate.pricingModel, 'FLAT_RATE_NO_ONLINE_PAYMENT');
+    assert.equal(validData.verifiedEstimate.pricingModel, 'WEEKLY_ANCHOR_HYBRID_PRICING');
     assert.equal(sentEmails.length, 1);
     assert.equal(sentEmails[0].emailPackage.to, 'smartsprosolutions@gmail.com');
     assert.equal(sentEmails[0].emailPackage.replyTo, 'jose.garcia@example.com');
@@ -850,7 +859,7 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
         occupancy: 'Occupied, we live there',
         condition: 'Average, normal use'
       },
-      frequency: 'onetime',
+      frequency: 'weekly',
       addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 },
       ...(overrides.quote || {})
     },
@@ -1344,7 +1353,7 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
           occupancy: 'Occupied, we live there',
           condition: 'Heavy buildup'
         },
-        frequency: 'onetime',
+        frequency: 'weekly',
         addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
       },
       companyWebsite: ''
@@ -1392,7 +1401,7 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     assert.ok(webhookCalls[0].customerEmail);
     assert.equal(webhookCalls[0].customerEmail.to, 'kevin@example.com');
     assert.ok(webhookCalls[0].recurrence);
-    assert.equal(webhookCalls[0].recurrence.isRecurring, false);
+    assert.equal(webhookCalls[0].recurrence.isRecurring, true);
 
     // Also test a Weekly recurring booking edited TWICE in a row (adding Specific Areas +$100 and Inside Oven +$80):
     // verifies previousFrequency='weekly' is sent for Code.gs in-place update, referenceCode stays identical,
@@ -1515,4 +1524,293 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     globalThis.fetch = originalFetch;
   }
 });
+
+test('weekly-anchor hybrid pricing, Commercial-only Overnight Mon-Fri tentative scheduling, midnight-crossing .ics, and daytime vs overnight isolation', async () => {
+  // 1. Hybrid pricing formula across $250 residential base, $400 larger residential base, Airbnb turnover, and Commercial overnight
+  const resBaseQuote = (frequency) => calculateAuthoritativeQuote({
+    serviceCategory: 'residential',
+    serviceType: 'standard',
+    propertyType: '',
+    scopeMode: 'full',
+    specificAreasText: '',
+    specificHours: 1,
+    bedrooms: 3,
+    fullBaths: 2,
+    halfBaths: 0,
+    sqft: 2000,
+    additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+    frequency,
+    addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+  });
+  assert.equal(resBaseQuote('weekly').grandTotal, 250);
+  assert.equal(resBaseQuote('weekly').frequencySurcharge, 0);
+  assert.equal(resBaseQuote('biweekly').frequencySurcharge, 30);
+  assert.equal(resBaseQuote('biweekly').grandTotal, 280);
+  assert.equal(resBaseQuote('monthly').frequencySurcharge, 50);
+  assert.equal(resBaseQuote('monthly').grandTotal, 300);
+  assert.equal(resBaseQuote('onetime').frequencySurcharge, 65);
+  assert.equal(resBaseQuote('onetime').grandTotal, 315);
+
+  const largeBaseQuote = (frequency) => calculateAuthoritativeQuote({
+    serviceCategory: 'residential',
+    serviceType: 'standard',
+    propertyType: '',
+    scopeMode: 'full',
+    specificAreasText: '',
+    specificHours: 1,
+    bedrooms: 5,
+    fullBaths: 4,
+    halfBaths: 0,
+    sqft: 3000, // 1.5 + 2.5 + 2.0 + 2.0 = 8 hrs * $50 = $400 base
+    additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+    frequency,
+    addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+  });
+  assert.equal(largeBaseQuote('weekly').grandTotal, 400);
+  assert.equal(largeBaseQuote('biweekly').frequencySurcharge, 48);
+  assert.equal(largeBaseQuote('biweekly').grandTotal, 448);
+  assert.equal(largeBaseQuote('monthly').frequencySurcharge, 80);
+  assert.equal(largeBaseQuote('monthly').grandTotal, 480);
+  assert.equal(largeBaseQuote('onetime').frequencySurcharge, 104);
+  assert.equal(largeBaseQuote('onetime').grandTotal, 504);
+
+  const airbnbTurnover = calculateAuthoritativeQuote({
+    serviceCategory: 'airbnb',
+    serviceType: 'airbnb',
+    propertyType: '',
+    scopeMode: 'full',
+    specificAreasText: '',
+    specificHours: 1,
+    bedrooms: 3,
+    fullBaths: 2,
+    halfBaths: 0,
+    sqft: 2000,
+    additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+    frequency: 'turnover',
+    addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+  });
+  assert.equal(airbnbTurnover.basePrice, 250);
+  assert.equal(airbnbTurnover.frequencySurcharge, 0);
+  assert.equal(airbnbTurnover.grandTotal, 250);
+
+  const commercialOvernightQuote = calculateAuthoritativeQuote({
+    serviceCategory: 'commercial',
+    serviceType: 'commercial',
+    propertyType: '',
+    scopeMode: 'full',
+    specificAreasText: '',
+    specificHours: 1,
+    bedrooms: 3,
+    fullBaths: 2,
+    halfBaths: 0,
+    sqft: 1800,
+    additionalInfo: { hasPets: '', lastCleaned: '', occupancy: '', condition: '' },
+    frequency: 'overnight',
+    addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+  });
+  assert.equal(commercialOvernightQuote.basePrice, 150);
+  assert.equal(commercialOvernightQuote.frequencySurcharge, 85);
+  assert.equal(commercialOvernightQuote.grandTotal, 235);
+
+  // 2. Non-commercial overnight requests fail closed; window mismatches fail closed
+  let activeNow = new Date('2026-11-04T15:00:00Z');
+  const sentEmails = [];
+  const service = createIntakeService({
+    nowFn: () => activeNow,
+    includeBaselineSchedule: false,
+    rateLimitMax: 20,
+    finishEarlySecret: 'overnight-test-secret-minimum-32-chars-ok',
+    mailTransport: async (emailPackage, record, referenceCode) => {
+      sentEmails.push({ emailPackage, record, referenceCode });
+      return { delivered: true, provider: 'test-double' };
+    }
+  });
+
+  const nonCommercialOvernight = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      customer: {
+        firstName: 'Sam',
+        lastName: 'Homeowner',
+        phone: '(318) 555-0141',
+        email: 'sam@example.com',
+        notes: ''
+      },
+      appointment: { preferredDate: '2026-11-06', preferredWindow: '21:00-01:00' },
+      quote: {
+        serviceCategory: 'residential',
+        serviceType: 'standard',
+        scopeMode: 'full',
+        bedrooms: 3,
+        fullBaths: 2,
+        halfBaths: 0,
+        sqft: 2000,
+        additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+        frequency: 'overnight',
+        addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+      },
+      companyWebsite: ''
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.1.10'
+  });
+  assert.equal(nonCommercialOvernight.status, 400);
+  assert.equal(nonCommercialOvernight.body.code, 'OVERNIGHT_COMMERCIAL_ONLY');
+
+  const commercialDaytimeWithOvernightWin = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      customer: {
+        firstName: 'Pat',
+        lastName: 'Manager',
+        phone: '(318) 555-0142',
+        email: 'pat@example.com',
+        notes: ''
+      },
+      appointment: { preferredDate: '2026-11-06', preferredWindow: '21:00-01:00' },
+      quote: {
+        serviceCategory: 'commercial',
+        serviceType: 'commercial',
+        scopeMode: 'full',
+        frequency: 'weekly',
+        addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+      },
+      companyWebsite: ''
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.1.11'
+  });
+  assert.equal(commercialDaytimeWithOvernightWin.status, 400);
+  assert.equal(commercialDaytimeWithOvernightWin.body.code, 'INVALID_ARRIVAL_WINDOW');
+
+  const commercialOvernightWithDayWin = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      customer: {
+        firstName: 'Pat',
+        lastName: 'Manager',
+        phone: '(318) 555-0142',
+        email: 'pat@example.com',
+        notes: ''
+      },
+      appointment: { preferredDate: '2026-11-06', preferredWindow: '08:00-11:00' },
+      quote: {
+        serviceCategory: 'commercial',
+        serviceType: 'commercial',
+        scopeMode: 'full',
+        frequency: 'overnight',
+        addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+      },
+      companyWebsite: ''
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.1.12'
+  });
+  assert.equal(commercialOvernightWithDayWin.status, 400);
+  assert.equal(commercialOvernightWithDayWin.body.code, 'INVALID_ARRIVAL_WINDOW');
+
+  // 3. Valid Commercial Overnight Mon-Fri booking (9:00 PM - 1:00 AM crossing midnight to Nov 7)
+  const overnightBookRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      customer: {
+        firstName: 'Dana',
+        lastName: 'Director',
+        phone: '(318) 555-0190',
+        email: 'dana@example.com',
+        notes: 'Suite 200 lobby and executive conference rooms.'
+      },
+      appointment: { preferredDate: '2026-11-06', preferredWindow: '21:00-01:00' },
+      quote: {
+        serviceCategory: 'commercial',
+        serviceType: 'commercial',
+        scopeMode: 'full',
+        frequency: 'overnight',
+        addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
+      },
+      companyWebsite: ''
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.1.13'
+  });
+  assert.equal(overnightBookRes.status, 200);
+  assert.equal(overnightBookRes.body.verifiedEstimate.basePrice, 150);
+  assert.equal(overnightBookRes.body.verifiedEstimate.frequencySurcharge, 85);
+  assert.equal(overnightBookRes.body.verifiedEstimate.grandTotal, 235);
+  assert.equal(overnightBookRes.body.verifiedEstimate.isOvernight, true);
+  assert.equal(overnightBookRes.body.appointment.isOvernight, true);
+  assert.equal(overnightBookRes.body.appointment.scheduledEndLabel, '1:00 AM');
+  assert.equal(overnightBookRes.body.appointment.endIso, '2026-11-07T01:00:00-06:00');
+  assert.match(overnightBookRes.body.message, /\(318\) 564-4360/);
+
+  const overnightEmail = sentEmails[sentEmails.length - 1].emailPackage;
+  assert.match(overnightEmail.subject, /\[TENTATIVE OVERNIGHT REQUEST\]/);
+  assert.doesNotMatch(overnightEmail.icsContent, /RRULE:/);
+  assert.match(overnightEmail.icsContent, /DTSTART;TZID=America\/Chicago:20261106T210000/);
+  assert.match(overnightEmail.icsContent, /DTEND;TZID=America\/Chicago:20261107T010000/);
+  assert.match(overnightEmail.htmlBody, /SPECIAL OVERNIGHT COMMERCIAL REQUEST/);
+  assert.match(overnightEmail.customerConfirmation.subject, /\[TENTATIVE OVERNIGHT REQUEST\]/);
+  assert.match(overnightEmail.customerConfirmation.htmlBody, /\(318\) 564-4360/);
+  assert.equal(sentEmails[sentEmails.length - 1].record.appointment.recurrence.isRecurring, false);
+
+  // Verify daytime slots stay AVAILABLE on 2026-11-06 and next Friday overnight does NOT auto-recur
+  const availCheck = service.getCalendarAvailability();
+  const nov06 = availCheck.availableDates.find(d => d.date === '2026-11-06');
+  const nov13 = availCheck.availableDates.find(d => d.date === '2026-11-13');
+  assert.ok(nov06 && nov13);
+  assert.equal(nov06.openSlotCount, 3);
+  assert.equal(nov06.overnightSlots.find(s => s.slotId === '21:00-01:00').status, 'BOOKED');
+  assert.equal(nov06.overnightSlots.find(s => s.slotId === '18:00-22:00').status, 'BOOKED'); // overlaps 9 PM - 10 PM
+  assert.equal(nov06.overnightSlots.find(s => s.slotId === '23:00-03:00').status, 'BOOKED'); // overlaps 11 PM - 1 AM
+  assert.equal(nov13.overnightSlots.find(s => s.slotId === '21:00-01:00').status, 'AVAILABLE');
+  const upcomingNightChip = availCheck.upcomingBookings.find(b => b.date === '2026-11-06' && b.slotId === '21:00-01:00');
+  assert.ok(upcomingNightChip && upcomingNightChip.isOvernight === true);
+
+  // 4. Finish-Early works cleanly post-midnight (12:20 AM CST on Nov 7 = 2026-11-07T06:20:00Z)
+  activeNow = new Date('2026-11-07T06:20:00Z');
+  const finishEarlyToken = new URL(overnightEmail.finishEarlyUrl).searchParams.get('token');
+  const finishNightEarly = await service.processFinishEarlyRequest({
+    method: 'POST',
+    rawBody: JSON.stringify({ token: finishEarlyToken, mode: 'now' }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.1.14'
+  });
+  assert.equal(finishNightEarly.status, 200);
+  assert.equal(finishNightEarly.body.earlyEndLabel, '12:30 AM');
+
+  // 5. Remote Google Calendar doGet sync marks overnight interval booked while preserving daytime availability
+  const origFetch = globalThis.fetch;
+  process.env.EMAIL_WEBHOOK_URL = 'https://script.google.com/macros/s/test-overnight-sync/exec';
+  globalThis.fetch = async (url, init = {}) => {
+    if (String(url).startsWith('https://script.google.com/') && (init.method || 'GET').toUpperCase() === 'GET') {
+      return new Response(JSON.stringify({
+        ok: true,
+        busyIntervals: [
+          { date: '2026-11-12', startMinutes: 1260, endMinutes: 1500 } // 9:00 PM - 1:00 AM (+1 day)
+        ]
+      }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    return origFetch(url, init);
+  };
+  try {
+    const remoteSyncService = createIntakeService({
+      nowFn: () => new Date('2026-11-04T15:00:00Z'),
+      includeBaselineSchedule: false
+    });
+    const remoteAvail = await remoteSyncService.getCalendarAvailabilityAsync();
+    const nov12 = remoteAvail.availableDates.find((d) => d.date === '2026-11-12');
+    assert.ok(nov12);
+    assert.equal(nov12.openSlotCount, 3); // Daytime slots unaffected
+    assert.equal(nov12.overnightSlots.find((s) => s.slotId === '21:00-01:00').status, 'BOOKED');
+    assert.equal(nov12.overnightSlots.find((s) => s.slotId === '18:00-22:00').status, 'BOOKED');
+    assert.equal(nov12.overnightSlots.find((s) => s.slotId === '23:00-03:00').status, 'BOOKED');
+    const remoteNightChip = remoteAvail.upcomingBookings.find(
+      (b) => b.date === '2026-11-12' && b.slotId === '21:00-01:00'
+    );
+    assert.ok(remoteNightChip && remoteNightChip.isOvernight === true);
+  } finally {
+    delete process.env.EMAIL_WEBHOOK_URL;
+    globalThis.fetch = origFetch;
+  }
+});
+
 

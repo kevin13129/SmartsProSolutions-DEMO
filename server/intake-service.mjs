@@ -12,7 +12,7 @@ import { resolveMx } from 'node:dns/promises';
  * - Fail-closed automated email + matched-duration RFC 5545 .ics calendar dispatch + Finish-Early & Update token workflows
  */
 
-export const PRICING_RULES_VERSION = '2026-11-flat-rate-no-online-payment-v1';
+export const PRICING_RULES_VERSION = '2026-11-weekly-anchor-hybrid-v2';
 export const MAX_BODY_BYTES = 16 * 1024; // 16 KiB limit per SECURITY-ROADMAP.md
 export const BUSINESS_TIMEZONE = 'America/Chicago';
 export const DEFAULT_OWNER_EMAIL = 'smartsprosolutions@gmail.com';
@@ -20,6 +20,8 @@ export const DEFAULT_PUBLIC_SITE_URL = 'https://www.smartsprosolutions.com';
 export const BUSINESS_OPEN_MINUTES = 8 * 60; // 8:00 AM
 export const BUSINESS_CLOSE_MINUTES = 16 * 60 + 30; // 4:30 PM
 export const FULL_DAY_MINUTES = BUSINESS_CLOSE_MINUTES - BUSINESS_OPEN_MINUTES; // 8.5 hours
+export const OVERNIGHT_OPEN_MINUTES = 18 * 60; // 6:00 PM
+export const OVERNIGHT_CLOSE_MINUTES = 27 * 60; // 3:00 AM (+1 day)
 
 const EPHEMERAL_FINISH_EARLY_SECRET = randomBytes(32).toString('hex');
 
@@ -32,8 +34,10 @@ export const ARRIVAL_WINDOWS = Object.freeze([
     startMinute: 0,
     endHour: 11,
     endMinute: 0,
+    endDayOffset: 0,
     startMinutes: 8 * 60,
-    endMinutes: 11 * 60
+    endMinutes: 11 * 60,
+    isOvernight: false
   }),
   Object.freeze({
     id: '11:00-14:00',
@@ -43,8 +47,10 @@ export const ARRIVAL_WINDOWS = Object.freeze([
     startMinute: 0,
     endHour: 14,
     endMinute: 0,
+    endDayOffset: 0,
     startMinutes: 11 * 60,
-    endMinutes: 14 * 60
+    endMinutes: 14 * 60,
+    isOvernight: false
   }),
   Object.freeze({
     id: '14:00-16:30',
@@ -54,8 +60,52 @@ export const ARRIVAL_WINDOWS = Object.freeze([
     startMinute: 0,
     endHour: 16,
     endMinute: 30,
+    endDayOffset: 0,
     startMinutes: 14 * 60,
-    endMinutes: 16 * 60 + 30
+    endMinutes: 16 * 60 + 30,
+    isOvernight: false
+  })
+]);
+
+export const OVERNIGHT_ARRIVAL_WINDOWS = Object.freeze([
+  Object.freeze({
+    id: '18:00-22:00',
+    label: 'Evening Overnight (6:00 PM – 10:00 PM)',
+    shortLabel: '6:00 PM – 10:00 PM',
+    startHour: 18,
+    startMinute: 0,
+    endHour: 22,
+    endMinute: 0,
+    endDayOffset: 0,
+    startMinutes: 18 * 60,
+    endMinutes: 22 * 60,
+    isOvernight: true
+  }),
+  Object.freeze({
+    id: '21:00-01:00',
+    label: 'Late Night Overnight (9:00 PM – 1:00 AM)',
+    shortLabel: '9:00 PM – 1:00 AM',
+    startHour: 21,
+    startMinute: 0,
+    endHour: 1,
+    endMinute: 0,
+    endDayOffset: 1,
+    startMinutes: 21 * 60,
+    endMinutes: 25 * 60,
+    isOvernight: true
+  }),
+  Object.freeze({
+    id: '23:00-03:00',
+    label: 'Overnight Shift (11:00 PM – 3:00 AM)',
+    shortLabel: '11:00 PM – 3:00 AM',
+    startHour: 23,
+    startMinute: 0,
+    endHour: 3,
+    endMinute: 0,
+    endDayOffset: 1,
+    startMinutes: 23 * 60,
+    endMinutes: 27 * 60,
+    isOvernight: true
   })
 ]);
 
@@ -89,6 +139,14 @@ const SERVER_PRICING_CONFIG = Object.freeze({
     moveinout: 1.25,
     airbnb: 1.0
   }),
+  scheduleSurcharges: Object.freeze({
+    weekly: Object.freeze({ flatMin: 0, pct: 0 }),
+    turnover: Object.freeze({ flatMin: 0, pct: 0 }),
+    biweekly: Object.freeze({ flatMin: 30, pct: 0.12 }),
+    monthly: Object.freeze({ flatMin: 50, pct: 0.20 }),
+    onetime: Object.freeze({ flatMin: 65, pct: 0.26 }),
+    overnight: Object.freeze({ flatMin: 85, pct: 0.30 })
+  }),
   addons: Object.freeze({
     fridge: 65,
     fridgeDouble: 75,
@@ -97,11 +155,19 @@ const SERVER_PRICING_CONFIG = Object.freeze({
   })
 });
 
+export function calculateFrequencySurcharge(basePrice, frequency) {
+  const rule = SERVER_PRICING_CONFIG.scheduleSurcharges[frequency];
+  if (!rule || (rule.flatMin <= 0 && rule.pct <= 0)) {
+    return 0;
+  }
+  return Math.max(rule.flatMin, Math.round(Number(basePrice || 0) * rule.pct));
+}
+
 const ALLOWED_SERVICE_CATEGORIES = new Set(['residential', 'commercial', 'moveinout', 'airbnb']);
 const ALLOWED_SERVICE_TYPES = new Set(['standard', 'deep', 'moveinout', 'airbnb', 'commercial']);
 const ALLOWED_SCOPE_MODES = new Set(['full', 'specific']);
 const ALLOWED_PROPERTY_TYPES = new Set(['', 'House', 'Apartment', 'Condo', 'Townhome']);
-const ALLOWED_FREQUENCIES = new Set(['weekly', 'biweekly', 'turnover', 'monthly', 'onetime']);
+const ALLOWED_FREQUENCIES = new Set(['weekly', 'biweekly', 'turnover', 'monthly', 'onetime', 'overnight']);
 const ALLOWED_PETS = new Set(['', 'yes', 'no']);
 const ALLOWED_LAST_CLEANED = new Set([
   '',
@@ -130,6 +196,7 @@ const FORBIDDEN_PRICE_OR_PRIVILEGE_KEYS = new Set([
   'grandTotal',
   'basePrice',
   'addonsTotal',
+  'frequencySurcharge',
   'discount',
   'discountRate',
   'discountAmount',
@@ -154,11 +221,12 @@ const SERVICE_DISPLAY_LABELS = Object.freeze({
 });
 
 const FREQUENCY_DISPLAY_LABELS = Object.freeze({
-  weekly: 'Weekly (Every 7 Days) • Flat Rate',
-  biweekly: 'Every 2 Weeks • Flat Rate',
-  turnover: 'Per Turnover / Custom Schedule • Flat Rate',
-  monthly: 'Monthly • Flat Rate',
-  onetime: 'One-Time Service • Flat Rate'
+  weekly: 'Weekly (Every 7 Days) • Anchor Rate (+$0)',
+  biweekly: 'Every 2 Weeks • Schedule Adjustment (+$30 min / 12%)',
+  turnover: 'Per Turnover / Custom Schedule • Anchor Rate (+$0)',
+  monthly: 'Monthly • Schedule Adjustment (+$50 min / 20%)',
+  onetime: 'One-Time Service • Schedule Adjustment (+$65 min / 26%)',
+  overnight: 'Commercial Overnight (Special Request • Tentative Slot, +$85 min / 30%)'
 });
 
 /**
@@ -392,9 +460,9 @@ export function getBusinessTimeParts(now = new Date()) {
 }
 
 export function formatMinutesAsTime(totalMinutes) {
-  const clamped = Math.max(0, Math.min(24 * 60 - 1, Math.round(totalMinutes)));
-  const h24 = Math.floor(clamped / 60);
-  const mins = clamped % 60;
+  const wrapped = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
+  const h24 = Math.floor(wrapped / 60);
+  const mins = wrapped % 60;
   const ampm = h24 >= 12 ? 'PM' : 'AM';
   const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
   return `${h12}:${String(mins).padStart(2, '0')} ${ampm}`;
@@ -407,12 +475,16 @@ export function formatDurationHours(hours) {
 }
 
 /**
- * Builds an RFC 3339 timestamp with the exact DST-aware America/Chicago offset for a date & minute count.
+ * Builds an RFC 3339 timestamp with the exact DST-aware America/Chicago offset for a date & minute count,
+ * advancing the calendar date cleanly when totalMinutes crosses midnight (>= 1440).
  */
 function getCentralIsoForDateAndMinutes(isoDate, totalMinutes) {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  const hh = Math.floor(totalMinutes / 60);
-  const mm = totalMinutes % 60;
+  const dayOffset = Math.floor(totalMinutes / 1440);
+  const minuteOfDay = ((Math.round(totalMinutes) % 1440) + 1440) % 1440;
+  const targetDate = dayOffset === 0 ? isoDate : addDaysToIsoDate(isoDate, dayOffset);
+  const [y, m, d] = targetDate.split('-').map(Number);
+  const hh = Math.floor(minuteOfDay / 60);
+  const mm = minuteOfDay % 60;
   const approxUtcMs = Date.UTC(y, m - 1, d, hh, mm, 0);
   const tzNamePart = new Intl.DateTimeFormat('en-US', {
     timeZone: BUSINESS_TIMEZONE,
@@ -422,7 +494,7 @@ function getCentralIsoForDateAndMinutes(isoDate, totalMinutes) {
     .find((p) => p.type === 'timeZoneName')?.value;
   const offsetMatch = String(tzNamePart || '').match(/GMT([+-]\d{2}:\d{2})/);
   const offsetStr = offsetMatch ? offsetMatch[1] : '-06:00';
-  return `${isoDate}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00${offsetStr}`;
+  return `${targetDate}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00${offsetStr}`;
 }
 
 function parseIsoToChicagoDateAndMinutes(isoString) {
@@ -469,6 +541,14 @@ export function getRecurrenceForFrequency(frequency) {
       frequency: 'monthly',
       label: 'Repeats Monthly',
       rrule: 'FREQ=MONTHLY'
+    });
+  }
+  if (frequency === 'overnight') {
+    return Object.freeze({
+      isRecurring: false,
+      frequency: 'overnight',
+      label: 'Tentative Overnight Slot (Owner Confirmation Required — Call (318) 564-4360)',
+      rrule: ''
     });
   }
   return Object.freeze({
@@ -750,21 +830,24 @@ export function getHolidayNameForIsoDate(isoDate) {
 }
 
 /**
- * Recalculates the authoritative flat-rate estimate on the server.
+ * Recalculates the authoritative estimate on the server (weekly anchor + hybrid schedule scaling).
  * Ignores any browser-computed totals.
  */
 export function calculateAuthoritativeQuote(quoteInput) {
   const cfg = SERVER_PRICING_CONFIG;
   const serviceCategory = quoteInput.serviceCategory;
   const isCommercial = serviceCategory === 'commercial';
+  const frequency = ALLOWED_FREQUENCIES.has(quoteInput.frequency) ? quoteInput.frequency : 'weekly';
 
   if (isCommercial) {
     const hourlyRate = cfg.hourlyRates.commercial;
     const estimatedHours = 3.0;
     const basePrice = Math.round(estimatedHours * hourlyRate);
+    const frequencySurcharge = calculateFrequencySurcharge(basePrice, frequency);
+    const grandTotal = basePrice + frequencySurcharge;
     return Object.freeze({
       pricingRulesVersion: PRICING_RULES_VERSION,
-      pricingModel: 'FLAT_RATE_NO_ONLINE_PAYMENT',
+      pricingModel: 'WEEKLY_ANCHOR_HYBRID_PRICING',
       isCommercial: true,
       isSpecificAreas: false,
       hourlyRate,
@@ -773,10 +856,12 @@ export function calculateAuthoritativeQuote(quoteInput) {
       totalEstimatedHours: estimatedHours,
       durationMinutes: Math.round(estimatedHours * 60),
       basePrice,
+      frequency,
+      frequencySurcharge,
       addonsTotal: 0,
       discountRate: 0,
       discountAmount: 0,
-      grandTotal: basePrice,
+      grandTotal,
       currency: 'USD'
     });
   }
@@ -805,6 +890,7 @@ export function calculateAuthoritativeQuote(quoteInput) {
   const estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
   const rawPrice = Math.round(estimatedHours * hourlyRate);
   const basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
+  const frequencySurcharge = frequency === 'overnight' ? 0 : calculateFrequencySurcharge(basePrice, frequency);
 
   const specificAddonHours = isSpecificAreas
     ? Math.min(cfg.specificAreas.maxHours, Math.max(cfg.specificAreas.minHours, quoteInput.specificHours))
@@ -835,11 +921,11 @@ export function calculateAuthoritativeQuote(quoteInput) {
   const totalEstimatedHours = Number((estimatedHours + addonHours).toFixed(2));
   const durationMinutes = Math.max(60, Math.round(totalEstimatedHours * 60));
 
-  const grandTotal = basePrice + addonsTotal;
+  const grandTotal = basePrice + frequencySurcharge + addonsTotal;
 
   return Object.freeze({
     pricingRulesVersion: PRICING_RULES_VERSION,
-    pricingModel: 'FLAT_RATE_NO_ONLINE_PAYMENT',
+    pricingModel: 'WEEKLY_ANCHOR_HYBRID_PRICING',
     isCommercial: false,
     isSpecificAreas,
     specificAddonHours,
@@ -850,6 +936,8 @@ export function calculateAuthoritativeQuote(quoteInput) {
     totalEstimatedHours,
     durationMinutes,
     basePrice,
+    frequency,
+    frequencySurcharge,
     addonsTotal,
     discountRate: 0,
     discountAmount: 0,
@@ -1004,74 +1092,7 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     return { ok: false, status: 400, code: 'SENSITIVE_DATA_REJECTED', error: 'Please do not include credit card or payment card numbers in your request.' };
   }
 
-  // 2. Validate appointment fields
-  const appointment = payload.appointment;
-  const allowedAppointmentKeys = new Set(['preferredDate', 'preferredWindow']);
-  if (!hasOnlyAllowedKeys(appointment, allowedAppointmentKeys)) {
-    return { ok: false, status: 400, code: 'INVALID_APPOINTMENT_FIELDS', error: 'Please select a valid appointment date and arrival window.' };
-  }
-
-  const preferredDate = typeof appointment.preferredDate === 'string' ? appointment.preferredDate.trim() : '';
-  const preferredWindow = typeof appointment.preferredWindow === 'string' ? appointment.preferredWindow.trim() : '';
-
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate)) {
-    return { ok: false, status: 400, code: 'INVALID_DATE', error: 'Please select a valid cleaning date (YYYY-MM-DD).' };
-  }
-
-  const [y, m, d] = preferredDate.split('-').map(Number);
-  const parsedUtc = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
-  if (
-    Number.isNaN(parsedUtc.getTime()) ||
-    parsedUtc.getUTCFullYear() !== y ||
-    parsedUtc.getUTCMonth() + 1 !== m ||
-    parsedUtc.getUTCDate() !== d
-  ) {
-    return { ok: false, status: 400, code: 'INVALID_CALENDAR_DATE', error: 'Selected date is not a valid calendar date.' };
-  }
-
-  const todayIso = getBusinessTodayIso(now);
-  const minDateIso = addDaysToIsoDate(todayIso, 1);
-  const maxDateIso = getEndOfNextCalendarMonthIso(todayIso);
-  if (preferredDate < minDateIso || preferredDate > maxDateIso) {
-    return {
-      ok: false,
-      status: 400,
-      code: 'DATE_OUT_OF_RANGE',
-      error: 'Appointments can only be scheduled within the current month and next calendar month.'
-    };
-  }
-
-  const dow = getDayOfWeekUtc(preferredDate);
-  if (dow === 0 || dow === 6) {
-    return {
-      ok: false,
-      status: 400,
-      code: 'WEEKEND_CLOSED',
-      error: 'Cleaning appointments are available Monday through Friday, 8:00 AM to 4:30 PM.'
-    };
-  }
-
-  const holidayName = getHolidayNameForIsoDate(preferredDate);
-  if (holidayName) {
-    return {
-      ok: false,
-      status: 400,
-      code: 'HOLIDAY_CLOSED',
-      error: `Our office is closed on ${holidayName}. Please select an open Monday through Friday date.`
-    };
-  }
-
-  const windowObj = ARRIVAL_WINDOWS.find((w) => w.id === preferredWindow);
-  if (!windowObj) {
-    return {
-      ok: false,
-      status: 400,
-      code: 'INVALID_ARRIVAL_WINDOW',
-      error: 'Please select a valid arrival time window between 8:00 AM and 4:30 PM.'
-    };
-  }
-
-  // 3. Validate quote / property inputs
+  // 2. Validate quote / property headers early so overnight vs daytime window rules enforce strict boundaries
   const quote = payload.quote;
   const allowedQuoteKeys = new Set([
     'serviceCategory',
@@ -1120,6 +1141,91 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   }
   if (!ALLOWED_FREQUENCIES.has(frequency)) {
     return { ok: false, status: 400, code: 'INVALID_FREQUENCY', error: 'Invalid cleaning frequency selected.' };
+  }
+
+  // 3. Validate appointment fields (enforcing Commercial-only Overnight boundary & Mon-Fri rules)
+  const appointment = payload.appointment;
+  const allowedAppointmentKeys = new Set(['preferredDate', 'preferredWindow']);
+  if (!hasOnlyAllowedKeys(appointment, allowedAppointmentKeys)) {
+    return { ok: false, status: 400, code: 'INVALID_APPOINTMENT_FIELDS', error: 'Please select a valid appointment date and arrival window.' };
+  }
+
+  const preferredDate = typeof appointment.preferredDate === 'string' ? appointment.preferredDate.trim() : '';
+  const preferredWindow = typeof appointment.preferredWindow === 'string' ? appointment.preferredWindow.trim() : '';
+
+  const isOvernightRequest = frequency === 'overnight';
+  const isOvernightWindowSelected = OVERNIGHT_ARRIVAL_WINDOWS.some((w) => w.id === preferredWindow);
+  if ((isOvernightRequest || isOvernightWindowSelected) && serviceCategory !== 'commercial') {
+    return {
+      ok: false,
+      status: 400,
+      code: 'OVERNIGHT_COMMERCIAL_ONLY',
+      error: 'Overnight cleaning slots are reserved exclusively for Commercial & Business facilities. Residential, Move-In/Out, and Airbnb cleanings use standard daytime hours.'
+    };
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(preferredDate)) {
+    return { ok: false, status: 400, code: 'INVALID_DATE', error: 'Please select a valid cleaning date (YYYY-MM-DD).' };
+  }
+
+  const [y, m, d] = preferredDate.split('-').map(Number);
+  const parsedUtc = new Date(Date.UTC(y, m - 1, d, 12, 0, 0));
+  if (
+    Number.isNaN(parsedUtc.getTime()) ||
+    parsedUtc.getUTCFullYear() !== y ||
+    parsedUtc.getUTCMonth() + 1 !== m ||
+    parsedUtc.getUTCDate() !== d
+  ) {
+    return { ok: false, status: 400, code: 'INVALID_CALENDAR_DATE', error: 'Selected date is not a valid calendar date.' };
+  }
+
+  const todayIso = getBusinessTodayIso(now);
+  const minDateIso = addDaysToIsoDate(todayIso, 1);
+  const maxDateIso = getEndOfNextCalendarMonthIso(todayIso);
+  if (preferredDate < minDateIso || preferredDate > maxDateIso) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'DATE_OUT_OF_RANGE',
+      error: 'Appointments can only be scheduled within the current month and next calendar month.'
+    };
+  }
+
+  const dow = getDayOfWeekUtc(preferredDate);
+  if (dow === 0 || dow === 6) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'WEEKEND_CLOSED',
+      error: isOvernightRequest
+        ? 'Overnight commercial slots are available Monday through Friday nights only.'
+        : 'Cleaning appointments are available Monday through Friday, 8:00 AM to 4:30 PM.'
+    };
+  }
+
+  const holidayName = getHolidayNameForIsoDate(preferredDate);
+  if (holidayName) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'HOLIDAY_CLOSED',
+      error: `Our office is closed on ${holidayName}. Please select an open Monday through Friday date.`
+    };
+  }
+
+  const isCommercialOvernight = serviceCategory === 'commercial' && frequency === 'overnight';
+  const windowObj = isCommercialOvernight
+    ? OVERNIGHT_ARRIVAL_WINDOWS.find((w) => w.id === preferredWindow)
+    : ARRIVAL_WINDOWS.find((w) => w.id === preferredWindow);
+  if (!windowObj) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'INVALID_ARRIVAL_WINDOW',
+      error: isCommercialOvernight
+        ? 'Please select a valid Commercial Overnight night window (6:00 PM – 10:00 PM, 9:00 PM – 1:00 AM, or 11:00 PM – 3:00 AM).'
+        : 'Please select a valid arrival time window between 8:00 AM and 4:30 PM.'
+    };
   }
 
   const isIntInRange = (val, min, max) =>
@@ -1245,13 +1351,15 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
         preferredWindowLabel: windowObj.label,
         preferredWindowShort: windowObj.shortLabel,
         windowSpec: windowObj,
+        isOvernight: Boolean(windowObj.isOvernight),
+        endDayOffset: windowObj.endDayOffset || (slotFit.endMinutes >= 1440 ? Math.floor(slotFit.endMinutes / 1440) : 0),
         startMinutes: windowObj.startMinutes,
         endMinutes: slotFit.endMinutes,
         projectedEndMinutes: slotFit.projectedEndMinutes,
         exceedsClosing: slotFit.exceedsClosing,
         durationMinutes: authoritativeCalculation.durationMinutes,
         estimatedHours: authoritativeCalculation.totalEstimatedHours,
-        scheduledEndHour: Math.floor(slotFit.endMinutes / 60),
+        scheduledEndHour: Math.floor((slotFit.endMinutes % 1440) / 60),
         scheduledEndMinute: slotFit.endMinutes % 60,
         scheduledEndLabel,
         startIso,
@@ -1287,20 +1395,30 @@ function escapeHtml(str) {
 
 /**
  * Generates an RFC 5545 .ics calendar event string for the owner's calendar
- * locked to the selected scheduler time block (with RRULE when recurring).
+ * locked to the selected scheduler time block (with RRULE when recurring and next-day DTEND when crossing midnight).
  */
 export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DEFAULT_OWNER_EMAIL) {
   const { customer, appointment, quote, calculation } = validatedRecord;
   const dateCompact = appointment.preferredDate.replace(/-/g, '');
+  const endDayOffset =
+    Number.isInteger(appointment.endDayOffset) && appointment.endDayOffset > 0
+      ? appointment.endDayOffset
+      : (appointment.endMinutes || 0) >= 1440
+        ? Math.floor(appointment.endMinutes / 1440)
+        : 0;
+  const endDateCompact =
+    endDayOffset > 0
+      ? addDaysToIsoDate(appointment.preferredDate, endDayOffset).replace(/-/g, '')
+      : dateCompact;
   const pad2 = (n) => String(n).padStart(2, '0');
   const startStr = `${dateCompact}T${pad2(appointment.windowSpec.startHour)}${pad2(appointment.windowSpec.startMinute)}00`;
   const endHour = Number.isInteger(appointment.scheduledEndHour)
-    ? appointment.scheduledEndHour
-    : appointment.windowSpec.endHour;
+    ? appointment.scheduledEndHour % 24
+    : appointment.windowSpec.endHour % 24;
   const endMinute = Number.isInteger(appointment.scheduledEndMinute)
     ? appointment.scheduledEndMinute
     : appointment.windowSpec.endMinute;
-  const endStr = `${dateCompact}T${pad2(endHour)}${pad2(endMinute)}00`;
+  const endStr = `${endDateCompact}T${pad2(endHour)}${pad2(endMinute)}00`;
   const nowStamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
 
   const serviceLabel =
@@ -1308,6 +1426,7 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
       ? SERVICE_DISPLAY_LABELS.commercial
       : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
+  const isOvernight = Boolean(quote.frequency === 'overnight' || appointment.isOvernight);
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
   const startLabel = formatMinutesAsTime(appointment.startMinutes ?? appointment.windowSpec.startMinutes);
   const endLabel = appointment.scheduledEndLabel || formatMinutesAsTime(appointment.windowSpec.endMinutes);
@@ -1321,11 +1440,17 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
     ? updateCount > 1
       ? `[UPDATED #${updateCount}] `
       : '[UPDATED] '
-    : '';
+    : isOvernight
+      ? '[TENTATIVE OVERNIGHT] '
+      : '';
   const summary = `${summaryPrefix}Smarts Pro Cleaning: ${customer.fullName} (${serviceLabel}) [${referenceCode}]`;
   const specificAddonHours = calculation.isSpecificAreas ? Math.max(1, Number(quote.specificHours) || 1) : 0;
+  const scheduleSurcharge = Number(calculation.frequencySurcharge || 0);
   const descriptionLines = [
     `Reference ID: ${referenceCode}`,
+    ...(isOvernight
+      ? ['SPECIAL OVERNIGHT REQUEST (TENTATIVE SLOT): Customer must call (318) 564-4360 to finalize overnight access, keys/alarm details, and service scope.']
+      : []),
     ...(isUpdated ? [`Update Status: UPDATED APPOINTMENT (#${Math.max(1, updateCount)})`] : []),
     `Customer: ${customer.fullName}`,
     `Phone: ${customer.phone}`,
@@ -1334,10 +1459,11 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
     ...(calculation.isSpecificAreas
       ? [`Specific Areas Add-On: +${specificAddonHours} hr(s) (+$${specificAddonHours * 50}.00) — ${quote.specificAreasText}`]
       : []),
-    `Scheduled Window: ${startLabel} – ${endLabel}`,
+    `Scheduled Window: ${startLabel} – ${endLabel}${endDayOffset > 0 ? ' (Next Morning)' : ''}`,
     `Est. Cleaning Time: ${formatDurationHours(durationHours)}`,
     `Schedule: ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`,
-    `Estimated Total (Flat Rate): $${calculation.grandTotal.toFixed(2)}`,
+    ...(scheduleSurcharge > 0 ? [`Schedule Adjustment: +$${scheduleSurcharge.toFixed(2)}`] : []),
+    `Estimated Total: $${calculation.grandTotal.toFixed(2)}`,
     customer.notes ? `Customer Notes: ${customer.notes}` : 'Customer Notes: None provided'
   ];
 
@@ -1747,12 +1873,20 @@ export function buildAutomatedEmailContent(
     : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
   const freqLabel = FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency;
+  const scheduleSurcharge = Number(calculation.frequencySurcharge || 0);
+  const scheduleSurchargeLine =
+    scheduleSurcharge > 0
+      ? `+$${scheduleSurcharge.toFixed(2)} (${quote.frequency === 'overnight' ? 'Commercial Overnight Request' : 'Non-Weekly Schedule Fee'})`
+      : '$0.00 (Weekly / Anchor Base Rate)';
+  const isOvernight = Boolean(quote.frequency === 'overnight' || appointment.isOvernight);
   const recurrence = appointment.recurrence || getRecurrenceForFrequency(quote.frequency);
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
   const durationSummary = `${formatDurationHours(durationHours)} (Calendar Time Block: ${appointment.preferredWindowShort})`;
 
   const specsLine = isCommercial
-    ? 'On-Site Facility Walkthrough Requested'
+    ? isOvernight
+      ? 'Commercial Overnight Cleaning Request (Tentative — Call Owner to Confirm)'
+      : 'On-Site Facility Walkthrough Requested'
     : `${quote.bedrooms} Bed, ${quote.fullBaths} Full Bath, ${quote.halfBaths} Half Bath • ${quote.sqft.toLocaleString()} sq ft${quote.propertyType ? ` (${quote.propertyType})` : ''}`;
 
   const addonParts = [];
@@ -1775,7 +1909,8 @@ export function buildAutomatedEmailContent(
     : `Pets: ${quote.additionalInfo.hasPets === 'yes' ? 'Yes' : 'No'} | Last Cleaned: ${quote.additionalInfo.lastCleaned} | Occupancy: ${quote.additionalInfo.occupancy} | Condition: ${quote.additionalInfo.condition}`;
 
   const updateTag = updateCount > 1 ? `[UPDATED #${updateCount}] ` : '[UPDATED] ';
-  const subjectPrefix = isUpdated ? updateTag : '';
+  const overnightSubjectPrefix = isOvernight ? '[TENTATIVE OVERNIGHT REQUEST] ' : '';
+  const subjectPrefix = isUpdated ? updateTag : overnightSubjectPrefix;
   const subject = `${subjectPrefix}[Smarts Pro Estimate #${referenceCode}] ${customer.fullName} — ${appointment.preferredDateFormatted} (${appointment.preferredWindowShort})`;
 
   const changeItems = isUpdated
@@ -1785,8 +1920,15 @@ export function buildAutomatedEmailContent(
   const textLines = [
     isUpdated
       ? `SMARTS PRO SOLUTIONS — UPDATED APPOINTMENT & ESTIMATE (UPDATE #${Math.max(1, updateCount)})`
-      : `SMARTS PRO SOLUTIONS — NEW ESTIMATE & APPOINTMENT REQUEST`,
+      : isOvernight
+        ? `SMARTS PRO SOLUTIONS — SPECIAL COMMERCIAL OVERNIGHT REQUEST (TENTATIVE CALENDAR HOLD)`
+        : `SMARTS PRO SOLUTIONS — NEW ESTIMATE & APPOINTMENT REQUEST`,
     `Reference ID: ${referenceCode}`,
+    ...(isOvernight
+      ? [
+          `ACTION REQUIRED: Special Overnight Commercial Request — customer instructed to call (318) 564-4360 or reply to confirm overnight building access, keys/alarm procedures, and final bid.`
+        ]
+      : []),
     ...(isUpdated && previousTotal !== null
       ? [`Price Revision: Previously $${previousTotal.toFixed(2)} -> Updated Total $${calculation.grandTotal.toFixed(2)}`]
       : []),
@@ -1810,7 +1952,7 @@ export function buildAutomatedEmailContent(
     `Phone:      ${customer.phone}`,
     `Email:      ${customer.email}`,
     ``,
-    `2. ${isUpdated ? 'LOCKED CALENDAR APPOINTMENT (SAME TIME BLOCK)' : 'REQUESTED CALENDAR APPOINTMENT'}`,
+    `2. ${isUpdated ? 'LOCKED CALENDAR APPOINTMENT (SAME TIME BLOCK)' : isOvernight ? 'TENTATIVE OVERNIGHT CALENDAR APPOINTMENT' : 'REQUESTED CALENDAR APPOINTMENT'}`,
     `---------------------------------`,
     `Preferred Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
     `Time Block:        ${appointment.preferredWindowLabel}`,
@@ -1820,13 +1962,14 @@ export function buildAutomatedEmailContent(
     ``,
     `3. SERVER-VERIFIED ESTIMATE BREAKDOWN`,
     `-------------------------------------`,
-    `Service Selected: ${serviceLabel}`,
-    `Property Scope:   ${specsLine}`,
-    `Additional Info:  ${addInfoLine}`,
-    `Frequency:        ${freqLabel}`,
-    `Custom Add-Ons:   ${addonsLine}`,
-    `Est. Cleaning Hrs:${formatDurationHours(durationHours)}`,
-    `Estimated Total:  $${calculation.grandTotal.toFixed(2)} (Flat Rate • No Online Payment Collected)`,
+    `Service Selected:    ${serviceLabel}`,
+    `Property Scope:      ${specsLine}`,
+    `Additional Info:     ${addInfoLine}`,
+    `Frequency:           ${freqLabel}`,
+    `Schedule Adjustment: ${scheduleSurchargeLine}`,
+    `Custom Add-Ons:      ${addonsLine}`,
+    `Est. Cleaning Hrs:   ${formatDurationHours(durationHours)}`,
+    `Estimated Total:     $${calculation.grandTotal.toFixed(2)} (No Online Payment Collected)`,
     ``,
     `4. ADDITIONAL CUSTOMER NOTES`,
     `----------------------------`,
@@ -1868,6 +2011,18 @@ export function buildAutomatedEmailContent(
         </div>`
     : '';
 
+  const ownerOvernightBanner = isOvernight
+    ? `
+        <div style="background: #FFFBEB; border: 2px solid #D97706; border-radius: 10px; padding: 14px 16px; margin-bottom: 18px;">
+          <div style="font-size: 13px; font-weight: 900; color: #92400E; text-transform: uppercase; letter-spacing: 0.05em;">
+            SPECIAL OVERNIGHT COMMERCIAL REQUEST &bull; TENTATIVE SLOT
+          </div>
+          <div style="margin-top: 6px; font-size: 13px; color: #78350F; line-height: 1.5;">
+            Customer requested an overnight business slot (<strong>${escapeHtml(appointment.preferredWindowLabel)}</strong>) and was instructed to call <strong>(318) 564-4360</strong> or email to finalize after-hours building access, keys/alarm procedures, and scope.
+          </div>
+        </div>`
+    : '';
+
   const ownerChangesOrderedRows =
     changeItems.length > 0
       ? `
@@ -1904,10 +2059,10 @@ export function buildAutomatedEmailContent(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
       <div style="background: #0B1E3A; color: #FFFFFF; padding: 20px 24px;">
         <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">
-          Smarts Pro Solutions &bull; ${isUpdated ? `<span style="background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 900;">UPDATED APPOINTMENT (#${Math.max(1, updateCount)})</span>` : 'Automated Estimate Dispatch'}
+          Smarts Pro Solutions &bull; ${isUpdated ? `<span style="background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 900;">UPDATED APPOINTMENT (#${Math.max(1, updateCount)})</span>` : isOvernight ? '<span style="background: #D97706; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 900;">TENTATIVE OVERNIGHT REQUEST</span>' : 'Automated Estimate Dispatch'}
         </div>
         <h2 style="margin: 8px 0 0; font-size: 20px;">
-          ${isUpdated ? `<span style="color: #4ADE80; font-weight: 900;">UPDATED:</span> Cleaning Estimate &amp; Appointment` : 'New Cleaning Estimate &amp; Appointment Request'}
+          ${isUpdated ? `<span style="color: #4ADE80; font-weight: 900;">UPDATED:</span> Cleaning Estimate &amp; Appointment` : isOvernight ? 'Tentative Commercial Overnight Request' : 'New Cleaning Estimate &amp; Appointment Request'}
         </h2>
         <div style="margin-top: 8px; font-size: 13px; color: #CBD5E1;">
           Reference ID: <span style="display: inline-block; background: #1D4ED8; color: #FFFFFF; padding: 2px 10px; border-radius: 6px; font-weight: 800; letter-spacing: 0.03em;">${escapeHtml(referenceCode)}</span>
@@ -1915,6 +2070,7 @@ export function buildAutomatedEmailContent(
       </div>
       <div style="padding: 24px;">
         ${ownerUpdatedGreenBanner}
+        ${ownerOvernightBanner}
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">1. Customer Details</h3>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
           <tr><td style="padding: 6px 0; color: #64748B; width: 150px;">Reference ID:</td><td style="padding: 6px 0;"><span style="display: inline-block; background: #DBEAFE; color: #1D4ED8; border: 1px solid #93C5FD; padding: 2px 8px; border-radius: 6px; font-weight: 800;">${escapeHtml(referenceCode)}</span>${isUpdated ? ` <span style="display: inline-block; background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 6px; font-weight: 800; font-size: 12px;">UPDATED #${Math.max(1, updateCount)}</span>` : ''}</td></tr>
@@ -1923,24 +2079,25 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B;">Email Address:</td><td style="padding: 6px 0; font-weight: 700;"><a href="mailto:${escapeHtml(customer.email)}">${escapeHtml(customer.email)}</a></td></tr>
         </table>
 
-        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">2. ${isUpdated ? 'Locked Cleaning Appointment' : 'Requested Cleaning Appointment'}</h3>
-        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px;">
+        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">2. ${isUpdated ? 'Locked Cleaning Appointment' : isOvernight ? 'Tentative Overnight Window' : 'Requested Cleaning Appointment'}</h3>
+        <div style="background: ${isOvernight ? '#FFFBEB' : '#F0FDF4'}; border: 1px solid ${isOvernight ? '#FDE68A' : '#BBF7D0'}; border-radius: 8px; padding: 12px 16px; margin-bottom: 20px; font-size: 14px;">
           <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
           <div style="margin-top: 4px;"><strong>Time Block:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
           <div style="margin-top: 4px;"><strong>Recurrence:</strong> ${escapeHtml(recurrence.label)}</div>
           <div style="margin-top: 4px;"><strong>Est. Cleaning Time:</strong> ${escapeHtml(formatDurationHours(durationHours))}</div>
         </div>
 
-        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">3. ${isUpdated ? '<span style="color: #16A34A;">Updated</span> Estimate Summary (Server-Verified Flat Rate)' : 'Estimate Summary (Server-Verified Flat Rate)'}</h3>
+        <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">3. ${isUpdated ? '<span style="color: #16A34A;">Updated</span> Estimate Summary (Server-Verified)' : 'Estimate Summary (Server-Verified)'}</h3>
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 14px;">
           <tr><td style="padding: 6px 0; color: #64748B; width: 150px;">Service Tier:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(serviceLabel)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Property Scope:</td><td style="padding: 6px 0;">${escapeHtml(specsLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Additional Info:</td><td style="padding: 6px 0;">${escapeHtml(addInfoLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Frequency:</td><td style="padding: 6px 0;">${escapeHtml(freqLabel)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">Schedule Adjustment:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(scheduleSurchargeLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
           ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Total:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? '<span style="color: #16A34A;">Updated Total:</span>' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate • No Online Payment)</span></td></tr>
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? '<span style="color: #16A34A;">Updated Total:</span>' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(No Online Payment)</span></td></tr>
         </table>
 
         <h3 style="margin: 0 0 8px; font-size: 15px; color: #0066CC; text-transform: uppercase;">4. Additional Customer Notes</h3>
@@ -1957,33 +2114,47 @@ export function buildAutomatedEmailContent(
   // Separate customer confirmation / updated receipt email (never includes owner Finish-Early link)
   const customerSubject = isUpdated
     ? `[UPDATED APPOINTMENT] Your Smarts Pro Solutions Receipt (#${referenceCode})`
-    : `Your Smarts Pro Solutions Estimate & Appointment Confirmation (#${referenceCode})`;
+    : isOvernight
+      ? `[TENTATIVE OVERNIGHT REQUEST] Your Smarts Pro Solutions Commercial Request (#${referenceCode})`
+      : `Your Smarts Pro Solutions Estimate & Appointment Confirmation (#${referenceCode})`;
   const customerTextLines = [
     `Hi ${customer.firstName},`,
     ``,
     isUpdated
       ? `UPDATED APPOINTMENT RECEIPT (Update #${Math.max(1, updateCount)}): Thank you for updating your cleaning details with Smarts Pro Solutions! Below is your refreshed receipt with all currently selected options.`
-      : `Thank you for requesting a cleaning estimate with Smarts Pro Solutions! We have received your request and locked in your requested calendar time block below:`,
+      : isOvernight
+        ? `SPECIAL OVERNIGHT COMMERCIAL REQUEST (TENTATIVE HOLD): Thank you for requesting a Commercial Overnight cleaning slot with Smarts Pro Solutions. Because overnight shifts require key/alarm coordination and facility walk-through confirmation, please call or text the owner at (318) 564-4360 (or reply to smartsprosolutions@gmail.com) to confirm your tentative booking:`
+        : `Thank you for requesting a cleaning estimate with Smarts Pro Solutions! We have received your request and locked in your requested calendar time block below:`,
     ``,
-    `Reference ID:      ${referenceCode}`,
-    ...(isUpdated ? [`Receipt Status:    UPDATED APPOINTMENT (Update #${Math.max(1, updateCount)})`] : []),
-    `Scheduled Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
-    `Time Block (Locked): ${appointment.preferredWindowLabel}`,
-    `Schedule:          ${freqLabel} (${recurrence.label})`,
-    `Service Selected:  ${serviceLabel}`,
-    `Property Scope:    ${specsLine}`,
-    `Additional Info:   ${addInfoLine}`,
-    `Custom Add-Ons:    ${addonsLine}`,
-    `Est. Cleaning Time:${formatDurationHours(durationHours)}`,
-    ...(isUpdated && previousTotal !== null ? [`Previous Total:    $${previousTotal.toFixed(2)}`] : []),
-    `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}   $${calculation.grandTotal.toFixed(2)} (Flat Rate • No Online Payment Required)`,
-    ...(customer.notes ? [`Your Notes:        ${customer.notes}`] : []),
+    `Reference ID:        ${referenceCode}`,
+    ...(isUpdated ? [`Receipt Status:      UPDATED APPOINTMENT (Update #${Math.max(1, updateCount)})`] : []),
+    `Scheduled Date:      ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
+    `Time Block:          ${appointment.preferredWindowLabel}`,
+    `Schedule:            ${freqLabel} (${recurrence.label})`,
+    `Schedule Adjustment: ${scheduleSurchargeLine}`,
+    `Service Selected:    ${serviceLabel}`,
+    `Property Scope:      ${specsLine}`,
+    `Additional Info:     ${addInfoLine}`,
+    `Custom Add-Ons:      ${addonsLine}`,
+    `Est. Cleaning Time:  ${formatDurationHours(durationHours)}`,
+    ...(isUpdated && previousTotal !== null ? [`Previous Total:      $${previousTotal.toFixed(2)}`] : []),
+    `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}     $${calculation.grandTotal.toFixed(2)} (No Online Payment Required)`,
+    ...(customer.notes ? [`Your Notes:          ${customer.notes}`] : []),
     ``,
-    `Need to change your appointment date or time window? Call or text us at (318) 564-4360 or reply directly to smartsprosolutions@gmail.com.`,
+    isOvernight
+      ? `IMPORTANT OVERNIGHT NEXT STEP: Please contact the owner at (318) 564-4360 or smartsprosolutions@gmail.com so we can finalize overnight building access and confirm this tentative slot.`
+      : `Need to change your appointment date or time window? Call or text us at (318) 564-4360 or reply directly to smartsprosolutions@gmail.com.`,
     ``,
     `Privacy & Data Deletion: Customer details are used solely to service your estimate and appointment. To opt out or request data deletion anytime, reply "DELETE" or contact smartsprosolutions@gmail.com.`
   ];
   const customerTextBody = customerTextLines.join('\n');
+
+  const customerOvernightBanner = isOvernight
+    ? `
+        <div style="background: #FFFBEB; border: 1.5px solid #D97706; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #78350F; line-height: 1.5;">
+          <strong>SPECIAL OVERNIGHT REQUEST (TENTATIVE SLOT):</strong> Overnight commercial bookings require direct owner coordination for keys, alarm codes, and facility scope. Please call or text <strong>(318) 564-4360</strong> or reply to <strong>smartsprosolutions@gmail.com</strong> to confirm your overnight shift.
+        </div>`
+    : '';
 
   const customerUpdatedChangesBlock =
     isUpdated && changeItems.length > 0
@@ -2005,23 +2176,24 @@ export function buildAutomatedEmailContent(
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 640px; margin: 0 auto; color: #0B1E3A; border: 1px solid #E2E8F0; border-radius: 12px; overflow: hidden;">
       <div style="background: #0B1E3A; color: #FFFFFF; padding: 20px 24px;">
         <div style="font-size: 12px; text-transform: uppercase; letter-spacing: 0.08em; color: #7CC544; font-weight: 700;">
-          ${isUpdated ? `<span style="background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 800;">UPDATED APPOINTMENT RECEIPT (#${Math.max(1, updateCount)})</span> &bull; ` : ''}Smarts Pro Solutions &bull; Shreveport &amp; Bossier City, LA
+          ${isUpdated ? `<span style="background: #16A34A; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 800;">UPDATED APPOINTMENT RECEIPT (#${Math.max(1, updateCount)})</span> &bull; ` : isOvernight ? '<span style="background: #D97706; color: #FFFFFF; padding: 2px 8px; border-radius: 4px; font-weight: 800;">TENTATIVE OVERNIGHT REQUEST</span> &bull; ' : ''}Smarts Pro Solutions &bull; Shreveport &amp; Bossier City, LA
         </div>
-        <h2 style="margin: 8px 0 0; font-size: 20px;">${isUpdated ? 'Updated Appointment &amp; Estimate Receipt' : 'Your Estimate &amp; Appointment Confirmation'}</h2>
+        <h2 style="margin: 8px 0 0; font-size: 20px;">${isUpdated ? 'Updated Appointment &amp; Estimate Receipt' : isOvernight ? 'Tentative Commercial Overnight Request' : 'Your Estimate &amp; Appointment Confirmation'}</h2>
         <div style="margin-top: 8px; font-size: 13px; color: #CBD5E1;">
           Reference ID: <span style="display: inline-block; background: #1D4ED8; color: #FFFFFF; padding: 2px 10px; border-radius: 6px; font-weight: 800;">${escapeHtml(referenceCode)}</span>
         </div>
       </div>
       <div style="padding: 24px;">
         ${isUpdated ? `<div style="background: #DCFCE7; border: 1.5px solid #16A34A; border-radius: 8px; padding: 10px 14px; margin-bottom: 16px; font-size: 13px; color: #14532D;"><strong>UPDATED APPOINTMENT:</strong> Applied to your existing appointment under the same Reference ID and locked time block.</div>` : ''}
+        ${customerOvernightBanner}
         ${customerUpdatedChangesBlock}
         <p style="margin: 0 0 16px; font-size: 15px; line-height: 1.5; color: #1E293B;">
-          Hi <strong>${escapeHtml(customer.firstName)}</strong>, thank you for choosing Smarts Pro Solutions! Here is your ${isUpdated ? 'updated estimate and appointment receipt with your current selections' : 'estimate &amp; appointment confirmation details below'}.
+          Hi <strong>${escapeHtml(customer.firstName)}</strong>, thank you for choosing Smarts Pro Solutions! Here is your ${isUpdated ? 'updated estimate and appointment receipt with your current selections' : isOvernight ? 'tentative overnight commercial cleaning request below' : 'estimate &amp; appointment confirmation details below'}.
         </p>
 
-        <div style="background: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 14px;">
-          <div><strong>Date (Locked):</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
-          <div style="margin-top: 4px;"><strong>Time Block (Locked):</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
+        <div style="background: ${isOvernight ? '#FFFBEB' : '#F0FDF4'}; border: 1px solid ${isOvernight ? '#FDE68A' : '#BBF7D0'}; border-radius: 8px; padding: 14px 16px; margin-bottom: 20px; font-size: 14px;">
+          <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
+          <div style="margin-top: 4px;"><strong>Time Block:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
           <div style="margin-top: 4px;"><strong>Schedule:</strong> ${escapeHtml(freqLabel)} (${escapeHtml(recurrence.label)})</div>
         </div>
 
@@ -2029,16 +2201,17 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B; width: 155px;">Service Selected:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(serviceLabel)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Property Scope:</td><td style="padding: 6px 0;">${escapeHtml(specsLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Additional Info:</td><td style="padding: 6px 0;">${escapeHtml(addInfoLine)}</td></tr>
+          <tr><td style="padding: 6px 0; color: #64748B;">Schedule Adjustment:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(scheduleSurchargeLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
           ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Estimate:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? 'Updated Total:' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Flat Rate &bull; No Online Payment)</span></td></tr>
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? 'Updated Total:' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(No Online Payment)</span></td></tr>
         </table>
 
         ${customer.notes ? `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 13px;"><strong>Your Notes:</strong> ${escapeHtml(customer.notes)}</div>` : ''}
 
         <p style="margin: 0 0 14px; font-size: 14px; color: #334155; line-height: 1.5;">
-          Need to reschedule your date/time or have a question? Call or text us at <strong>(318) 564-4360</strong> or reply directly to <a href="mailto:${escapeHtml(ownerEmail)}">${escapeHtml(ownerEmail)}</a>.
+          ${isOvernight ? 'To confirm your tentative overnight request and coordinate access, please call or text <strong>(318) 564-4360</strong> or reply directly to' : 'Need to reschedule your date/time or have a question? Call or text us at <strong>(318) 564-4360</strong> or reply directly to'} <a href="mailto:${escapeHtml(ownerEmail)}">${escapeHtml(ownerEmail)}</a>.
         </p>
 
         <p style="margin: 16px 0 0; padding-top: 12px; border-top: 1px solid #E2E8F0; font-size: 12px; color: #64748B; line-height: 1.5;">
@@ -2471,7 +2644,7 @@ export function createIntakeService({
       if (!data || typeof data !== 'object') return;
 
       const nextIntervals = [];
-      const windowLookup = new Map(ARRIVAL_WINDOWS.map((w) => [w.id, w]));
+      const windowLookup = new Map([...ARRIVAL_WINDOWS, ...OVERNIGHT_ARRIVAL_WINDOWS].map((w) => [w.id, w]));
 
       if (Array.isArray(data.busyIntervals)) {
         for (const item of data.busyIntervals) {
@@ -2483,10 +2656,19 @@ export function createIntakeService({
           if ((!date || startMin === null || endMin === null) && item.startIso && item.endIso) {
             const parsedStart = parseIsoToChicagoDateAndMinutes(item.startIso);
             const parsedEnd = parseIsoToChicagoDateAndMinutes(item.endIso);
-            if (parsedStart && parsedEnd && parsedStart.date === parsedEnd.date) {
-              date = parsedStart.date;
-              startMin = parsedStart.minutes;
-              endMin = parsedEnd.minutes;
+            if (parsedStart && parsedEnd) {
+              if (parsedStart.date === parsedEnd.date) {
+                date = parsedStart.date;
+                startMin = parsedStart.minutes;
+                endMin = parsedEnd.minutes;
+              } else if (
+                parsedEnd.date === addDaysToIsoDate(parsedStart.date, 1) &&
+                parsedEnd.minutes <= 6 * 60
+              ) {
+                date = parsedStart.date;
+                startMin = parsedStart.minutes;
+                endMin = parsedEnd.minutes + 1440;
+              }
             }
           }
 
@@ -2494,16 +2676,21 @@ export function createIntakeService({
             /^\d{4}-\d{2}-\d{2}$/.test(date) &&
             startMin !== null &&
             endMin !== null &&
-            endMin > startMin &&
-            endMin > BUSINESS_OPEN_MINUTES &&
-            startMin < BUSINESS_CLOSE_MINUTES
+            endMin > startMin
           ) {
-            nextIntervals.push({
-              date,
-              startMinutes: Math.max(BUSINESS_OPEN_MINUTES, Math.round(startMin)),
-              endMinutes: Math.min(BUSINESS_CLOSE_MINUTES, Math.round(endMin)),
-              serviceLabel: 'Booked · Cleaning Appointment'
-            });
+            const overlapsDaytime = endMin > BUSINESS_OPEN_MINUTES && startMin < BUSINESS_CLOSE_MINUTES;
+            const overlapsOvernight = endMin > OVERNIGHT_OPEN_MINUTES && startMin < OVERNIGHT_CLOSE_MINUTES;
+            if (overlapsDaytime || overlapsOvernight) {
+              nextIntervals.push({
+                date,
+                startMinutes: Math.max(BUSINESS_OPEN_MINUTES, Math.round(startMin)),
+                endMinutes: Math.min(OVERNIGHT_CLOSE_MINUTES, Math.round(endMin)),
+                serviceLabel:
+                  !overlapsDaytime && overlapsOvernight
+                    ? 'Booked · Overnight Business Shift'
+                    : 'Booked · Cleaning Appointment'
+              });
+            }
           }
         }
       }
@@ -2523,7 +2710,7 @@ export function createIntakeService({
                 date,
                 startMinutes: win.startMinutes,
                 endMinutes: win.endMinutes,
-                serviceLabel: 'Booked · Cleaning Appointment'
+                serviceLabel: win.isOvernight ? 'Booked · Overnight Business Shift' : 'Booked · Cleaning Appointment'
               });
             }
           }
@@ -2587,53 +2774,63 @@ export function createIntakeService({
         const readableDate = formatReadableDate(isoDate);
         const dayIntervals = effectiveIntervals.filter((i) => i.date === isoDate);
 
-        const slots = ARRIVAL_WINDOWS.map((win) => {
-          if (holidayName) {
+        const buildSlotsForWindows = (windowsList) =>
+          windowsList.map((win) => {
+            if (holidayName) {
+              return {
+                slotId: win.id,
+                label: win.label,
+                shortLabel: win.shortLabel,
+                startMinutes: win.startMinutes,
+                endMinutes: win.endMinutes,
+                isOvernight: Boolean(win.isOvernight),
+                status: 'CLOSED_HOLIDAY',
+                serviceLabel: `Closed (${holidayName})`
+              };
+            }
+            const matchingInterval = dayIntervals.find((ev) =>
+              intervalsOverlap(win.startMinutes, win.endMinutes, ev.startMinutes, ev.endMinutes)
+            );
+            if (matchingInterval) {
+              upcomingBookings.push({
+                date: isoDate,
+                dateFormatted: readableDate,
+                slotId: win.id,
+                slotLabel: win.shortLabel,
+                startMinutes: matchingInterval.startMinutes,
+                endMinutes: matchingInterval.endMinutes,
+                isOvernight: Boolean(win.isOvernight),
+                serviceLabel: matchingInterval.serviceLabel || 'Booked · Cleaning Appointment',
+                status: 'BOOKED'
+              });
+            }
             return {
               slotId: win.id,
               label: win.label,
               shortLabel: win.shortLabel,
               startMinutes: win.startMinutes,
               endMinutes: win.endMinutes,
-              status: 'CLOSED_HOLIDAY',
-              serviceLabel: `Closed (${holidayName})`
+              isOvernight: Boolean(win.isOvernight),
+              status: matchingInterval ? 'BOOKED' : 'AVAILABLE',
+              serviceLabel: matchingInterval
+                ? matchingInterval.serviceLabel || 'Booked · Cleaning Appointment'
+                : 'Available'
             };
-          }
-          const matchingInterval = dayIntervals.find((ev) =>
-            intervalsOverlap(win.startMinutes, win.endMinutes, ev.startMinutes, ev.endMinutes)
-          );
-          if (matchingInterval) {
-            upcomingBookings.push({
-              date: isoDate,
-              dateFormatted: readableDate,
-              slotId: win.id,
-              slotLabel: win.shortLabel,
-              startMinutes: matchingInterval.startMinutes,
-              endMinutes: matchingInterval.endMinutes,
-              serviceLabel: matchingInterval.serviceLabel || 'Booked · Cleaning Appointment',
-              status: 'BOOKED'
-            });
-          }
-          return {
-            slotId: win.id,
-            label: win.label,
-            shortLabel: win.shortLabel,
-            startMinutes: win.startMinutes,
-            endMinutes: win.endMinutes,
-            status: matchingInterval ? 'BOOKED' : 'AVAILABLE',
-            serviceLabel: matchingInterval
-              ? matchingInterval.serviceLabel || 'Booked · Cleaning Appointment'
-              : 'Available'
-          };
-        });
+          });
+
+        const slots = buildSlotsForWindows(ARRIVAL_WINDOWS);
+        const overnightSlots = buildSlotsForWindows(OVERNIGHT_ARRIVAL_WINDOWS);
 
         const openSlotCount = slots.filter((s) => s.status === 'AVAILABLE').length;
+        const openOvernightSlotCount = overnightSlots.filter((s) => s.status === 'AVAILABLE').length;
         const dayEntry = {
           date: isoDate,
           monthKey,
           dateFormatted: readableDate,
           slots,
+          overnightSlots,
           openSlotCount,
+          openOvernightSlotCount,
           holidayName: holidayName || null,
           withinAdvanceWindow: !holidayName
         };
@@ -2658,14 +2855,16 @@ export function createIntakeService({
       businessHours: 'Mon – Fri · 8:00 AM – 4:30 PM',
       businessOpenMinutes: BUSINESS_OPEN_MINUTES,
       businessCloseMinutes: BUSINESS_CLOSE_MINUTES,
+      overnightHours: 'Mon – Fri Nights · 6:00 PM – 3:00 AM (Commercial Special Request)',
       todayDate: todayIso,
       minAdvanceDate,
       maxAdvanceDate,
       maxAdvanceDateFormatted: formatReadableDate(maxAdvanceDate),
-      paymentPolicy: 'No Online Payment Required • Flat-Rate Estimate Sent to Owner Email',
+      paymentPolicy: 'No Online Payment Required • Weekly-Anchor Estimate Sent to Owner Email',
       intakeConfigured: transportConfigured,
       liveCalendarSyncConfigured: Boolean(process.env.EMAIL_WEBHOOK_URL),
       arrivalWindows: ARRIVAL_WINDOWS,
+      overnightWindows: OVERNIGHT_ARRIVAL_WINDOWS,
       busyIntervals: sanitizedBusyIntervals,
       availableDates,
       calendarMonths: Array.from(monthsMap.values()),
@@ -3074,6 +3273,8 @@ export function createIntakeService({
     const verifiedEstimateSummary = {
       grandTotal: record.calculation.grandTotal,
       basePrice: record.calculation.basePrice,
+      frequency: record.quote.frequency,
+      frequencySurcharge: record.calculation.frequencySurcharge || 0,
       addonsTotal: record.calculation.addonsTotal,
       specificAddonHours: record.calculation.specificAddonHours || 0,
       specificAddonPrice: record.calculation.specificAddonPrice || 0,
@@ -3081,7 +3282,8 @@ export function createIntakeService({
       addonHours: record.calculation.addonHours,
       totalEstimatedHours: record.calculation.totalEstimatedHours,
       durationMinutes: record.calculation.durationMinutes,
-      pricingModel: record.calculation.pricingModel
+      pricingModel: record.calculation.pricingModel,
+      isOvernight: Boolean(record.appointment.isOvernight)
     };
 
     const appointmentSummary = {
@@ -3089,9 +3291,11 @@ export function createIntakeService({
       preferredDateFormatted: record.appointment.preferredDateFormatted,
       preferredWindow: record.appointment.preferredWindow,
       preferredWindowLabel: record.appointment.preferredWindowLabel,
+      isOvernight: Boolean(record.appointment.isOvernight),
       startMinutes: record.appointment.startMinutes,
       endMinutes: record.appointment.endMinutes,
       scheduledEndLabel: record.appointment.scheduledEndLabel,
+      endIso: record.appointment.endIso,
       durationMinutes: record.appointment.durationMinutes,
       estimatedHours: record.appointment.estimatedHours
     };
@@ -3136,9 +3340,12 @@ export function createIntakeService({
     }
 
     // 12. Mark interval booked only after verified delivery (replacing prior booking for same customer email + date if editing)
+    const isOvernightBooking = Boolean(record.quote.frequency === 'overnight' || record.appointment.isOvernight);
     const serviceBadge =
       record.quote.serviceCategory === 'commercial'
-        ? 'Booked · Commercial Walkthrough'
+        ? isOvernightBooking
+          ? 'Booked · Commercial Overnight (Tentative)'
+          : 'Booked · Commercial Walkthrough'
         : record.quote.serviceCategory === 'moveinout'
           ? 'Booked · Move-In / Move-Out Clean'
           : record.quote.serviceCategory === 'airbnb'
@@ -3205,7 +3412,9 @@ export function createIntakeService({
       updateToken,
       message: verifiedUpdate
         ? `Updated appointment receipt (#${record.updateCount || 1}, Ref: ${referenceCode}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) schedule have been emailed to Smarts Pro Solutions and your email address.`
-        : `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions and your email address.`,
+        : isOvernightBooking
+          ? `Your tentative Commercial Overnight Request (${record.appointment.preferredDateFormatted}, ${record.appointment.preferredWindowShort}) has been emailed to Smarts Pro Solutions and your email address. Please call (318) 564-4360 to coordinate overnight access and finalize confirmation.`
+          : `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions and your email address.`,
       verifiedEstimate: verifiedEstimateSummary,
       appointment: appointmentSummary,
       icsContent: emailPackage.icsContent,
@@ -3407,8 +3616,13 @@ export function createIntakeService({
 
     const tokenPayload = verification.payload;
     const businessNow = getBusinessTimeParts(now);
+    const nextMorningAfterAppt = addDaysToIsoDate(tokenPayload.date, 1);
+    const isDuringPostMidnightOvernight =
+      tokenPayload.endMin > 1440 &&
+      businessNow.isoDate === nextMorningAfterAppt &&
+      businessNow.totalMinutes <= tokenPayload.endMin - 1440;
 
-    if (businessNow.isoDate > tokenPayload.date) {
+    if (businessNow.isoDate > tokenPayload.date && !isDuringPostMidnightOvernight) {
       return {
         status: 400,
         headers: { 'Cache-Control': 'no-store' },
@@ -3420,14 +3634,21 @@ export function createIntakeService({
       };
     }
 
+    const effectiveNowMinutes = isDuringPostMidnightOvernight
+      ? businessNow.totalMinutes + 1440
+      : businessNow.totalMinutes;
+
     let earlyEndMinutes = tokenPayload.startMin;
     if (mode === 'release_all') {
       earlyEndMinutes = tokenPayload.startMin;
-    } else if (businessNow.isoDate < tokenPayload.date || businessNow.totalMinutes <= tokenPayload.startMin) {
+    } else if (
+      (!isDuringPostMidnightOvernight && businessNow.isoDate < tokenPayload.date) ||
+      effectiveNowMinutes <= tokenPayload.startMin
+    ) {
       // Marked complete / released before appointment start time
       earlyEndMinutes = tokenPayload.startMin;
     } else {
-      const roundedNowMinutes = Math.ceil(businessNow.totalMinutes / 15) * 15;
+      const roundedNowMinutes = Math.ceil(effectiveNowMinutes / 15) * 15;
       earlyEndMinutes = Math.min(
         tokenPayload.endMin,
         Math.max(tokenPayload.startMin + 15, roundedNowMinutes)
@@ -3495,9 +3716,11 @@ export function createIntakeService({
       };
     }
 
-    // Determine which arrival windows on that date are now open
+    // Determine which arrival windows on that date are now open (daytime vs overnight)
+    const isOvernightSlot = OVERNIGHT_ARRIVAL_WINDOWS.some((w) => w.id === tokenPayload.slotId);
+    const relevantWindows = isOvernightSlot ? OVERNIGHT_ARRIVAL_WINDOWS : ARRIVAL_WINDOWS;
     const updatedDayBusy = getEffectiveBusyIntervals().filter((i) => i.date === tokenPayload.date);
-    const openWindowsNow = ARRIVAL_WINDOWS.filter(
+    const openWindowsNow = relevantWindows.filter(
       (win) =>
         !updatedDayBusy.some((ev) =>
           intervalsOverlap(win.startMinutes, win.endMinutes, ev.startMinutes, ev.endMinutes)

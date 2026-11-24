@@ -118,7 +118,7 @@
           occupancy: String(addInfo.occupancy || ''),
           condition: String(addInfo.condition || '')
         },
-        frequency: String(q.frequency || 'biweekly'),
+        frequency: String(q.frequency || 'weekly'),
         addons: {
           fridge: Number(addons.fridge) || 0,
           fridgeDouble: Number(addons.fridgeDouble) || 0,
@@ -315,9 +315,10 @@
       serviceType: state.serviceType || 'standard',
       propertyType: state.propertyType || 'house',
       scopeMode: state.scopeMode || 'full',
-      frequency: state.frequency || 'biweekly',
-      pricingModel: 'FLAT_RATE_NO_RECURRING_DISCOUNTS',
+      frequency: state.frequency || 'weekly',
+      pricingModel: 'WEEKLY_ANCHOR_HYBRID_PRICING',
       paymentPolicy: 'NO_ONLINE_PAYMENT_REQUIRED',
+      frequencySurcharge: Number(calc.frequencySurcharge) || 0,
       recurringDiscountRate: 0,
       additionalInfo: Object.freeze({
         hasPets: addInfo.hasPets || '',

@@ -107,12 +107,17 @@ try {
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
   assert.equal(await evaluate('document.getElementById("step1-service-grid").classList.contains("wizard-field-missing")'), true);
 
-  // Commercial flow: selecting Commercial and clicking Next skips directly to Cleaning Frequency (Step 2 of 2)
+  // Commercial flow: selecting Commercial reveals Overnight card and clicking Next skips directly to Cleaning Frequency (Step 2 of 2)
   await evaluate('document.getElementById("card-cat-commercial").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.workflow.id'), 'commercial_walkthrough_pipeline');
+  assert.equal(await evaluate('document.getElementById("freq-card-overnight").classList.contains("is-hidden")'), false);
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 4);
   assert.equal(await evaluate('document.getElementById("calc-step-total").textContent'), '2');
+  await evaluate('document.querySelector(\'[data-freq="overnight"]\').click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.frequencySurcharge'), 85);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 235);
+  assert.equal(await evaluate('document.getElementById("step4-overnight-notice").classList.contains("is-hidden")'), false);
   await evaluate('document.getElementById("btn-wizard-prev").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
 
@@ -162,13 +167,20 @@ try {
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 4);
 
-  // Verify Monthly frequency option label and flat-rate pricing across frequencies (no recurring discount)
+  // Verify Residential hides Overnight option and applies Weekly-anchor hybrid schedule surcharges ($275 base -> +0 / +33 / +55 / +72)
+  assert.equal(await evaluate('document.getElementById("freq-card-overnight").classList.contains("is-hidden")'), true);
   assert.equal(await evaluate('document.querySelector(\'[data-freq="monthly"] .freq-name\').textContent'), 'Monthly');
-  for (const freq of ['weekly', 'biweekly', 'monthly', 'onetime']) {
+  for (const [freq, surcharge, expectedTotal] of [
+    ['biweekly', 33, 308],
+    ['monthly', 55, 330],
+    ['onetime', 72, 347],
+    ['weekly', 0, 275]
+  ]) {
     await evaluate(`document.querySelector('[data-freq="${freq}"]').click()`);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountRate'), 0);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.discountAmount'), 0);
-    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 275);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.frequencySurcharge'), surcharge);
+    assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), expectedTotal);
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.onlinePaymentsEnabled'), false);
   }
 
@@ -178,7 +190,7 @@ try {
   assert.equal(await evaluate('document.getElementById("summary-online-payment-val").textContent'), 'None Required');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.onlinePaymentEnabled'), false);
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.paymentPolicy'), 'NO_ONLINE_PAYMENT_REQUIRED');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.pricingModel'), 'FLAT_RATE_NO_RECURRING_DISCOUNTS');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.pricingModel'), 'WEEKLY_ANCHOR_HYBRID_PRICING');
   assert.equal(await evaluate('getComputedStyle(document.getElementById("summary-addons-row")).display'), 'flex');
 
   // Verify Specific Areas lives inside Step 5 (Add-Ons) and not inside Step 2 (Property Details)

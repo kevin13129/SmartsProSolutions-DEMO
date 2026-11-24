@@ -31,11 +31,14 @@
   const recapFreq = document.getElementById('modal-recap-freq');
   const recapAddonsRow = document.getElementById('modal-recap-addons-row');
   const recapAddons = document.getElementById('modal-recap-addons');
+  const recapFreqFeeRow = document.getElementById('modal-recap-freq-fee-row');
+  const recapFreqFee = document.getElementById('modal-recap-freq-fee');
   const recapHours = document.getElementById('modal-recap-hours');
   const recapTotalLabel = document.getElementById('modal-recap-total-label');
   const recapTotal = document.getElementById('modal-recap-total');
   const recapPolicyRow = document.getElementById('modal-recap-policy-row');
   const recapPolicy = document.getElementById('modal-recap-policy');
+  const intakePrimaryCopy = document.getElementById('modal-intake-primary-copy');
 
   // Mount containers for progressive-enhanced Calendar & Customer Intake
   const calendarMount = document.getElementById('modal-calendar-mount');
@@ -50,20 +53,21 @@
   const workflowStage3 = document.getElementById('modal-workflow-stage-3');
 
   const serviceLabels = {
-    standard: 'Residential Standard Clean',
-    deep: 'Residential Deep Clean',
-    moveinout: 'Move-In / Move-Out Clean',
+    standard: 'Standard Clean',
+    deep: 'Deep Clean',
+    moveinout: 'Move-In / Move-Out',
     airbnb: 'Airbnb / STR Turnover',
-    specific: 'Specific Areas (Timed Package)',
-    commercial: 'Commercial & Offices (Walkthrough & Custom Bid)'
+    specific: 'Specific Areas Package',
+    commercial: 'Commercial Walkthrough'
   };
 
   const freqLabels = {
-    weekly: 'Weekly (Every 7 Days) • Flat Rate',
-    biweekly: 'Every 2 Weeks • Flat Rate',
-    turnover: 'Per Turnover / Custom Schedule • Flat Rate',
-    monthly: 'Monthly • Flat Rate',
-    onetime: 'One-Time Service • Flat Rate'
+    weekly: 'Weekly (Base Rate)',
+    biweekly: 'Every 2 Weeks (Bi-Weekly)',
+    turnover: 'Per Turnover / Custom',
+    monthly: 'Monthly',
+    onetime: 'One-Time',
+    overnight: 'Overnight Business (Tentative)'
   };
 
   const BUSINESS_OPEN_MINUTES = 8 * 60; // 8:00 AM
@@ -72,7 +76,10 @@
   const WINDOW_TIMINGS = Object.freeze({
     '08:00-11:00': { startMinutes: 8 * 60, endMinutes: 11 * 60 },
     '11:00-14:00': { startMinutes: 11 * 60, endMinutes: 14 * 60 },
-    '14:00-16:30': { startMinutes: 14 * 60, endMinutes: 16 * 60 + 30 }
+    '14:00-16:30': { startMinutes: 14 * 60, endMinutes: 16 * 60 + 30 },
+    '18:00-22:00': { startMinutes: 18 * 60, endMinutes: 22 * 60 },
+    '21:00-01:00': { startMinutes: 21 * 60, endMinutes: 25 * 60 },
+    '23:00-03:00': { startMinutes: 23 * 60, endMinutes: 27 * 60 }
   });
 
   // Interactive Scheduler & Intake State
@@ -103,12 +110,18 @@
   }
 
   function formatMinutesAsTime(totalMinutes) {
-    const safeMin = Math.max(0, Math.round(Number(totalMinutes) || 0));
+    const rawMin = Math.max(0, Math.round(Number(totalMinutes) || 0));
+    const safeMin = ((rawMin % 1440) + 1440) % 1440;
     const h24 = Math.floor(safeMin / 60);
     const mins = safeMin % 60;
     const ampm = h24 >= 12 ? 'PM' : 'AM';
     const h12 = h24 % 12 || 12;
     return `${h12}:${String(mins).padStart(2, '0')} ${ampm}`;
+  }
+
+  function isActiveOvernightMode() {
+    const st = window.SmartsProCurrentQuote?.state || {};
+    return st.serviceCategory === 'commercial' && st.frequency === 'overnight';
   }
 
   function formatDurationHours(hoursVal) {
@@ -437,7 +450,7 @@
       halfBaths: Number(rawState.halfBaths) || 0,
       sqft: Number(rawState.sqft) || 1800,
       additionalInfo: normalizedAdditionalInfo,
-      frequency: rawState.frequency || 'biweekly',
+      frequency: rawState.frequency || 'weekly',
       addons: {
         fridge: Number(rawState.addons?.fridge) || 0,
         fridgeDouble: Number(rawState.addons?.fridgeDouble) || 0,
@@ -480,8 +493,8 @@
 
     if (modalBookingTitle) {
       modalBookingTitle.textContent = isCommercial
-        ? 'Schedule Commercial Walkthrough & Send Bid Request'
-        : 'Complete Your Estimate & Request Cleaning Appointment';
+        ? 'Schedule Walkthrough & Send Bid'
+        : 'Review Estimate & Pick a Time';
     }
 
     if (recapService) {
@@ -489,7 +502,7 @@
         recapService.textContent = serviceLabels.commercial;
       } else {
         recapService.textContent =
-          serviceLabels[quote.state.serviceType] || 'Residential Standard Clean';
+          serviceLabels[quote.state.serviceType] || 'Standard Clean';
       }
     }
 
@@ -507,12 +520,12 @@
     }
 
     if (isCommercial) {
-      if (recapSpecsLabel) recapSpecsLabel.textContent = 'Facility Assessment:';
-      if (recapSpecs) recapSpecs.textContent = 'On-Site Owner Walkthrough & Custom Scope';
+      if (recapSpecsLabel) recapSpecsLabel.textContent = 'Facility Scope:';
+      if (recapSpecs) recapSpecs.textContent = 'On-site owner walkthrough';
       if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
       if (recapAddinfoRow) recapAddinfoRow.classList.add('is-hidden');
       if (recapAddonsRow) recapAddonsRow.classList.add('is-hidden');
-      if (recapTotalLabel) recapTotalLabel.textContent = 'Commercial Walkthrough Baseline:';
+      if (recapTotalLabel) recapTotalLabel.textContent = 'Walkthrough Baseline:';
     } else {
       if (recapSpecsLabel) recapSpecsLabel.textContent = 'Property Specs:';
       if (recapSpecs) {
@@ -529,22 +542,22 @@
           : `+${specHrs} ${hrUnit} (+$${specPrice}) — Describe areas below`;
       }
       if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
-      if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote (Flat Rate):';
+      if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote:';
     }
 
     if (recapAddinfoRow && recapAddinfo) {
       const info = quote.state.additionalInfo || {};
       const petsLabel =
         info.hasPets === 'yes' || quote.state.addons.pets > 0
-          ? 'Pets: Yes (+$35)'
+          ? 'Pets (+$35)'
           : info.hasPets === 'no'
-            ? 'Pets: No'
+            ? 'No Pets'
             : '';
       const infoParts = [];
       if (petsLabel) infoParts.push(petsLabel);
-      if (info.lastCleaned) infoParts.push(`Last Cleaned: ${info.lastCleaned}`);
-      if (info.occupancy) infoParts.push(`Occupancy: ${info.occupancy}`);
-      if (info.condition) infoParts.push(`Condition: ${info.condition}`);
+      if (info.lastCleaned) infoParts.push(info.lastCleaned);
+      if (info.occupancy) infoParts.push(info.occupancy);
+      if (info.condition) infoParts.push(info.condition);
 
       if (!isCommercial && infoParts.length > 0) {
         recapAddinfoRow.classList.remove('is-hidden');
@@ -555,7 +568,29 @@
     }
 
     if (recapFreq) {
-      recapFreq.textContent = freqLabels[quote.state.frequency] || 'One-Time Service • Flat Rate';
+      recapFreq.textContent = freqLabels[quote.state.frequency] || 'Weekly (Base Rate)';
+    }
+
+    const surchargeAmount = Number(quote.calculation?.frequencySurcharge) || 0;
+    const isOvernight = isCommercial && quote.state.frequency === 'overnight';
+    if (recapFreqFeeRow && recapFreqFee) {
+      if (surchargeAmount > 0 || isOvernight) {
+        recapFreqFeeRow.classList.remove('is-hidden');
+        recapFreqFee.textContent = isOvernight
+          ? `+$${surchargeAmount.toFixed(2)} (Tentative)`
+          : `+$${surchargeAmount.toFixed(2)}`;
+      } else {
+        recapFreqFeeRow.classList.add('is-hidden');
+        recapFreqFee.textContent = '+$0.00';
+      }
+    }
+
+    if (isCommercial && recapTotalLabel) {
+      recapTotalLabel.textContent = isOvernight
+        ? 'Overnight Baseline (Tentative):'
+        : 'Walkthrough Baseline:';
+    } else if (recapTotalLabel) {
+      recapTotalLabel.textContent = 'Estimated Quote:';
     }
 
     const addonParts = [];
@@ -573,7 +608,7 @@
       addonParts.push(`Specific Areas (+${specHrs} ${hrUnit}, +$${specPrice})`);
     }
     if (quote.state.addons.pets > 0) {
-      addonParts.push('Pet Hair & Detailing ($35 flat fee)');
+      addonParts.push('Pet Detailing ($35 flat)');
     }
     if (recapAddons) {
       if (
@@ -581,9 +616,9 @@
         quote.state.additionalInfo.hasPets === 'no' &&
         addonParts.length === 0
       ) {
-        recapAddons.textContent = 'None selected (No pets)';
+        recapAddons.textContent = 'None (No pets)';
       } else {
-        recapAddons.textContent = addonParts.length > 0 ? addonParts.join(', ') : 'None selected';
+        recapAddons.textContent = addonParts.length > 0 ? addonParts.join(', ') : 'None';
       }
     }
 
@@ -594,9 +629,19 @@
     updateRecapHoursDisplay();
 
     if (recapPolicyRow && recapPolicy) {
-      recapPolicy.textContent = isCommercial
-        ? 'Custom Facility Proposal • No Online Payment Required • 10% Bounced Check Fee'
-        : 'Flat Rate • No Online Payment Required • 10% Bounced Check Fee';
+      if (isOvernight) {
+        recapPolicy.textContent =
+          'Tentative slot • Call (318) 564-4360 • No online payment • 10% bounced check fee';
+      } else {
+        recapPolicy.textContent =
+          'No online payment required • 10% bounced check fee';
+      }
+    }
+
+    if (intakePrimaryCopy) {
+      intakePrimaryCopy.textContent = isOvernight
+        ? 'Overnight cleaning is a special request. Pick a tentative Mon–Fri night window, then call (318) 564-4360 to coordinate access & scope:'
+        : 'No online payment needed today. Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:';
     }
 
     if (
@@ -627,16 +672,22 @@
     if (!recapHours) return;
     const dur = getActiveDurationInfo();
     const hoursLabel = formatDurationHours(dur.totalEstimatedHours);
+    const timing = schedulerState.selectedWindow ? WINDOW_TIMINGS[schedulerState.selectedWindow] : null;
+    if (dur.isCommercial && isActiveOvernightMode() && timing) {
+      const startStr = formatMinutesAsTime(timing.startMinutes);
+      const endStr = formatMinutesAsTime(timing.endMinutes);
+      recapHours.textContent = `${hoursLabel} (${startStr} – ${endStr})`;
+      return;
+    }
     if (dur.isCommercial) {
-      recapHours.textContent = `${hoursLabel} (On-Site Walkthrough Estimate)`;
+      recapHours.textContent = `${hoursLabel} (Walkthrough)`;
       return;
     }
 
-    const timing = schedulerState.selectedWindow ? WINDOW_TIMINGS[schedulerState.selectedWindow] : null;
     if (timing) {
       const startStr = formatMinutesAsTime(timing.startMinutes);
       const endStr = formatMinutesAsTime(timing.endMinutes);
-      recapHours.textContent = `${hoursLabel} (Time Block: ${startStr} – ${endStr})`;
+      recapHours.textContent = `${hoursLabel} (${startStr} – ${endStr})`;
       return;
     }
 
@@ -710,6 +761,33 @@
           }
         ];
 
+        const overnightSlots = [
+          {
+            slotId: '18:00-22:00',
+            label: 'Evening Overnight (6:00 PM – 10:00 PM)',
+            shortLabel: '6:00 PM – 10:00 PM',
+            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+            isOvernight: true,
+            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+          },
+          {
+            slotId: '21:00-01:00',
+            label: 'Late Night Overnight (9:00 PM – 1:00 AM)',
+            shortLabel: '9:00 PM – 1:00 AM',
+            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+            isOvernight: true,
+            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+          },
+          {
+            slotId: '23:00-03:00',
+            label: 'Overnight Shift (11:00 PM – 3:00 AM)',
+            shortLabel: '11:00 PM – 3:00 AM',
+            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+            isOvernight: true,
+            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+          }
+        ];
+
         slots.forEach((s) => {
           if (s.status === 'BOOKED') {
             upcoming.push({
@@ -718,7 +796,8 @@
               slotId: s.slotId,
               slotLabel: s.shortLabel,
               serviceLabel: s.serviceLabel,
-              status: 'BOOKED'
+              status: 'BOOKED',
+              isOvernight: false
             });
           }
         });
@@ -728,7 +807,9 @@
           monthKey,
           dateFormatted: formatted,
           slots,
+          overnightSlots,
           openSlotCount: slots.filter((s) => s.status === 'AVAILABLE').length,
+          openOvernightSlotCount: overnightSlots.filter((s) => s.status === 'AVAILABLE').length,
           holidayName: holidayName || null,
           withinAdvanceWindow: !holidayName
         };
@@ -987,11 +1068,11 @@
       const hasChanges = currentKey !== schedulerState.confirmedSubmission.snapshotKey;
       refs.submitBtn.disabled = !hasChanges;
       refs.submitBtn.textContent = hasChanges
-        ? `Send Updated Estimate ($${grandTotal.toFixed(2)}) & Appointment Request`
-        : 'Adjust Add-Ons, Hours, or Home Info Below to Send Update';
+        ? `Send Updated Estimate ($${grandTotal.toFixed(2)})`
+        : 'Make a change above to send update';
     } else {
       refs.submitBtn.disabled = false;
-      refs.submitBtn.textContent = 'Send Estimate & Request Appointment';
+      refs.submitBtn.textContent = 'Send Estimate & Request Slot';
     }
   }
 
@@ -1129,6 +1210,21 @@
       false
     );
 
+    const confirmedFreqSurcharge = Number(confirmed.verifiedEstimate?.frequencySurcharge) || 0;
+    const isConfirmedOvernight = isCommercial && q.frequency === 'overnight';
+    addDetailRow(
+      'Schedule Frequency:',
+      freqLabels[q.frequency] || 'Weekly',
+      false
+    );
+    if (confirmedFreqSurcharge > 0 || isConfirmedOvernight) {
+      addDetailRow(
+        'Schedule Adjustment:',
+        `+$${confirmedFreqSurcharge.toFixed(2)}`,
+        false
+      );
+    }
+
     if (confirmed.isUpdated && Number.isFinite(Number(confirmed.previousTotal))) {
       addDetailRow(
         'Previous Estimated Total:',
@@ -1138,12 +1234,22 @@
     }
 
     addDetailRow(
-      confirmed.isUpdated ? 'Updated Verified Total (Flat Rate):' : 'Verified Flat-Rate Estimate:',
+      confirmed.isUpdated ? 'Updated Verified Total:' : 'Verified Estimate Total:',
       `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (No Online Payment Required)`,
       true
     );
 
     detailsCard.append(detailsHeading, list);
+
+    let overnightConfirmNotice = null;
+    if (isConfirmedOvernight) {
+      overnightConfirmNotice = createEl(
+        'div',
+        'modal-overnight-banner',
+        'Tentative Overnight Request Sent: Please call (318) 564-4360 or email smartsprosolutions@gmail.com to confirm keys, alarms, and scope.'
+      );
+      overnightConfirmNotice.id = 'confirmed-overnight-banner';
+    }
 
     // 3. Edit / Next-Step Explanation Callout (with 24-hour cutoff check)
     const isCutoffLocked = !isWarningFallback && isConfirmedBookingWithin24Hours(confirmed);
@@ -1151,10 +1257,10 @@
       'p',
       `intake-confirmation-edit-hint${isCutoffLocked ? ' is-cutoff-locked' : ''}`,
       isWarningFallback
-        ? 'Automated email confirmation did not finish yet. Click "Open Pre-Filled Email to smartsprosolutions@gmail.com" below or call (318) 564-4360 so we can confirm your appointment — or retry sending below.'
+        ? 'Email dispatch did not finish. Click below to open a pre-filled email to smartsprosolutions@gmail.com or call (318) 564-4360.'
         : isCutoffLocked
-          ? 'Online self-service changes lock 24 hours before your scheduled appointment so our crew can prepare. Need a last-minute addition or schedule change? Call (318) 564-4360.'
-          : 'Your appointment date, time block, base service, and home size are locked in. Need to add appliances, extra Specific Areas hours (+$50/hr), or pet detailing? Click "Edit Request" anytime up to 24 hours before your appointment (to remove items or change your day/time, call (318) 564-4360).'
+          ? 'Online changes lock 24 hours before arrival. Call (318) 564-4360 for last-minute changes.'
+          : 'Your time, base service, and home size are locked. Need to add appliances, Specific Areas (+$50/hr), or pet detailing? Click Edit Request up to 24 hours ahead (to remove items or reschedule, call (318) 564-4360).'
     );
 
     // 4. Action Buttons Row
@@ -1165,7 +1271,7 @@
         const editBtn = createEl(
           'button',
           'btn btn-primary intake-edit-request-btn',
-          'Edit Request (Add Add-Ons, Extra Hours or Notes)'
+          'Edit Request (Add Items or Notes)'
         );
         editBtn.type = 'button';
         editBtn.id = 'btn-edit-confirmed-request';
@@ -1227,7 +1333,17 @@
     doneBtn.addEventListener('click', closeBookingModal);
     actionsRow.append(doneBtn);
 
-    refs.confirmationSection.append(topBadge, detailsCard, editHint, actionsRow);
+    if (overnightConfirmNotice) {
+      refs.confirmationSection.append(
+        topBadge,
+        overnightConfirmNotice,
+        detailsCard,
+        editHint,
+        actionsRow
+      );
+    } else {
+      refs.confirmationSection.append(topBadge, detailsCard, editHint, actionsRow);
+    }
   }
 
   /**
@@ -1317,17 +1433,23 @@
       calSection.setAttribute('aria-label', 'Choose Cleaning Day and Time');
 
       const headerWrap = createEl('div', 'scheduler-header-wrap');
-      const title = createEl('h4', 'scheduler-title', '1. Pick a Preferred Day & Time');
+      const title = createEl('h4', 'scheduler-title', '1. Pick a Day & Time');
       const subtitle = createEl(
         'p',
         'scheduler-subtitle',
-        'Monday – Friday, 8:00 AM to 4:30 PM. You can schedule up to 1 month in advance.'
+        'Mon–Fri, 8:00 AM – 4:30 PM · Up to 1 month ahead'
       );
       headerWrap.append(title, subtitle);
 
       const lockedBanner = createEl('div', 'calendar-locked-banner is-hidden');
       lockedBanner.id = 'calendar-locked-banner';
       lockedBanner.setAttribute('role', 'status');
+
+      const overnightBanner = createEl('div', 'modal-overnight-banner is-hidden');
+      overnightBanner.id = 'calendar-overnight-banner';
+      overnightBanner.setAttribute('role', 'status');
+      overnightBanner.textContent =
+        'Overnight Business: Pick a tentative Mon–Fri night window (6–10 PM, 9 PM–1 AM, or 11 PM–3 AM), then call (318) 564-4360 to confirm keys, alarms, and scope.';
 
       // Month Switcher Bar (Current Month vs. Next Month) + Refresh Live Calendar Control
       const monthNavWrap = createEl('div', 'calendar-month-nav');
@@ -1341,10 +1463,10 @@
       const advanceLimitNote = createEl(
         'span',
         'calendar-advance-note',
-        'Bookings allowed up to 1 month in advance'
+        'Open 1 month ahead'
       );
       advanceLimitNote.id = 'calendar-advance-note';
-      const refreshBtn = createEl('button', 'calendar-refresh-btn', 'Refresh Available Times');
+      const refreshBtn = createEl('button', 'calendar-refresh-btn', 'Refresh Times');
       refreshBtn.type = 'button';
       refreshBtn.id = 'btn-refresh-calendar';
       refreshBtn.addEventListener('click', () => {
@@ -1354,14 +1476,14 @@
       monthNavWrap.append(monthTabs, syncControlsWrap);
 
       // Date Grid Label & Container
-      const dateLabel = createEl('div', 'scheduler-step-label', 'Select a Day (Mon – Fri):');
+      const dateLabel = createEl('div', 'scheduler-step-label', 'Day (Mon–Fri):');
       const dateGrid = createEl('div', 'calendar-date-grid');
       dateGrid.id = 'calendar-date-grid';
       dateGrid.setAttribute('role', 'group');
       dateGrid.setAttribute('aria-label', 'Available Cleaning Days');
 
       // Time Window Grid Label & Container
-      const slotLabel = createEl('div', 'scheduler-step-label', 'Select an Arrival Time Window:');
+      const slotLabel = createEl('div', 'scheduler-step-label', 'Arrival Window:');
       const slotGrid = createEl('div', 'calendar-slot-grid');
       slotGrid.id = 'calendar-slot-grid';
       slotGrid.setAttribute('role', 'group');
@@ -1380,7 +1502,7 @@
       const upcomingTitle = createEl(
         'span',
         'upcoming-bookings-title',
-        'Already booked windows:'
+        'Booked slots:'
       );
       const upcomingList = createEl('div', 'upcoming-bookings-list');
       upcomingList.id = 'upcoming-bookings-list';
@@ -1389,6 +1511,7 @@
       calSection.append(
         headerWrap,
         lockedBanner,
+        overnightBanner,
         monthNavWrap,
         dateLabel,
         dateGrid,
@@ -1403,6 +1526,8 @@
       schedulerState.refs.calTitle = title;
       schedulerState.refs.calSubtitle = subtitle;
       schedulerState.refs.lockedBanner = lockedBanner;
+      schedulerState.refs.overnightBanner = overnightBanner;
+      schedulerState.refs.slotLabel = slotLabel;
       schedulerState.refs.monthTabs = monthTabs;
       schedulerState.refs.advanceLimitNote = advanceLimitNote;
       schedulerState.refs.refreshBtn = refreshBtn;
@@ -1429,19 +1554,19 @@
       const editTitle = createEl(
         'h4',
         'scheduler-title',
-        'Edit Request: Adjust Hours, Additional Info & Add-Ons'
+        'Edit Request: Add-Ons & Home Info'
       );
       const editSub = createEl(
         'p',
         'scheduler-subtitle',
-        'Any changes below automatically recalculate your flat-rate price in real time.'
+        'Your estimate updates automatically as you adjust items below.'
       );
       editTitleWrap.append(editTitle, editSub);
 
       const editLivePriceBadge = createEl(
         'div',
         'edit-live-price-badge',
-        'Auto-Adjusted Total: $140.00'
+        'Updated Total: $140.00'
       );
       editLivePriceBadge.id = 'edit-live-price-badge';
       editHeaderRow.append(editTitleWrap, editLivePriceBadge);
@@ -1451,7 +1576,7 @@
       const modeLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Confirmed Base Cleaning Service Tier (Locked):'
+        'Service Tier (Locked):'
       );
       const modeBtnGrid = createEl('div', 'edit-chip-grid');
 
@@ -1485,7 +1610,7 @@
       const roomsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Confirmed Property Bedrooms & Bathrooms (Locked — Call (318) 564-4360 to Change Size):'
+        'Home Size (Locked · Call (318) 564-4360 to change):'
       );
       const roomsStepperGrid = createEl('div', 'edit-rooms-grid');
 
@@ -1539,7 +1664,7 @@
       const petsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Additional Info — Pets in Home (Auto-Adjusts $35 Pet Hair & Detailing Fee):'
+        'Pets in Home (+$35 flat fee):'
       );
       const petsGrid = createEl('div', 'edit-chip-grid');
       const petsBtnNo = createEl('button', 'edit-option-chip', 'No Pets ($0)');
@@ -1555,7 +1680,7 @@
       const petsBtnYes = createEl(
         'button',
         'edit-option-chip',
-        'Yes, Pets in Home (+$35 Flat Fee)'
+        'Yes, Pets (+$35)'
       );
       petsBtnYes.type = 'button';
       petsBtnYes.id = 'btn-edit-pets-yes';
@@ -1567,7 +1692,7 @@
       const condLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Additional Info — Current Home Condition:'
+        'Home Condition:'
       );
       const condGrid = createEl('div', 'edit-chip-grid');
       const conditionOptions = [
@@ -1593,7 +1718,7 @@
       const addonsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Custom Add-Ons (Add Extra Appliances or Specific Areas Hours — Confirmed Items Locked):'
+        'Add Appliances or Extra Hours (confirmed items locked):'
       );
       const addonsGrid = createEl('div', 'edit-rooms-grid');
 
@@ -1729,11 +1854,11 @@
       intakeSection.setAttribute('aria-label', 'Your Contact Details');
 
       const headerWrap = createEl('div', 'scheduler-header-wrap');
-      const title = createEl('h4', 'scheduler-title', '2. Your Contact Information');
+      const title = createEl('h4', 'scheduler-title', '2. Your Contact Info');
       const subtitle = createEl(
         'p',
         'scheduler-subtitle',
-        'We will email your estimate and confirm your appointment. No online payment is required.'
+        'We email your quote and confirm your slot—no online payment needed.'
       );
       headerWrap.append(title, subtitle);
 
@@ -1809,7 +1934,7 @@
       const notesLabel = createEl(
         'label',
         'intake-label',
-        'Additional Notes (Optional)'
+        'Notes (Optional)'
       );
       notesLabel.setAttribute('for', 'intake-notes');
       const notesInput = createEl('textarea', 'intake-textarea');
@@ -1817,7 +1942,7 @@
       notesInput.rows = 3;
       notesInput.maxLength = 1000;
       notesInput.placeholder =
-        'Any helpful notes about your home, pets, or preferred rooms...';
+        'Priority rooms, pets, or entry notes...';
       notesInput.addEventListener('input', updateSubmitButtonLockState);
       notesWrap.append(notesLabel, notesInput);
 
@@ -1845,7 +1970,7 @@
       const consentNote = createEl(
         'p',
         'intake-consent-note',
-        'By sending this request, you confirm you are 18+ and agree to our Privacy, Terms & No-Refunds Policy (checks that bounce incur a 10% fee). Zero online payment or tracking cookies are used, and you may request data deletion anytime at smartsprosolutions@gmail.com.'
+        'By sending, you confirm you are 18+ and accept our Privacy, Terms & No-Refunds Policy (10% fee on bounced checks). Zero tracking cookies or online payment; delete data anytime at smartsprosolutions@gmail.com.'
       );
       consentNote.id = 'intake-consent-note';
 
@@ -1853,7 +1978,7 @@
       const submitBtn = createEl(
         'button',
         'btn btn-green btn-lg intake-submit-btn',
-        'Send Estimate & Request Appointment'
+        'Send Estimate & Request Slot'
       );
       submitBtn.type = 'button';
       submitBtn.id = 'btn-submit-estimate-email';
@@ -1919,6 +2044,8 @@
       calTitle,
       calSubtitle,
       lockedBanner,
+      overnightBanner,
+      slotLabel,
       monthTabs,
       advanceLimitNote,
       upcomingList,
@@ -1928,6 +2055,7 @@
     } = schedulerState.refs;
     if (!dateGrid || !slotGrid) return;
 
+    const isOvernightMode = isActiveOvernightMode();
     const confirmedInfo = schedulerState.confirmedSubmission
       ? {
           date: schedulerState.confirmedSubmission.appointment?.preferredDate || '',
@@ -1943,6 +2071,43 @@
     const durInfo = getActiveDurationInfo();
     const busyIntervals = schedulerState.busyIntervals || [];
 
+    const getDaySlots = (dayObj) => {
+      if (!dayObj) return [];
+      if (isOvernightMode) {
+        if (Array.isArray(dayObj.overnightSlots) && dayObj.overnightSlots.length > 0) {
+          return dayObj.overnightSlots;
+        }
+        const holidayName = dayObj.holidayName || null;
+        return [
+          {
+            slotId: '18:00-22:00',
+            label: 'Evening Overnight (6:00 PM – 10:00 PM)',
+            shortLabel: '6:00 PM – 10:00 PM',
+            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+            isOvernight: true,
+            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+          },
+          {
+            slotId: '21:00-01:00',
+            label: 'Late Night Overnight (9:00 PM – 1:00 AM)',
+            shortLabel: '9:00 PM – 1:00 AM',
+            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+            isOvernight: true,
+            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+          },
+          {
+            slotId: '23:00-03:00',
+            label: 'Overnight Shift (11:00 PM – 3:00 AM)',
+            shortLabel: '11:00 PM – 3:00 AM',
+            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+            isOvernight: true,
+            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+          }
+        ];
+      }
+      return dayObj.slots || [];
+    };
+
     if (isLockedEditMode) {
       schedulerState.selectedDate = confirmedDate;
       schedulerState.selectedWindow = confirmedWindow;
@@ -1950,19 +2115,38 @@
     }
 
     if (calTitle) {
-      calTitle.textContent = isLockedEditMode
-        ? '1. Reserved Cleaning Day & Arrival Window (Locked)'
-        : '1. Pick a Preferred Day & Time';
+      if (isLockedEditMode) {
+        calTitle.textContent = '1. Reserved Time (Locked)';
+      } else if (isOvernightMode) {
+        calTitle.textContent = '1. Pick a Tentative Overnight Slot';
+      } else {
+        calTitle.textContent = '1. Pick a Day & Time';
+      }
     }
     if (calSubtitle) {
-      calSubtitle.textContent = isLockedEditMode
-        ? 'Once booked, your appointment day and arrival window are locked. Adjust add-ons, hours, or home details below, or call (318) 564-4360 to reschedule your time.'
-        : 'Monday – Friday, 8:00 AM to 4:30 PM. You can schedule up to 1 month in advance.';
+      if (isLockedEditMode) {
+        calSubtitle.textContent =
+          'Your time is locked. Add extras below, or call (318) 564-4360 to reschedule.';
+      } else if (isOvernightMode) {
+        calSubtitle.textContent =
+          'Mon–Fri nights (6:00 PM – 3:00 AM) · Tentative pending call at (318) 564-4360.';
+      } else {
+        calSubtitle.textContent =
+          'Mon–Fri, 8:00 AM – 4:30 PM · Up to 1 month ahead.';
+      }
+    }
+    if (overnightBanner) {
+      overnightBanner.classList.toggle('is-hidden', !isOvernightMode);
+    }
+    if (slotLabel) {
+      slotLabel.textContent = isOvernightMode
+        ? 'Overnight Window (Mon–Fri):'
+        : 'Arrival Window:';
     }
 
     const countOpenSlotsForDay = (dayObj) => {
       if (!dayObj || dayObj.holidayName || dayObj.withinAdvanceWindow === false) return 0;
-      return (dayObj.slots || []).filter((slot) =>
+      return getDaySlots(dayObj).filter((slot) =>
         evaluateClientSlot(
           dayObj,
           slot,
@@ -1973,15 +2157,19 @@
       ).length;
     };
 
-    // 1. Render subtle Upcoming Bookings summary chips
+    // 1. Render subtle Upcoming Bookings summary chips (isolated to daytime vs overnight)
     if (upcomingList) {
       upcomingList.replaceChildren();
-      const items = schedulerState.upcomingBookings || [];
+      const items = (schedulerState.upcomingBookings || []).filter(
+        (item) => Boolean(item.isOvernight) === isOvernightMode
+      );
       if (items.length === 0) {
         const emptyChip = createEl(
           'span',
           'upcoming-booking-chip',
-          'All weekday windows are currently open'
+          isOvernightMode
+            ? 'All weekday night windows are currently open'
+            : 'All weekday windows are currently open'
         );
         upcomingList.append(emptyChip);
       } else {
@@ -2060,8 +2248,9 @@
     }
 
     const activeDateObj = dates.find((d) => d.date === schedulerState.selectedDate) || dates[0];
+    const activeDaySlots = getDaySlots(activeDateObj);
     if (!isLockedEditMode && activeDateObj) {
-      const evaluatedActiveSlots = activeDateObj.slots.map((s) => ({
+      const evaluatedActiveSlots = activeDaySlots.map((s) => ({
         slot: s,
         evalResult: evaluateClientSlot(
           activeDateObj,
@@ -2133,10 +2322,10 @@
       dateGrid.append(btn);
     });
 
-    // 3. Render Arrival Window Buttons for Selected Date (Mon-Fri 8:00 AM - 4:30 PM)
+    // 3. Render Arrival Window Buttons for Selected Date
     slotGrid.replaceChildren();
     if (activeDateObj) {
-      activeDateObj.slots.forEach((slot) => {
+      activeDaySlots.forEach((slot) => {
         const evalResult = evaluateClientSlot(
           activeDateObj,
           slot,
@@ -2161,14 +2350,18 @@
         btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
 
         const titleRow = createEl('strong', 'cal-slot-title', slot.shortLabel);
-        let statusText = evalResult.reasonText;
+        let statusText = isOvernightMode && evalResult.reasonText === 'Available'
+          ? 'Tentative Night Slot (Call Owner Req.)'
+          : evalResult.reasonText;
         if (isLockedEditMode) {
           statusText = isCustomerOwnSlot ? 'Locked Appointment Window ✓' : 'Locked on Edit (Call to Reschedule)';
         } else if (evalResult.selectable) {
           if (isCustomerOwnSlot && isSelected) {
             statusText = 'Your Current Slot ✓';
           } else if (isSelected) {
-            statusText = 'Selected ✓';
+            statusText = isOvernightMode
+              ? 'Selected Tentative Night Slot ✓'
+              : 'Selected ✓';
           }
         }
         const statusRow = createEl('span', 'cal-slot-status', statusText);
@@ -2190,14 +2383,14 @@
     updateRecapHoursDisplay();
 
     // 5. Render Locked Banner & Selected Summary Banner
-    const chosenSlot = activeDateObj?.slots?.find((s) => s.slotId === schedulerState.selectedWindow);
+    const chosenSlot = activeDaySlots.find((s) => s.slotId === schedulerState.selectedWindow);
     const chosenSlotText = chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow;
     const chosenDateText = activeDateObj ? activeDateObj.dateFormatted : formatFullDateUtc(schedulerState.selectedDate);
 
     if (lockedBanner) {
       if (isLockedEditMode) {
         lockedBanner.classList.remove('is-hidden');
-        lockedBanner.textContent = `Appointment Time Locked: ${chosenDateText} • ${chosenSlotText} (Ref: ${schedulerState.confirmedSubmission?.referenceCode || 'Active'}). Add appliances, hours, or home details below — or call (318) 564-4360 to change your day or time.`;
+        lockedBanner.textContent = `Time Locked: ${chosenDateText} • ${chosenSlotText} (Ref: ${schedulerState.confirmedSubmission?.referenceCode || 'Active'}). Add items below or call (318) 564-4360 to reschedule.`;
       } else {
         lockedBanner.classList.add('is-hidden');
         lockedBanner.textContent = '';
@@ -2207,11 +2400,15 @@
     if (selectedSummary) {
       selectedSummary.classList.toggle('is-locked', isLockedEditMode);
       if (activeDateObj && schedulerState.selectedWindow) {
-        selectedSummary.textContent = isLockedEditMode
-          ? `Locked Cleaning Window: ${chosenDateText} • ${chosenSlotText} · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`
-          : `Selected Time: ${chosenDateText} • ${chosenSlotText} · Est. Cleaning Time: ${formatDurationHours(durInfo.totalEstimatedHours)}`;
+        if (isLockedEditMode) {
+          selectedSummary.textContent = `Locked Window: ${chosenDateText} • ${chosenSlotText} · Est. ${formatDurationHours(durInfo.totalEstimatedHours)}`;
+        } else if (isOvernightMode) {
+          selectedSummary.textContent = `Tentative Overnight: ${chosenDateText} • ${chosenSlotText} (Call (318) 564-4360)`;
+        } else {
+          selectedSummary.textContent = `Selected: ${chosenDateText} • ${chosenSlotText} · Est. ${formatDurationHours(durInfo.totalEstimatedHours)}`;
+        }
       } else {
-        selectedSummary.textContent = 'Please select an available day and time window above.';
+        selectedSummary.textContent = 'Pick an available day and time window above.';
       }
     }
   }
@@ -2244,7 +2441,7 @@
             refreshBtn.textContent = 'Updated ✓';
             setTimeout(() => {
               if (schedulerState.refs.refreshBtn) {
-                schedulerState.refs.refreshBtn.textContent = 'Refresh Available Times';
+                schedulerState.refs.refreshBtn.textContent = 'Refresh Times';
               }
             }, 1800);
           }
@@ -2264,7 +2461,7 @@
       if (refreshBtn) {
         refreshBtn.disabled = false;
         if (!isManualRefresh) {
-          refreshBtn.textContent = 'Refresh Available Times';
+          refreshBtn.textContent = 'Refresh Times';
         }
       }
     }
@@ -2471,7 +2668,11 @@
 
       const dates = schedulerState.availableDates || [];
       const dateObj = dates.find((d) => d.date === schedulerState.selectedDate);
-      const slotObj = dateObj?.slots?.find((s) => s.slotId === schedulerState.selectedWindow);
+      const slotPool =
+        dateObj && quotePayload.serviceCategory === 'commercial' && quotePayload.frequency === 'overnight'
+          ? dateObj.overnightSlots || dateObj.slots
+          : dateObj?.slots;
+      const slotObj = slotPool?.find((s) => s.slotId === schedulerState.selectedWindow);
       const dateFormatted =
         result?.appointment?.preferredDateFormatted ||
         dateObj?.dateFormatted ||
@@ -2485,6 +2686,7 @@
       const verifiedEstimate = result?.verifiedEstimate || {
         grandTotal: currentCalc.grandTotal || 0,
         basePrice: currentCalc.basePrice || 0,
+        frequencySurcharge: currentCalc.frequencySurcharge || 0,
         addonsTotal: currentCalc.addonsTotal || 0,
         estimatedHours: currentCalc.estimatedHours || 2
       };
@@ -2511,7 +2713,7 @@
           headingText: confirmedIsUpdated
             ? `Updated Appointment Sent! (#${Math.max(1, nextUpdateCount)} · Ref: ${result.referenceCode})`
             : `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
-          detailText: `${result.message} Verified Flat-Rate Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (No online payment required).`,
+          detailText: `${result.message} Verified Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (No online payment required).`,
           icsContent: result.icsContent || '',
           icsFilename: result.icsFilename || '',
           fallbackMailtoUrl: '',

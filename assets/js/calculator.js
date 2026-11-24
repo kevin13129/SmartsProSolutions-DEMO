@@ -45,6 +45,14 @@
       moveinout: 1.25,
       airbnb: 1.0
     },
+    scheduleSurcharges: {
+      weekly: { flatMin: 0, pct: 0 },
+      turnover: { flatMin: 0, pct: 0 },
+      biweekly: { flatMin: 30, pct: 0.12 },
+      monthly: { flatMin: 50, pct: 0.20 },
+      onetime: { flatMin: 65, pct: 0.26 },
+      overnight: { flatMin: 85, pct: 0.30 }
+    },
     addons: {
       fridge: 65,
       fridgeDouble: 75,
@@ -55,61 +63,69 @@
     onlinePaymentsEnabled: false
   };
 
+  function calcFrequencySurcharge(basePrice, freq) {
+    const rule = PRICING_CONFIG.scheduleSurcharges[freq];
+    if (!rule || (rule.flatMin <= 0 && rule.pct <= 0)) {
+      return 0;
+    }
+    return Math.max(rule.flatMin, Math.round(Number(basePrice || 0) * rule.pct));
+  }
+
   // --- Service Scope Overviews for Step 1 ---
   const SERVICE_OVERVIEWS = {
     default: {
-      kicker: 'Service Scope Overview',
-      title: 'What Each Service Category Includes',
-      desc: 'Select one of the 4 service categories above to view its full room-by-room checklist and unlock the next step.',
+      kicker: "What's Included",
+      title: 'Compare Cleaning Categories',
+      desc: 'Pick a card above to view what is included and unlock the next step.',
       items: [
-        'Residential Homes: Kitchens, baths, floors & dusting (Standard Clean, Deep Clean, or Specific Areas from $50)',
-        'Commercial & Offices: Lobbies, desks, restrooms, breakrooms & custom facility walkthrough schedule',
-        'Move-In / Move-Out: Inside empty cabinets, drawers, closets, hand-wiped baseboards & lease inspection prep',
-        'Airbnb / STR Turnover: Linen change, bathroom & kitchen sanitization, restock check & guest-ready presentation'
+        'Residential: Kitchens, baths, floors & dusting (Standard, Deep, or +$50/hr Specific Areas)',
+        'Commercial: Lobbies, desks, restrooms, breakrooms & custom schedule',
+        'Move-In / Out: Inside empty cabinets, closets, baseboards & lease prep',
+        'Airbnb / STR: Linen reset, kitchen & bath sanitize, restock check'
       ]
     },
     residential: {
-      kicker: 'RESIDENTIAL HOMES OVERVIEW',
-      title: 'Complete Home Care (Standard Clean · Deep Clean · Specific Areas from $50)',
-      desc: 'Customizable cleaning built for houses, apartments, and family homes across Shreveport & Bossier City. Choose full-property Standard or Deep cleaning, or target Specific Areas with a 1 to 6 hour flat-rate package.',
+      kicker: 'RESIDENTIAL HOMES',
+      title: 'Whole-Home Care (Standard · Deep · +$50/hr Specific Areas)',
+      desc: 'Tailored cleaning for houses and apartments across Shreveport & Bossier City.',
       items: [
-        'Kitchens: Countertops, sink scrubbing, stovetop degreasing, microwave interior & cabinet faces',
-        'Bathrooms: Showers, tubs, toilets, mirrors, chrome fixtures & hospital-grade surface sanitization',
-        'Bedrooms & Living Spaces: Ceiling fans, window sills, baseboards, furniture dusting & pet-friendly floor care',
-        'Flexible Options: Choose Standard Clean, Deep Clean, or Specific Areas ($50 minimum)'
+        'Kitchens: Counters, sink, stovetop degrease, microwave & cabinet fronts',
+        'Bathrooms: Showers, tubs, toilets, mirrors & fixtures sanitized',
+        'Living & Bedrooms: Fans, sills, baseboards, dusting & floor care',
+        'Flexible Options: Standard, Deep Clean, or +$50/hr Specific Areas'
       ]
     },
     commercial: {
-      kicker: 'COMMERCIAL & OFFICES OVERVIEW',
-      title: 'Professional Facility & Office Maintenance (Custom Walkthrough & Schedule)',
-      desc: 'Tailored janitorial and commercial care for offices, medical suites, retail storefronts, and banks. Click Next to choose your Cleaning Frequency and request an owner walkthrough.',
+      kicker: 'COMMERCIAL & OFFICES',
+      title: 'Office & Facility Care (Walkthrough & Custom Schedule)',
+      desc: 'Reliable janitorial service for offices, clinics, retail, and banks. Next: pick your schedule.',
       items: [
-        'Lobby, Reception & Workstations: High-visibility glass, desks, conference tables & electronics-safe dusting',
-        'Restrooms & Breakrooms: Multi-stall restroom sanitization, soap/towel restocking & breakroom appliances',
-        'Floors & High-Traffic Corridors: Commercial HEPA vacuuming, hard-surface mopping & entryway detailing',
-        'Streamlined Commercial Flow: Proceeds directly to Cleaning Frequency & Walkthrough Request'
+        'Lobbies & Desks: Entry glass, workstations, conference tables & dusting',
+        'Restrooms & Breakrooms: Multi-stall sanitizing, refills & breakroom wipe-down',
+        'Floors & Hallways: HEPA vacuuming, mopping & entryway detailing',
+        'Direct Flow: Goes straight to Frequency & Walkthrough Request'
       ]
     },
     moveinout: {
-      kicker: 'MOVE-IN / MOVE-OUT OVERVIEW',
-      title: 'Empty-Property Reset for Leases, Closings & Relocations',
-      desc: 'Inspection-ready restoration for houses, apartments, condos, and townhomes. Designed to satisfy landlord move-out checklists and prepare empty residences for new occupants.',
+      kicker: 'MOVE-IN / MOVE-OUT',
+      title: 'Empty-Home Reset for Leases & Closings',
+      desc: 'Inspection-ready detail for empty houses, apartments, condos, and townhomes.',
       items: [
-        'Inside Cabinets, Drawers & Closets: Full interior wipe-down of empty kitchen, bath & storage cabinetry',
-        'Deep Structural Detailing: Hand-washed baseboards, door frames, light switches, vents & window tracks',
-        'Kitchen & Bath Restoration: Heavy lime/soap-scum removal, appliance exteriors & sanitized fixtures',
-        'Property-Type Tailored: Next step asks whether your property is a House, Apartment, Condo, or Townhome'
+        'Cabinets & Closets: Full wipe-down inside empty kitchen & bath storage',
+        'Trim & Fixtures: Hand-wiped baseboards, doors, switches, vents & sills',
+        'Kitchen & Bath: Heavy buildup removal, appliance exteriors & fixtures',
+        'Next Step: Choose House, Apartment, Condo, or Townhome'
       ]
     },
     airbnb: {
-      kicker: 'AIRBNB / STR TURNOVER OVERVIEW',
-      title: '5-Star Guest-Ready Short-Term Rental Turnover',
-      desc: 'Fast, checklist-driven hospitality resets between guest check-out and check-in so your listing earns spotless reviews every stay.',
+      kicker: 'AIRBNB / STR TURNOVER',
+      title: '5-Star Guest-Ready Turnover',
+      desc: 'Fast, checklist-driven resets between guest check-out and check-in.',
       items: [
-        'Hotel-Standard Bed & Linen Reset: Fresh linen staging, towel folding & guest-ready bedroom presentation',
-        'Kitchen & Bath Sanitization: Dish/appliance check, sanitized counters, gleaming sinks & restocked essentials',
-        'Host Damage & Inventory Check: Visual inspection for guest items left behind or maintenance issues',
-        'Same-Day Window Reliability: Precision scheduling aligned with 11 AM check-out and 3 PM check-in windows'
+        'Beds & Linens: Fresh linen change, towel staging & bedroom reset',
+        'Kitchen & Bath: Disinfected counters, sinks, dishes & supply check',
+        'Damage Check: Quick visual scan for left items or maintenance needs',
+        'On-Time Window: Timed around check-out and check-in schedules'
       ]
     }
   };
@@ -138,7 +154,7 @@
       occupancy: '',
       condition: ''
     },
-    frequency: 'biweekly', // 'weekly' | 'biweekly' | 'turnover' | 'monthly' | 'onetime'
+    frequency: 'weekly', // 'weekly' | 'biweekly' | 'turnover' | 'monthly' | 'onetime' | 'overnight'
     addons: {
       fridge: 0,
       fridgeDouble: 0,
@@ -237,6 +253,14 @@
     // Step 4: Frequency Cards
     step4FrequencyGrid: document.getElementById('step4-frequency-grid'),
     freqCards: document.querySelectorAll('.freq-card-option'),
+    freqCardOvernight: document.getElementById('freq-card-overnight'),
+    step4OvernightNotice: document.getElementById('step4-overnight-notice'),
+    freqBadgeWeekly: document.getElementById('freq-badge-weekly'),
+    freqBadgeBiweekly: document.getElementById('freq-badge-biweekly'),
+    freqBadgeMonthly: document.getElementById('freq-badge-monthly'),
+    freqBadgeTurnover: document.getElementById('freq-badge-turnover'),
+    freqBadgeOnetime: document.getElementById('freq-badge-onetime'),
+    freqBadgeOvernight: document.getElementById('freq-badge-overnight'),
     freqTurnoverTitle: document.getElementById('freq-turnover-title'),
     freqTurnoverSub: document.getElementById('freq-turnover-sub'),
 
@@ -272,6 +296,8 @@
     summaryAddinfoVal: document.getElementById('summary-addinfo-val'),
     summaryServiceType: document.getElementById('summary-service-type'),
     summaryServiceRate: document.getElementById('summary-service-rate'),
+    summaryFrequencyRow: document.getElementById('summary-frequency-row'),
+    summaryFrequencyVal: document.getElementById('summary-frequency-val'),
     summaryAddonsRow: document.getElementById('summary-addons-row'),
     summaryAddonsVal: document.getElementById('summary-addons-val'),
     summaryDispatchVal: document.getElementById('summary-dispatch-val'),
@@ -338,7 +364,7 @@
     if (stepId === 1) {
       if (!state.step1Fulfilled) {
         showValidationError(
-          'Please select a Type of Service (Residential Homes, Commercial & Offices, Move-In / Move-Out, or Airbnb Turnover) to fulfill this section before moving forward.',
+          'Select a service category above to continue.',
           [els.step1ServiceGrid]
         );
         return false;
@@ -350,7 +376,7 @@
       if (state.serviceCategory === 'moveinout') {
         if (!state.propertyType) {
           showValidationError(
-            'Please select your Property Type (House, Apartment, Condo, or Townhome) to fulfill the Property Details section.',
+            'Select a Property Type (House, Apartment, Condo, or Townhome) to continue.',
             [els.step2MoveinoutPropertyType, els.movePropertyTypeGroup]
           );
           return false;
@@ -361,7 +387,7 @@
       if (state.serviceCategory === 'residential') {
         if (!state.step2ResidentialFulfilled) {
           showValidationError(
-            'Please select your Cleaning Tier (Standard Clean or Deep Clean) and select your house details below before moving forward.',
+            'Choose Standard Clean or Deep Clean and set your home size to continue.',
             [els.residentialTierGroup, els.scopePanelFull]
           );
           return false;
@@ -384,7 +410,7 @@
 
       if (missingGroups.length > 0) {
         showValidationError(
-          'Please answer all 4 required questions in Additional Information (Pets, Last Professional Cleaning, Occupancy, and Current Condition) before moving forward.',
+          'Please answer all 4 Home Info questions before continuing.',
           missingGroups
         );
         return false;
@@ -393,9 +419,13 @@
     }
 
     if (stepId === 4) {
+      if (state.frequency === 'overnight' && state.serviceCategory !== 'commercial') {
+        state.frequency = 'weekly';
+        state.step4FrequencyFulfilled = false;
+      }
       if (!state.step4FrequencyFulfilled) {
         showValidationError(
-          'Please select a Cleaning Frequency schedule below to fulfill this section.',
+          'Select a cleaning frequency below to continue.',
           [els.step4FrequencyGrid]
         );
         return false;
@@ -410,7 +440,7 @@
         state.specificAreasText.trim().length === 0
       ) {
         showValidationError(
-          'Please enter which extra specific areas you want cleaned (or click Specific Areas Add-On again to remove it) before continuing.',
+          'Describe the Specific Areas to clean (or click Specific Areas again to remove it).',
           [els.specificAreasInputGroup, els.inputSpecificAreas]
         );
         if (els.inputSpecificAreas) els.inputSpecificAreas.focus();
@@ -455,6 +485,8 @@
       const baseRate = cfg.hourlyRates.commercial;
       const estimatedHours = 3.0;
       const basePrice = Math.round(estimatedHours * baseRate);
+      const frequencySurcharge = calcFrequencySurcharge(basePrice, state.frequency);
+      const grandTotal = basePrice + frequencySurcharge;
       return {
         isCommercial: true,
         isSpecificAreas: false,
@@ -464,13 +496,14 @@
         totalEstimatedHours: estimatedHours,
         durationMinutes: Math.round(estimatedHours * 60),
         basePrice,
+        frequencySurcharge,
         minApplied: false,
         discountRate: 0,
         discountAmount: 0,
         addonsTotal: 0,
-        grandTotal: basePrice,
+        grandTotal,
         onlinePaymentsEnabled: false,
-        timeRangeText: 'On-Site Walkthrough',
+        timeRangeText: state.frequency === 'overnight' ? 'Tentative Overnight Window' : 'On-Site Walkthrough',
         crewText: 'Commercial Team'
       };
     }
@@ -496,6 +529,8 @@
     const rawPrice = Math.round(estimatedHours * hourlyRate);
     const basePrice = Math.max(cfg.minimumJobCharge, rawPrice);
     const minApplied = rawPrice < cfg.minimumJobCharge;
+    const safeFrequency = state.frequency === 'overnight' ? 'weekly' : state.frequency;
+    const frequencySurcharge = calcFrequencySurcharge(basePrice, safeFrequency);
 
     // Specific Areas Add-On adds 1 to 6 hours at $50/hr on top of base service
     const specificAddonHours = isSpecificAreas
@@ -514,7 +549,7 @@
       state.addons.pets * cfg.addons.pets +
       specificAddonPrice;
 
-    const grandTotal = basePrice + addonsTotal;
+    const grandTotal = basePrice + frequencySurcharge + addonsTotal;
 
     const addonHours =
       (state.addons.fridge + state.addons.fridgeDouble + state.addons.oven) * 0.5 +
@@ -543,6 +578,7 @@
       totalEstimatedHours,
       durationMinutes,
       basePrice,
+      frequencySurcharge,
       minApplied,
       discountRate: 0,
       discountAmount: 0,
@@ -570,19 +606,19 @@
       1: 'Type of Service',
       2:
         state.serviceCategory === 'moveinout'
-          ? 'Move-In / Out Details'
+          ? 'Move-In / Out'
           : state.serviceCategory === 'airbnb'
-            ? 'Airbnb Property Details'
-            : 'Property Details',
-      3: 'Additional Information',
-      4: 'Cleaning Frequency',
+            ? 'Airbnb Property'
+            : 'Property',
+      3: 'Home Info',
+      4: 'Frequency',
       5: 'Custom Add-Ons'
     };
 
     const nextButtonTitles = {
-      1: 'Type of Service',
-      2: 'Property Details',
-      3: 'Additional Info',
+      1: 'Service',
+      2: 'Property',
+      3: 'Home Info',
       4: 'Frequency',
       5: 'Add-Ons'
     };
@@ -649,22 +685,33 @@
     if (els.step4HeadingTitle) {
       els.step4HeadingTitle.textContent =
         state.serviceCategory === 'commercial'
-          ? 'Commercial Cleaning Frequency'
+          ? 'Commercial Frequency'
           : 'Cleaning Frequency';
     }
     if (els.step4HeadingDesc) {
       els.step4HeadingDesc.textContent =
         state.serviceCategory === 'commercial'
-          ? 'Select how often your office or facility needs service to complete your Commercial walkthrough request'
-          : 'Select your preferred service schedule below to continue';
+          ? 'Choose how often your facility needs service.'
+          : 'Choose how often you\'d like service.';
+    }
+    const isCommercialCategory = state.serviceCategory === 'commercial';
+    if (els.freqCardOvernight) {
+      els.freqCardOvernight.classList.toggle('is-hidden', !isCommercialCategory);
+    }
+    if (els.step4FrequencyGrid) {
+      els.step4FrequencyGrid.classList.toggle('has-overnight', isCommercialCategory);
+    }
+    if (els.step4OvernightNotice) {
+      const showOvernightNotice = isCommercialCategory && state.frequency === 'overnight';
+      els.step4OvernightNotice.classList.toggle('is-hidden', !showOvernightNotice);
     }
     if (els.freqTurnoverTitle && els.freqTurnoverSub) {
-      if (state.serviceCategory === 'commercial') {
+      if (isCommercialCategory) {
         els.freqTurnoverTitle.textContent = 'Custom / Daily';
-        els.freqTurnoverSub.textContent = 'Multi-Day Facility Care';
+        els.freqTurnoverSub.textContent = 'Multi-Day Care';
       } else {
         els.freqTurnoverTitle.textContent = 'Per Turnover';
-        els.freqTurnoverSub.textContent = 'Airbnb / Host Partner';
+        els.freqTurnoverSub.textContent = 'Airbnb / Host';
       }
     }
 
@@ -673,31 +720,28 @@
       if (els.step2ResidentialControls) els.step2ResidentialControls.classList.add('is-hidden');
       if (els.step2MoveinoutPropertyType) els.step2MoveinoutPropertyType.classList.remove('is-hidden');
       if (els.step2HeadingTitle) {
-        els.step2HeadingTitle.textContent = 'Move-In / Move-Out Property Details';
+        els.step2HeadingTitle.textContent = 'Move-In / Out Property';
       }
       if (els.step2HeadingDesc) {
-        els.step2HeadingDesc.textContent =
-          'Select your property type (House, Apartment, Condo, or Townhome) and adjust your property details gauge';
+        els.step2HeadingDesc.textContent = 'Pick your property type and home size.';
       }
     } else if (state.serviceCategory === 'airbnb') {
       if (els.step2ResidentialControls) els.step2ResidentialControls.classList.add('is-hidden');
       if (els.step2MoveinoutPropertyType) els.step2MoveinoutPropertyType.classList.add('is-hidden');
       if (els.step2HeadingTitle) {
-        els.step2HeadingTitle.textContent = 'Airbnb / STR Property Details';
+        els.step2HeadingTitle.textContent = 'Airbnb / STR Property';
       }
       if (els.step2HeadingDesc) {
-        els.step2HeadingDesc.textContent =
-          'Configure your short-term rental bedrooms, bathrooms, and square footage below';
+        els.step2HeadingDesc.textContent = 'Set your rental bedrooms, baths, and square footage.';
       }
     } else {
       if (els.step2ResidentialControls) els.step2ResidentialControls.classList.remove('is-hidden');
       if (els.step2MoveinoutPropertyType) els.step2MoveinoutPropertyType.classList.add('is-hidden');
       if (els.step2HeadingTitle) {
-        els.step2HeadingTitle.textContent = 'Residential Property Details';
+        els.step2HeadingTitle.textContent = 'Property Details';
       }
       if (els.step2HeadingDesc) {
-        els.step2HeadingDesc.textContent =
-          'Choose Standard Clean or Deep Clean, then set your home size (Specific Areas is available in Step 5)';
+        els.step2HeadingDesc.textContent = 'Choose your clean level and home size.';
       }
     }
 
@@ -832,8 +876,8 @@
     }
     if (els.specificAreasToggleBadge) {
       els.specificAreasToggleBadge.textContent = isSpecific
-        ? 'Added ✓ · Click to remove'
-        : 'Click to add';
+        ? 'Added ✓ · Remove'
+        : 'Add';
     }
     if (els.scopePanelSpecific) {
       els.scopePanelSpecific.classList.toggle('is-hidden', !isSpecific);
@@ -881,7 +925,7 @@
       btn.setAttribute('aria-checked', isChecked ? 'true' : 'false');
     });
 
-    // 4. Update Step 4 Frequency Cards
+    // 4. Update Step 4 Frequency Cards & Dynamic Hybrid Surcharge Badges
     els.freqCards.forEach((card) => {
       const cardFreq = card.getAttribute('data-freq');
       const isSelected = state.step4FrequencyFulfilled && cardFreq === state.frequency;
@@ -889,6 +933,18 @@
       const radio = card.querySelector('input[type="radio"]');
       if (radio) radio.checked = isSelected;
     });
+
+    const biweeklyExtra = calcFrequencySurcharge(calc.basePrice, 'biweekly');
+    const monthlyExtra = calcFrequencySurcharge(calc.basePrice, 'monthly');
+    const onetimeExtra = calcFrequencySurcharge(calc.basePrice, 'onetime');
+    const overnightExtra = calcFrequencySurcharge(calc.basePrice, 'overnight');
+
+    if (els.freqBadgeWeekly) els.freqBadgeWeekly.textContent = 'Anchor · $0';
+    if (els.freqBadgeTurnover) els.freqBadgeTurnover.textContent = '$0 Extra';
+    if (els.freqBadgeBiweekly) els.freqBadgeBiweekly.textContent = `+$${biweeklyExtra}`;
+    if (els.freqBadgeMonthly) els.freqBadgeMonthly.textContent = `+$${monthlyExtra}`;
+    if (els.freqBadgeOnetime) els.freqBadgeOnetime.textContent = `+$${onetimeExtra}`;
+    if (els.freqBadgeOvernight) els.freqBadgeOvernight.textContent = `+$${overnightExtra} · Special`;
 
     // 5. Update Step 5 Add-on Quantities & Pet Lock State
     if (els.valFridge) els.valFridge.textContent = state.addons.fridge;
@@ -918,26 +974,44 @@
       }
     }
 
+    const surchargeText =
+      calc.frequencySurcharge > 0 ? `+$${calc.frequencySurcharge.toFixed(2)}` : '+$0.00';
     const freqLabels = {
-      weekly: 'Scheduled Weekly • Flat Rate (No Recurring Discount)',
-      biweekly: 'Scheduled Bi-Weekly • Flat Rate (No Recurring Discount)',
-      turnover: 'Per Guest Turnover • Flat Rate (No Recurring Discount)',
-      monthly: 'Scheduled Monthly • Flat Rate (No Recurring Discount)',
-      onetime: 'One-Time Cleaning • Flat Rate'
+      weekly: 'Weekly · Base Rate ($0 extra)',
+      biweekly: `Bi-Weekly (+$${calc.frequencySurcharge} schedule fee)`,
+      turnover: isCommercial
+        ? 'Custom / Daily ($0 extra)'
+        : 'Per Turnover · Base Rate ($0 extra)',
+      monthly: `Monthly (+$${calc.frequencySurcharge} schedule fee)`,
+      onetime: `One-Time (+$${calc.frequencySurcharge} schedule fee)`,
+      overnight: `Overnight (+$${calc.frequencySurcharge} · Tentative)`
+    };
+    const freqShortNames = {
+      weekly: 'Weekly',
+      biweekly: 'Every 2 Wks',
+      turnover: isCommercial ? 'Custom / Daily' : 'Per Turnover',
+      monthly: 'Monthly',
+      onetime: 'One Time',
+      overnight: 'Overnight (Tentative)'
     };
     if (els.quoteBillingFreq) {
       els.quoteBillingFreq.textContent = isCommercial
-        ? `Commercial Walkthrough · ${freqLabels[state.frequency] || 'Custom Schedule'}`
-        : freqLabels[state.frequency] || 'Estimated Per Cleaning (Flat Rate)';
+        ? `Walkthrough · ${freqLabels[state.frequency] || 'Custom Schedule'}`
+        : freqLabels[state.frequency] || 'Weekly · Base Rate ($0 extra)';
+    }
+
+    if (els.summaryFrequencyVal) {
+      els.summaryFrequencyVal.textContent = `${freqShortNames[state.frequency] || 'Weekly'} (${surchargeText})`;
     }
 
     if (els.quoteMinimumNoteText) {
       if (isCommercial) {
         els.quoteMinimumNoteText.textContent =
-          'Commercial walkthrough confirms final facility pricing';
+          state.frequency === 'overnight'
+            ? 'Tentative Overnight · Call (318) 564-4360'
+            : 'Walkthrough confirms final scope';
       } else {
-        els.quoteMinimumNoteText.textContent =
-          'Flat-Rate Property Estimate • No Online Payment Required';
+        els.quoteMinimumNoteText.textContent = 'No Online Payment Required';
       }
     }
 
@@ -972,7 +1046,7 @@
     if (els.summaryScopeTitle && els.summaryBaseRate) {
       if (isCommercial) {
         els.summaryScopeTitle.textContent = 'Facility Scope';
-        els.summaryBaseRate.textContent = 'Confirmed during owner walkthrough';
+        els.summaryBaseRate.textContent = 'Confirmed at walkthrough';
       } else {
         els.summaryScopeTitle.textContent = 'Property Size';
         const bathText =
@@ -991,7 +1065,7 @@
         els.summarySpecificAreasVal.textContent =
           cleanedText.length > 0
             ? `+${calc.specificAddonHours} ${hrUnit} (+$${calc.specificAddonPrice}): ${cleanedText}`
-            : `+${calc.specificAddonHours} ${hrUnit} (+$${calc.specificAddonPrice}) — Specify in Step 5`;
+            : `+${calc.specificAddonHours} ${hrUnit} (+$${calc.specificAddonPrice}) — Describe in Step 5`;
       } else {
         els.summarySpecificAreasRow.classList.add('is-hidden');
       }
@@ -1008,7 +1082,7 @@
         if (info.hasPets) parts.push(info.hasPets === 'yes' ? 'Pets: Yes' : 'No Pets');
         if (info.condition) parts.push(info.condition);
         else if (info.occupancy) parts.push(info.occupancy);
-        els.summaryAddinfoVal.textContent = parts.join(' • ') || 'Recorded';
+        els.summaryAddinfoVal.textContent = parts.join(' • ') || 'Saved';
       } else {
         els.summaryAddinfoRow.classList.add('is-hidden');
       }
@@ -1037,8 +1111,8 @@
 
     if (els.btnBookQuoteLabel) {
       els.btnBookQuoteLabel.textContent = isCommercial
-        ? 'Schedule Walkthrough & Email Bid'
-        : 'Complete Estimate & Schedule';
+        ? 'Pick Walkthrough & Send Bid'
+        : 'Pick Time & Send Estimate';
     }
 
     updateWizardUI();
@@ -1069,6 +1143,11 @@
     state.step2AirbnbConfirmed = false;
     state.step5Visited = false;
     clearValidationErrors();
+
+    if (category !== 'commercial' && state.frequency === 'overnight') {
+      state.frequency = 'weekly';
+      state.step4FrequencyFulfilled = false;
+    }
 
     if (category === 'residential') {
       if (state.serviceType === 'moveinout' || state.serviceType === 'airbnb') {
@@ -1335,12 +1414,14 @@
     els.freqCards.forEach((card) => {
       card.addEventListener('click', () => {
         const selectedFreq = card.getAttribute('data-freq');
-        if (selectedFreq) {
-          state.frequency = selectedFreq;
-          state.step4FrequencyFulfilled = true;
-          clearValidationErrors();
-          updateUI();
+        if (!selectedFreq) return;
+        if (selectedFreq === 'overnight' && state.serviceCategory !== 'commercial') {
+          return;
         }
+        state.frequency = selectedFreq;
+        state.step4FrequencyFulfilled = true;
+        clearValidationErrors();
+        updateUI();
       });
     });
 
@@ -1428,7 +1509,7 @@
           occupancy: '',
           condition: ''
         };
-        state.frequency = 'biweekly';
+        state.frequency = 'weekly';
         state.addons = { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 };
         if (els.inputSpecificAreas) els.inputSpecificAreas.value = '';
         clearValidationErrors();
@@ -1603,7 +1684,7 @@
       state.wizardStep = 1;
       updateWizardUI();
       showValidationError(
-        'Please select your Type of Service below and complete your house details across all 5 steps before clicking Complete Estimate & Schedule.',
+        'Pick a service category first to finish your estimate.',
         [els.step1ServiceGrid]
       );
       scrollWizardIntoView();
@@ -1624,7 +1705,7 @@
         state.wizardStep = 2;
         updateWizardUI();
         showValidationError(
-          'Please select your Cleaning Tier (Standard Clean or Deep Clean) and select your house details below before completing your estimate.',
+          'Choose Standard Clean or Deep Clean and confirm your home size.',
           [els.residentialTierGroup, els.scopePanelFull]
         );
         scrollWizardIntoView();
@@ -1634,7 +1715,7 @@
         state.wizardStep = 2;
         updateWizardUI();
         showValidationError(
-          'Please review and confirm your Airbnb house details (bedrooms, bathrooms, square footage) below before completing your estimate.',
+          'Confirm your rental bedrooms, baths, and square footage below.',
           [els.scopePanelFull]
         );
         scrollWizardIntoView();
@@ -1670,7 +1751,7 @@
         state.wizardStep = 5;
         updateWizardUI();
         showValidationError(
-          'Almost done! Please review Step 5 (Custom Add-Ons & Specific Areas) — choose any optional add-ons or click Review Estimate / Complete Estimate & Schedule to continue.',
+          'Review optional add-ons below, then click Pick Time & Send Estimate.',
           [document.getElementById('calc-step-5')]
         );
         scrollWizardIntoView();
