@@ -13,6 +13,16 @@
   'use strict';
 
   const modalOverlay = document.getElementById('booking-modal-overlay');
+  const modalBody = document.getElementById('booking-modal-body');
+  const modalQuoteRecap = document.getElementById('modal-quote-recap');
+  const modalRecapToggle = document.getElementById('modal-recap-toggle');
+  const modalRecapToggleService = document.getElementById('modal-recap-toggle-service');
+  const modalRecapToggleTotal = document.getElementById('modal-recap-toggle-total');
+  const modalStickyFooter = document.getElementById('modal-sticky-footer');
+  const modalStickySlot = document.getElementById('modal-sticky-slot');
+  const modalStickyTotalLabel = document.getElementById('modal-sticky-total-label');
+  const modalStickyTotal = document.getElementById('modal-sticky-total');
+  const modalStickyCta = document.getElementById('modal-sticky-cta');
   const btnOpenModal = document.getElementById('btn-book-quote-now');
   const btnContactOpenScheduler = document.getElementById('btn-contact-open-scheduler');
   const btnCloseModal = document.getElementById('modal-close-btn');
@@ -70,6 +80,7 @@
     overnight: 'Overnight Business (Tentative)'
   };
 
+  const WHEEL_ITEM_HEIGHT = 44;
   const BUSINESS_OPEN_MINUTES = 8 * 60; // 8:00 AM
   const BUSINESS_CLOSE_MINUTES = 16 * 60 + 30; // 4:30 PM
   const FULL_DAY_MINUTES = BUSINESS_CLOSE_MINUTES - BUSINESS_OPEN_MINUTES; // 510 min (8.5 hrs)
@@ -87,6 +98,10 @@
     availableDates: [],
     calendarMonths: [],
     activeMonthKey: '',
+    wheelDays: [],
+    wheelScrollTimer: null,
+    wheelSuppressUntil: 0,
+    wheelRafPending: false,
     maxAdvanceDate: '',
     maxAdvanceDateFormatted: '',
     upcomingBookings: [],
@@ -98,6 +113,7 @@
     liveCalendarSyncConfigured: false,
     viewMode: 'form', // 'form' | 'confirmed' | 'editing'
     confirmedSubmission: null,
+    contactTouched: { firstName: false, lastName: false, phone: false, email: false },
     mounted: false,
     refs: {}
   };
@@ -107,6 +123,31 @@
     if (className) el.className = className;
     if (text !== undefined && text !== null) el.textContent = String(text);
     return el;
+  }
+
+  function createSvgIcon(polylinePoints, size = 16, strokeWidth = 2.4) {
+    const svgNs = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(svgNs, 'svg');
+    svg.setAttribute('width', String(size));
+    svg.setAttribute('height', String(size));
+    svg.setAttribute('viewBox', '0 0 24 24');
+    svg.setAttribute('fill', 'none');
+    svg.setAttribute('stroke', 'currentColor');
+    svg.setAttribute('stroke-width', String(strokeWidth));
+    svg.setAttribute('stroke-linecap', 'round');
+    svg.setAttribute('stroke-linejoin', 'round');
+    svg.setAttribute('aria-hidden', 'true');
+    const poly = document.createElementNS(svgNs, 'polyline');
+    poly.setAttribute('points', polylinePoints);
+    svg.append(poly);
+    return svg;
+  }
+
+  function prefersReducedMotion() {
+    return (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    );
   }
 
   function formatMinutesAsTime(totalMinutes) {
@@ -122,13 +163,6 @@
   function isActiveOvernightMode() {
     const st = window.SmartsProCurrentQuote?.state || {};
     return st.serviceCategory === 'commercial' && st.frequency === 'overnight';
-  }
-
-  function formatDurationHours(hoursVal) {
-    const num = Number(hoursVal) || 0;
-    const rounded = Number(num.toFixed(2));
-    if (rounded === 1) return '1 Hour';
-    return `${rounded} Hours`;
   }
 
   function getActiveDurationInfo() {
@@ -444,10 +478,12 @@
           : rawState.propertyType || '',
       scopeMode: rawState.scopeMode || 'full',
       specificAreasText: String(rawState.specificAreasText || '').trim(),
+      serviceDetails: String(rawState.serviceDetails || '').trim(),
       specificHours: Number(rawState.specificHours) || 1,
       bedrooms: Number(rawState.bedrooms) || 3,
       fullBaths: Number(rawState.fullBaths) || 2,
       halfBaths: Number(rawState.halfBaths) || 0,
+      extraLivingRooms: Number(rawState.extraLivingRooms) || 0,
       sqft: Number(rawState.sqft) || 1800,
       additionalInfo: normalizedAdditionalInfo,
       frequency: rawState.frequency || 'weekly',
@@ -455,6 +491,11 @@
         fridge: Number(rawState.addons?.fridge) || 0,
         fridgeDouble: Number(rawState.addons?.fridgeDouble) || 0,
         oven: Number(rawState.addons?.oven) || 0,
+        laundry: Number(rawState.addons?.laundry) || 0,
+        organizing: Number(rawState.addons?.organizing) || 0,
+        dishes: Number(rawState.addons?.dishes) || 0,
+        windows: Number(rawState.addons?.windows) || 0,
+        powerWashWindows: Number(rawState.addons?.powerWashWindows) || 0,
         pets: normalizedAdditionalInfo.hasPets === 'yes' ? 1 : Number(rawState.addons?.pets) || 0
       }
     };
@@ -529,17 +570,17 @@
     } else {
       if (recapSpecsLabel) recapSpecsLabel.textContent = 'Property Specs:';
       if (recapSpecs) {
-        recapSpecs.textContent = `${quote.state.bedrooms} Bed, ${quote.state.fullBaths} Full, ${quote.state.halfBaths} Half / ${quote.state.sqft.toLocaleString()} sq ft`;
+        const livingTxt = quote.state.extraLivingRooms > 0 ? `, ${quote.state.extraLivingRooms} Extra Living` : '';
+        recapSpecs.textContent = `${quote.state.bedrooms} Bed, ${quote.state.fullBaths} Full, ${quote.state.halfBaths} Half${livingTxt} / ${quote.state.sqft.toLocaleString()} sq ft`;
       }
       if (recapAreasRow) {
         recapAreasRow.classList.toggle('is-hidden', !isSpecific);
       }
       if (recapAreas && isSpecific) {
         const customText = (quote.state.specificAreasText || '').trim();
-        const hrUnit = specHrs === 1 ? 'hr' : 'hrs';
         recapAreas.textContent = customText
-          ? `+${specHrs} ${hrUnit} (+$${specPrice}): ${customText}`
-          : `+${specHrs} ${hrUnit} (+$${specPrice}) — Describe areas below`;
+          ? `Level ${specHrs} (+$${specPrice}): ${customText}`
+          : `Level ${specHrs} (+$${specPrice}) — Describe areas below`;
       }
       if (recapAddonsRow) recapAddonsRow.classList.remove('is-hidden');
       if (recapTotalLabel) recapTotalLabel.textContent = 'Estimated Quote:';
@@ -558,6 +599,7 @@
       if (info.lastCleaned) infoParts.push(info.lastCleaned);
       if (info.occupancy) infoParts.push(info.occupancy);
       if (info.condition) infoParts.push(info.condition);
+      if (quote.state.serviceDetails) infoParts.push(`Details: ${quote.state.serviceDetails}`);
 
       if (!isCommercial && infoParts.length > 0) {
         recapAddinfoRow.classList.remove('is-hidden');
@@ -595,17 +637,35 @@
 
     const addonParts = [];
     if (quote.state.addons.fridge > 0) {
-      addonParts.push(`${quote.state.addons.fridge}x Single Fridge ($65)`);
+      addonParts.push(`${quote.state.addons.fridge}x Single Fridge (from $54.99)`);
     }
     if (quote.state.addons.fridgeDouble > 0) {
-      addonParts.push(`${quote.state.addons.fridgeDouble}x Double Fridge ($75)`);
+      addonParts.push(`${quote.state.addons.fridgeDouble}x Double Fridge (from $64.99)`);
     }
     if (quote.state.addons.oven > 0) {
-      addonParts.push(`${quote.state.addons.oven}x Inside Oven ($80)`);
+      addonParts.push(`${quote.state.addons.oven}x Inside Oven (from $61.88)`);
+    }
+    if (quote.state.addons.laundry > 0) {
+      addonParts.push(
+        `${quote.state.addons.laundry}x Laundry Load${quote.state.addons.laundry > 1 ? 's' : ''} — Wash, dry, and fold (from $48.98/load)`
+      );
+    }
+    if (quote.state.addons.organizing > 0) {
+      addonParts.push(`${quote.state.addons.organizing}x Organizing per Area (from $29.60/area)`);
+    }
+    if (quote.state.addons.dishes > 0) {
+      addonParts.push(`${quote.state.addons.dishes}x Dishes (from $24.78)`);
+    }
+    if (quote.state.addons.windows > 0) {
+      addonParts.push(`${quote.state.addons.windows}x Windows (from $8 ea)`);
+    }
+    if (quote.state.addons.powerWashWindows > 0) {
+      addonParts.push(
+        `${quote.state.addons.powerWashWindows}x Power Wash Window Set${quote.state.addons.powerWashWindows > 1 ? 's' : ''} (from $25/set)`
+      );
     }
     if (isSpecific) {
-      const hrUnit = specHrs === 1 ? 'hr' : 'hrs';
-      addonParts.push(`Specific Areas (+${specHrs} ${hrUnit}, +$${specPrice})`);
+      addonParts.push(`Specific Areas (Level ${specHrs}, +$${specPrice})`);
     }
     if (quote.state.addons.pets > 0) {
       addonParts.push('Pet Detailing ($35 flat)');
@@ -625,23 +685,31 @@
     if (recapTotal) {
       recapTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
     }
+    if (modalRecapToggleTotal) {
+      modalRecapToggleTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
+    }
+    if (modalRecapToggleService) {
+      const svcShort = recapService ? recapService.textContent : 'Standard Clean';
+      const freqShort = (freqLabels[quote.state.frequency] || 'Weekly').split(' (')[0];
+      modalRecapToggleService.textContent = `${svcShort} · ${freqShort}`;
+    }
 
     updateRecapHoursDisplay();
 
     if (recapPolicyRow && recapPolicy) {
       if (isOvernight) {
         recapPolicy.textContent =
-          'Tentative slot • Call (318) 564-4360 • No online payment • 10% bounced check fee';
+          'Tentative slot • Call (318) 564-4360 • 50% deposit required in person • 10% bounced check fee';
       } else {
         recapPolicy.textContent =
-          'No online payment required • 10% bounced check fee';
+          'No online payment today • 50% deposit required in person • 10% bounced check fee';
       }
     }
 
     if (intakePrimaryCopy) {
       intakePrimaryCopy.textContent = isOvernight
-        ? 'Overnight cleaning is a special request. Pick a tentative Mon–Fri night window, then call (318) 564-4360 to coordinate access & scope:'
-        : 'No online payment needed today. Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:';
+        ? 'Overnight cleaning is a special request (50% deposit required in person). Pick a tentative Mon–Fri night window, then call (318) 564-4360 to coordinate access & scope:'
+        : 'No online payment today (50% deposit required in person). Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:';
     }
 
     if (
@@ -666,32 +734,13 @@
         workflowStage3.textContent = `${plan.stages[2].title}: ${plan.stages[2].detail}`;
       }
     }
+
+    syncStickyFooterUI();
   }
 
   function updateRecapHoursDisplay() {
     if (!recapHours) return;
-    const dur = getActiveDurationInfo();
-    const hoursLabel = formatDurationHours(dur.totalEstimatedHours);
-    const timing = schedulerState.selectedWindow ? WINDOW_TIMINGS[schedulerState.selectedWindow] : null;
-    if (dur.isCommercial && isActiveOvernightMode() && timing) {
-      const startStr = formatMinutesAsTime(timing.startMinutes);
-      const endStr = formatMinutesAsTime(timing.endMinutes);
-      recapHours.textContent = `${hoursLabel} (${startStr} – ${endStr})`;
-      return;
-    }
-    if (dur.isCommercial) {
-      recapHours.textContent = `${hoursLabel} (Walkthrough)`;
-      return;
-    }
-
-    if (timing) {
-      const startStr = formatMinutesAsTime(timing.startMinutes);
-      const endStr = formatMinutesAsTime(timing.endMinutes);
-      recapHours.textContent = `${hoursLabel} (${startStr} – ${endStr})`;
-      return;
-    }
-
-    recapHours.textContent = hoursLabel;
+    recapHours.textContent = '';
   }
 
   /**
@@ -899,6 +948,7 @@
         inputEl.value = lockedVal;
       }
     });
+    syncAllContactValidationUI(false);
   }
 
   /**
@@ -972,9 +1022,9 @@
       refs.editSpecificToggleBtn.setAttribute('aria-pressed', isSpecific ? 'true' : 'false');
       refs.editSpecificToggleBtn.textContent = isSpecific
         ? confirmedSpecificOn
-          ? 'Specific Areas Add-On: Locked On ✓ (Add Extra Hours Below)'
+          ? 'Specific Areas Add-On: Locked On ✓ (Adjust Level Below)'
           : 'Specific Areas Add-On: Included ✓ (Click to Remove)'
-        : '+ Add Specific Areas (+$50/hr, 1–6 hrs)';
+        : '+ Add Specific Areas (Starting at +$50)';
     }
     if (refs.editSpecificFields) {
       refs.editSpecificFields.classList.toggle('is-hidden', !isSpecific);
@@ -982,11 +1032,14 @@
     if (refs.editSpecificAreasInput && document.activeElement !== refs.editSpecificAreasInput) {
       refs.editSpecificAreasInput.value = st.specificAreasText || '';
     }
+    if (refs.editServiceDetailsInput && document.activeElement !== refs.editServiceDetailsInput) {
+      refs.editServiceDetailsInput.value = st.serviceDetails || '';
+    }
 
     const hrs = Math.max(1, Number(st.specificHours) || 1);
     if (refs.editHoursVal) {
       const addonCost = hrs * 50;
-      refs.editHoursVal.textContent = `+${hrs} ${hrs === 1 ? 'Hr' : 'Hrs'} (+$${addonCost})`;
+      refs.editHoursVal.textContent = `Level ${hrs} (+$${addonCost})`;
     }
     if (refs.btnHoursMinus) {
       refs.btnHoursMinus.disabled = hrs <= minSpecificHours;
@@ -1027,27 +1080,183 @@
       });
     }
 
-    const minFridge = confirmedQuote ? Number(confirmedQuote.addons?.fridge) || 0 : 0;
-    const minFridgeDouble = confirmedQuote ? Number(confirmedQuote.addons?.fridgeDouble) || 0 : 0;
-    const minOven = confirmedQuote ? Number(confirmedQuote.addons?.oven) || 0 : 0;
+    const syncAddonCtrl = (key, valEl, minusBtn) => {
+      const minFloor = confirmedQuote ? Number(confirmedQuote.addons?.[key]) || 0 : 0;
+      const curVal = Number(st.addons?.[key]) || 0;
+      if (valEl) valEl.textContent = `${curVal}`;
+      if (minusBtn) minusBtn.disabled = curVal <= minFloor;
+    };
 
-    if (refs.editFridgeVal) {
-      refs.editFridgeVal.textContent = `${st.addons.fridge || 0}`;
+    syncAddonCtrl('fridge', refs.editFridgeVal, refs.btnFridgeMinus);
+    syncAddonCtrl('fridgeDouble', refs.editFridgeDoubleVal, refs.btnFridgeDoubleMinus);
+    syncAddonCtrl('oven', refs.editOvenVal, refs.btnOvenMinus);
+    syncAddonCtrl('laundry', refs.editLaundryVal, refs.btnLaundryMinus);
+    syncAddonCtrl('organizing', refs.editOrganizingVal, refs.btnOrganizingMinus);
+    syncAddonCtrl('dishes', refs.editDishesVal, refs.btnDishesMinus);
+    syncAddonCtrl('windows', refs.editWindowsVal, refs.btnWindowsMinus);
+    syncAddonCtrl('powerWashWindows', refs.editPowerWashVal, refs.btnPowerWashMinus);
+  }
+
+  function validateContactField(fieldName, rawValue) {
+    const val = String(rawValue || '').trim();
+    if (fieldName === 'firstName' || fieldName === 'lastName') {
+      if (!val) {
+        return { valid: false, message: fieldName === 'firstName' ? 'Enter your first name.' : 'Enter your last name.' };
+      }
+      if (val.length > 60 || !/[A-Za-z\u00C0-\u024F]/.test(val)) {
+        return { valid: false, message: 'Please enter a valid name.' };
+      }
+      if (containsPhishingOrUrlLinks(val)) {
+        return { valid: false, message: 'Links are not permitted in name fields.' };
+      }
+      return { valid: true, message: '' };
     }
-    if (refs.btnFridgeMinus) {
-      refs.btnFridgeMinus.disabled = (Number(st.addons.fridge) || 0) <= minFridge;
+    if (fieldName === 'phone') {
+      if (!val) return { valid: false, message: 'Enter a 10-digit US phone number.' };
+      const check = validateClientUsPhone(val);
+      return check.valid
+        ? { valid: true, message: '' }
+        : { valid: false, message: 'Enter a valid 10-digit US phone number.' };
     }
-    if (refs.editFridgeDoubleVal) {
-      refs.editFridgeDoubleVal.textContent = `${st.addons.fridgeDouble || 0}`;
+    if (fieldName === 'email') {
+      if (!val || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(val)) {
+        return { valid: false, message: 'Enter a valid email address.' };
+      }
+      const domain = val.toLowerCase().split('@')[1] || '';
+      if (DISPOSABLE_OR_FAKE_EMAIL_DOMAINS.has(domain) || COMMON_TYPO_EMAIL_DOMAINS.has(domain)) {
+        return { valid: false, message: 'Check your email domain spelling.' };
+      }
+      return { valid: true, message: '' };
     }
-    if (refs.btnFridgeDoubleMinus) {
-      refs.btnFridgeDoubleMinus.disabled = (Number(st.addons.fridgeDouble) || 0) <= minFridgeDouble;
+    return { valid: true, message: '' };
+  }
+
+  function syncSingleContactFieldUI(fieldName, forceHint) {
+    const refs = schedulerState.refs;
+    const map = {
+      firstName: { wrap: refs.firstWrap, input: refs.firstInput, hint: refs.firstHint },
+      lastName: { wrap: refs.lastWrap, input: refs.lastInput, hint: refs.lastHint },
+      phone: { wrap: refs.phoneWrap, input: refs.phoneInput, hint: refs.phoneHint },
+      email: { wrap: refs.emailWrap, input: refs.emailInput, hint: refs.emailHint }
+    };
+    const entry = map[fieldName];
+    if (!entry || !entry.wrap || !entry.input) return false;
+
+    const raw = entry.input.value;
+    const hasValue = raw.trim().length > 0;
+    const res = validateContactField(fieldName, raw);
+    const touched = Boolean(schedulerState.contactTouched[fieldName] || forceHint);
+
+    entry.wrap.classList.toggle('is-field-valid', res.valid);
+    const showInvalid = !res.valid && touched && (hasValue || Boolean(forceHint));
+    entry.wrap.classList.toggle('is-field-invalid', showInvalid);
+    entry.input.setAttribute('aria-invalid', showInvalid ? 'true' : 'false');
+
+    if (entry.hint) {
+      if (showInvalid && res.message) {
+        entry.hint.textContent = res.message;
+        entry.hint.classList.remove('is-hidden');
+      } else {
+        entry.hint.textContent = '';
+        entry.hint.classList.add('is-hidden');
+      }
     }
-    if (refs.editOvenVal) {
-      refs.editOvenVal.textContent = `${st.addons.oven || 0}`;
+    return res.valid;
+  }
+
+  function syncAllContactValidationUI(forceHint) {
+    const okFirst = syncSingleContactFieldUI('firstName', forceHint);
+    const okLast = syncSingleContactFieldUI('lastName', forceHint);
+    const okPhone = syncSingleContactFieldUI('phone', forceHint);
+    const okEmail = syncSingleContactFieldUI('email', forceHint);
+    return okFirst && okLast && okPhone && okEmail;
+  }
+
+  function getFirstInvalidContactInput() {
+    const refs = schedulerState.refs;
+    const order = [
+      ['firstName', refs.firstInput],
+      ['lastName', refs.lastInput],
+      ['phone', refs.phoneInput],
+      ['email', refs.emailInput]
+    ];
+    for (const [name, input] of order) {
+      if (input && !validateContactField(name, input.value).valid) {
+        return input;
+      }
     }
-    if (refs.btnOvenMinus) {
-      refs.btnOvenMinus.disabled = (Number(st.addons.oven) || 0) <= minOven;
+    return null;
+  }
+
+  function getShortSlotWindowText(windowId) {
+    const labels = {
+      '08:00-11:00': '8:00 AM – 11:00 AM',
+      '11:00-14:00': '11:00 AM – 2:00 PM',
+      '14:00-16:30': '2:00 PM – 4:30 PM',
+      '18:00-22:00': '6:00 PM – 10:00 PM',
+      '21:00-01:00': '9:00 PM – 1:00 AM',
+      '23:00-03:00': '11:00 PM – 3:00 AM'
+    };
+    return labels[windowId] || windowId || '';
+  }
+
+  function syncStickyFooterUI() {
+    if (!modalStickyFooter) return;
+    const isConfirmed = schedulerState.viewMode === 'confirmed';
+    modalStickyFooter.classList.toggle('is-hidden', isConfirmed);
+    if (isConfirmed) return;
+
+    const quote = window.SmartsProCurrentQuote;
+    const st = quote?.state || {};
+    const grandTotal = Number(quote?.calculation?.grandTotal || 0);
+    const isCommercial = st.serviceCategory === 'commercial';
+    const isOvernight = isCommercial && st.frequency === 'overnight';
+
+    if (modalStickyTotalLabel) {
+      modalStickyTotalLabel.textContent = isCommercial
+        ? isOvernight
+          ? 'Overnight Baseline'
+          : 'Walkthrough Baseline'
+        : 'Estimated Quote';
+    }
+    if (modalStickyTotal) {
+      modalStickyTotal.textContent = `$${grandTotal.toFixed(2)}`;
+    }
+
+    if (modalStickySlot) {
+      if (schedulerState.selectedDate && schedulerState.selectedWindow) {
+        const shortDate = formatFullDateUtc(schedulerState.selectedDate).replace(/,\s*\d{4}$/, '');
+        const winText = getShortSlotWindowText(schedulerState.selectedWindow);
+        modalStickySlot.textContent =
+          schedulerState.viewMode === 'editing'
+            ? `Locked: ${shortDate} · ${winText}`
+            : `${shortDate} · ${winText}`;
+      } else {
+        modalStickySlot.textContent = 'Select an open day & time window';
+      }
+    }
+
+    if (modalStickyCta) {
+      if (schedulerState.isSubmitting) {
+        modalStickyCta.disabled = true;
+        modalStickyCta.textContent = 'Sending...';
+      } else if (schedulerState.viewMode === 'editing' && schedulerState.confirmedSubmission) {
+        const currentKey = computeCurrentSnapshotKey();
+        const hasChanges = currentKey !== schedulerState.confirmedSubmission.snapshotKey;
+        modalStickyCta.disabled = !hasChanges;
+        modalStickyCta.textContent = hasChanges
+          ? `Send Update ($${grandTotal.toFixed(2)})`
+          : 'Make a Change Above';
+      } else if (!schedulerState.selectedDate || !schedulerState.selectedWindow) {
+        modalStickyCta.disabled = false;
+        modalStickyCta.textContent = 'Pick an Open Time';
+      } else if (getFirstInvalidContactInput()) {
+        modalStickyCta.disabled = false;
+        modalStickyCta.textContent = 'Continue to Contact';
+      } else {
+        modalStickyCta.disabled = false;
+        modalStickyCta.textContent = 'Send Estimate & Request Slot';
+      }
     }
   }
 
@@ -1058,7 +1267,10 @@
    */
   function updateSubmitButtonLockState() {
     const refs = schedulerState.refs;
-    if (!refs.submitBtn || schedulerState.isSubmitting) return;
+    if (!refs.submitBtn || schedulerState.isSubmitting) {
+      syncStickyFooterUI();
+      return;
+    }
 
     const quote = window.SmartsProCurrentQuote;
     const grandTotal = Number(quote?.calculation?.grandTotal || 0);
@@ -1074,6 +1286,7 @@
       refs.submitBtn.disabled = false;
       refs.submitBtn.textContent = 'Send Estimate & Request Slot';
     }
+    syncStickyFooterUI();
   }
 
   /**
@@ -1086,6 +1299,7 @@
     if (!confirmed || !refs.confirmationSection) return;
 
     schedulerState.viewMode = 'confirmed';
+    syncStickyFooterUI();
 
     if (refs.calSection) refs.calSection.classList.add('is-hidden');
     if (refs.editAdjusterSection) refs.editAdjusterSection.classList.add('is-hidden');
@@ -1154,20 +1368,20 @@
     const isSpecific = !isCommercial && q.scopeMode === 'specific';
     const specHrs = Math.max(1, Number(q.specificHours) || 1);
     const specPrice = specHrs * 50;
-    const specUnit = specHrs === 1 ? 'hr' : 'hrs';
     if (isCommercial) {
       addDetailRow('Service Scope:', 'Commercial & Offices (On-Site Walkthrough)', false);
     } else {
       const tierLabel = serviceLabels[q.serviceType] || 'Residential Standard Clean';
+      const livingTxt = Number(q.extraLivingRooms) > 0 ? `, ${q.extraLivingRooms} Extra Living` : '';
       addDetailRow(
         'Service & Property Scope:',
-        `${tierLabel} • ${q.bedrooms} Bed, ${q.fullBaths} Full Bath, ${q.halfBaths} Half Bath (${Number(q.sqft).toLocaleString()} sq ft)`,
+        `${tierLabel} • ${q.bedrooms} Bed, ${q.fullBaths} Full Bath, ${q.halfBaths} Half Bath${livingTxt} (${Number(q.sqft).toLocaleString()} sq ft)`,
         false
       );
       if (isSpecific) {
         addDetailRow(
           'Specific Areas Add-On:',
-          `+${specHrs} ${specUnit} (+$${specPrice})${q.specificAreasText ? `: ${q.specificAreasText}` : ''}`,
+          `Level ${specHrs} (+$${specPrice})${q.specificAreasText ? `: ${q.specificAreasText}` : ''}`,
           false
         );
       }
@@ -1185,10 +1399,25 @@
     }
 
     const addonItems = [];
-    if (q.addons?.fridge > 0) addonItems.push(`${q.addons.fridge}x Single Fridge ($65)`);
-    if (q.addons?.fridgeDouble > 0) addonItems.push(`${q.addons.fridgeDouble}x Double Fridge ($75)`);
-    if (q.addons?.oven > 0) addonItems.push(`${q.addons.oven}x Inside Oven ($80)`);
-    if (isSpecific) addonItems.push(`Specific Areas (+${specHrs} ${specUnit}, +$${specPrice})`);
+    if (q.addons?.fridge > 0) addonItems.push(`${q.addons.fridge}x Single Fridge (from $54.99)`);
+    if (q.addons?.fridgeDouble > 0) addonItems.push(`${q.addons.fridgeDouble}x Double Fridge (from $64.99)`);
+    if (q.addons?.oven > 0) addonItems.push(`${q.addons.oven}x Inside Oven (from $61.88)`);
+    if (q.addons?.laundry > 0) {
+      addonItems.push(
+        `${q.addons.laundry}x Laundry Load${q.addons.laundry > 1 ? 's' : ''} — Wash, dry, and fold (from $48.98/load)`
+      );
+    }
+    if (q.addons?.organizing > 0) {
+      addonItems.push(`${q.addons.organizing}x Organizing per Area (from $29.60/area)`);
+    }
+    if (q.addons?.dishes > 0) addonItems.push(`${q.addons.dishes}x Dishes (from $24.78)`);
+    if (q.addons?.windows > 0) addonItems.push(`${q.addons.windows}x Windows (from $8 ea)`);
+    if (q.addons?.powerWashWindows > 0) {
+      addonItems.push(
+        `${q.addons.powerWashWindows}x Power Wash Window Set${q.addons.powerWashWindows > 1 ? 's' : ''} (from $25/set)`
+      );
+    }
+    if (isSpecific) addonItems.push(`Specific Areas (Level ${specHrs}, +$${specPrice})`);
     if (q.addons?.pets > 0) addonItems.push('Pet Hair & Detailing ($35 flat fee)');
     addDetailRow(
       'Selected Add-Ons:',
@@ -1196,19 +1425,13 @@
       false
     );
 
+    if (q.serviceDetails) {
+      addDetailRow('Details Needed:', q.serviceDetails, false);
+    }
+
     if (confirmed.customer.notes) {
       addDetailRow('Additional Notes:', confirmed.customer.notes, false);
     }
-
-    const confirmedDurationHrs =
-      confirmed.verifiedEstimate?.totalEstimatedHours ||
-      confirmed.verifiedEstimate?.estimatedHours ||
-      getActiveDurationInfo().totalEstimatedHours;
-    addDetailRow(
-      'Est. Cleaning Time:',
-      formatDurationHours(confirmedDurationHrs),
-      false
-    );
 
     const confirmedFreqSurcharge = Number(confirmed.verifiedEstimate?.frequencySurcharge) || 0;
     const isConfirmedOvernight = isCommercial && q.frequency === 'overnight';
@@ -1235,7 +1458,7 @@
 
     addDetailRow(
       confirmed.isUpdated ? 'Updated Verified Total:' : 'Verified Estimate Total:',
-      `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (No Online Payment Required)`,
+      `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (50% Deposit Required In Person)`,
       true
     );
 
@@ -1259,8 +1482,8 @@
       isWarningFallback
         ? 'Email dispatch did not finish. Click below to open a pre-filled email to smartsprosolutions@gmail.com or call (318) 564-4360.'
         : isCutoffLocked
-          ? 'Online changes lock 24 hours before arrival. Call (318) 564-4360 for last-minute changes.'
-          : 'Your time, base service, and home size are locked. Need to add appliances, Specific Areas (+$50/hr), or pet detailing? Click Edit Request up to 24 hours ahead (to remove items or reschedule, call (318) 564-4360).'
+          ? 'Online changes lock 24 hours before arrival. Call (318) 564-4360 for last-minute changes. A 50% deposit is required in person.'
+          : 'Your time, base service, and home size are locked (50% deposit required in person). Need to add extra items or Specific Areas? Click Edit Request up to 24 hours ahead (call (318) 564-4360 for removals or rescheduling).'
     );
 
     // 4. Action Buttons Row
@@ -1374,12 +1597,21 @@
         bedrooms: cq.bedrooms,
         fullBaths: cq.fullBaths,
         halfBaths: cq.halfBaths,
+        extraLivingRooms: cq.extraLivingRooms ?? 0,
         sqft: cq.sqft,
         frequency: cq.frequency,
         addons: {
           fridge: Math.max(Number(cq.addons?.fridge) || 0, Number(curState.addons?.fridge) || 0),
           fridgeDouble: Math.max(Number(cq.addons?.fridgeDouble) || 0, Number(curState.addons?.fridgeDouble) || 0),
-          oven: Math.max(Number(cq.addons?.oven) || 0, Number(curState.addons?.oven) || 0)
+          oven: Math.max(Number(cq.addons?.oven) || 0, Number(curState.addons?.oven) || 0),
+          laundry: Math.max(Number(cq.addons?.laundry) || 0, Number(curState.addons?.laundry) || 0),
+          organizing: Math.max(Number(cq.addons?.organizing) || 0, Number(curState.addons?.organizing) || 0),
+          dishes: Math.max(Number(cq.addons?.dishes) || 0, Number(curState.addons?.dishes) || 0),
+          windows: Math.max(Number(cq.addons?.windows) || 0, Number(curState.addons?.windows) || 0),
+          powerWashWindows: Math.max(
+            Number(cq.addons?.powerWashWindows) || 0,
+            Number(curState.addons?.powerWashWindows) || 0
+          )
         }
       };
       if (cq.additionalInfo?.hasPets === 'yes' || Number(cq.addons?.pets) > 0) {
@@ -1394,6 +1626,9 @@
         if (!curState.specificAreasText && cq.specificAreasText) {
           enforcedPatch.specificAreasText = cq.specificAreasText;
         }
+      }
+      if (!curState.serviceDetails && cq.serviceDetails) {
+        enforcedPatch.serviceDetails = cq.serviceDetails;
       }
       window.SmartsProCalculator.applyQuoteAdjustments(enforcedPatch);
     }
@@ -1475,19 +1710,72 @@
       syncControlsWrap.append(advanceLimitNote, refreshBtn);
       monthNavWrap.append(monthTabs, syncControlsWrap);
 
-      // Date Grid Label & Container
-      const dateLabel = createEl('div', 'scheduler-step-label', 'Day (Mon–Fri):');
-      const dateGrid = createEl('div', 'calendar-date-grid');
+      // Side-by-Side Picker Grid: Left = Vertical iOS-Style Date Wheel, Right = Arrival Windows
+      const pickerGrid = createEl('div', 'scheduler-picker-grid');
+
+      const wheelCol = createEl('div', 'scheduler-wheel-col');
+      const wheelHeaderRow = createEl('div', 'date-wheel-header-row');
+      const wheelTitleGroup = createEl('div', 'date-wheel-title-group');
+      const dateLabel = createEl('div', 'scheduler-step-label', 'Day (Mon–Fri)');
+      const wheelHint = createEl('span', 'date-wheel-hint', 'Scroll or tap');
+      wheelTitleGroup.append(dateLabel, wheelHint);
+
+      const wheelControls = createEl('div', 'date-wheel-controls');
+      const btnWheelPrev = createEl('button', 'date-wheel-nudge-btn');
+      btnWheelPrev.type = 'button';
+      btnWheelPrev.id = 'btn-wheel-prev';
+      btnWheelPrev.setAttribute('aria-label', 'Previous open day');
+      btnWheelPrev.append(createSvgIcon('18 15 12 9 6 15', 15, 2.4));
+      btnWheelPrev.addEventListener('click', () => stepWheelSelectable(-1));
+
+      const btnWheelNext = createEl('button', 'date-wheel-nudge-btn');
+      btnWheelNext.type = 'button';
+      btnWheelNext.id = 'btn-wheel-next';
+      btnWheelNext.setAttribute('aria-label', 'Next open day');
+      btnWheelNext.append(createSvgIcon('6 9 12 15 18 9', 15, 2.4));
+      btnWheelNext.addEventListener('click', () => stepWheelSelectable(1));
+
+      wheelControls.append(btnWheelPrev, btnWheelNext);
+      wheelHeaderRow.append(wheelTitleGroup, wheelControls);
+
+      const wheelFrame = createEl('div', 'date-wheel-frame');
+      wheelFrame.id = 'calendar-date-wheel-frame';
+      const wheelHighlight = createEl('div', 'date-wheel-highlight');
+      wheelHighlight.setAttribute('aria-hidden', 'true');
+      const wheelFadeTop = createEl('div', 'date-wheel-fade-top');
+      wheelFadeTop.setAttribute('aria-hidden', 'true');
+      const wheelFadeBottom = createEl('div', 'date-wheel-fade-bottom');
+      wheelFadeBottom.setAttribute('aria-hidden', 'true');
+
+      const dateGrid = createEl('div', 'calendar-date-grid calendar-date-wheel');
       dateGrid.id = 'calendar-date-grid';
-      dateGrid.setAttribute('role', 'group');
-      dateGrid.setAttribute('aria-label', 'Available Cleaning Days');
+      dateGrid.tabIndex = 0;
+      dateGrid.setAttribute('role', 'listbox');
+      dateGrid.setAttribute('aria-label', 'Available Cleaning Days (Scroll to select)');
+      dateGrid.addEventListener('scroll', handleWheelScroll, { passive: true });
+      dateGrid.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          stepWheelSelectable(1);
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          stepWheelSelectable(-1);
+        }
+      });
+
+      wheelFrame.append(wheelHighlight, wheelFadeTop, dateGrid, wheelFadeBottom);
+      wheelCol.append(wheelHeaderRow, wheelFrame);
 
       // Time Window Grid Label & Container
+      const slotCol = createEl('div', 'scheduler-slot-col');
       const slotLabel = createEl('div', 'scheduler-step-label', 'Arrival Window:');
       const slotGrid = createEl('div', 'calendar-slot-grid');
       slotGrid.id = 'calendar-slot-grid';
       slotGrid.setAttribute('role', 'group');
       slotGrid.setAttribute('aria-label', 'Available Arrival Time Windows');
+      slotCol.append(slotLabel, slotGrid);
+
+      pickerGrid.append(wheelCol, slotCol);
 
       // Selected Appointment Summary Banner
       const selectedSummary = createEl(
@@ -1513,10 +1801,7 @@
         lockedBanner,
         overnightBanner,
         monthNavWrap,
-        dateLabel,
-        dateGrid,
-        slotLabel,
-        slotGrid,
+        pickerGrid,
         selectedSummary,
         upcomingBox
       );
@@ -1532,6 +1817,9 @@
       schedulerState.refs.advanceLimitNote = advanceLimitNote;
       schedulerState.refs.refreshBtn = refreshBtn;
       schedulerState.refs.upcomingList = upcomingList;
+      schedulerState.refs.wheelFrame = wheelFrame;
+      schedulerState.refs.btnWheelPrev = btnWheelPrev;
+      schedulerState.refs.btnWheelNext = btnWheelNext;
       schedulerState.refs.dateGrid = dateGrid;
       schedulerState.refs.slotGrid = slotGrid;
       schedulerState.refs.selectedSummary = selectedSummary;
@@ -1547,7 +1835,7 @@
       // 2B. Inline Edit & Auto-Adjust Price Panel (shown when user clicks "Edit Request")
       const editAdjusterSection = createEl('section', 'modal-edit-adjuster-card is-hidden');
       editAdjusterSection.id = 'intake-edit-adjuster-card';
-      editAdjusterSection.setAttribute('aria-label', 'Edit Estimate Hours and Additional Information');
+      editAdjusterSection.setAttribute('aria-label', 'Edit Estimate Options and Additional Information');
 
       const editHeaderRow = createEl('div', 'edit-adjuster-header');
       const editTitleWrap = createEl('div', 'edit-adjuster-title-wrap');
@@ -1713,16 +2001,16 @@
       });
       addInfoGroup.append(petsLabel, petsGrid, condLabel, condGrid);
 
-      // Control Group 3: Custom Add-Ons (Appliances + Stackable Specific Areas +$50/hr Add-On)
+      // Control Group 3: Custom Add-Ons (Starting-from items + Stackable Specific Areas Add-On)
       const addonsGroup = createEl('div', 'edit-adjuster-group');
       const addonsLabel = createEl(
         'div',
         'scheduler-step-label',
-        'Add Appliances or Extra Hours (confirmed items locked):'
+        'Add Extra Services or Details (confirmed items locked; prices starting from):'
       );
       const addonsGrid = createEl('div', 'edit-rooms-grid');
 
-      const buildAddonStepper = (titleText, key, valId) => {
+      const buildAddonStepper = (titleText, key, valId, maxQty = 5) => {
         const wrap = createEl('div', 'edit-addon-box');
         const nameSpan = createEl('span', 'edit-addon-name', titleText);
         const stepRow = createEl('div', 'edit-stepper-row');
@@ -1741,7 +2029,7 @@
         plusBtn.id = `btn-${valId}-plus`;
         plusBtn.addEventListener('click', () => {
           const cur = Number(window.SmartsProCurrentQuote?.state?.addons?.[key]) || 0;
-          handleModalQuoteAdjustment({ addons: { [key]: Math.min(5, cur + 1) } });
+          handleModalQuoteAdjustment({ addons: { [key]: Math.min(maxQty, cur + 1) } });
         });
         stepRow.append(minusBtn, valEl, plusBtn);
         wrap.append(nameSpan, stepRow);
@@ -1749,26 +2037,65 @@
         return { valEl, minusBtn, plusBtn };
       };
 
-      const fridgeCtrl = buildAddonStepper('Single Fridge (+$65)', 'fridge', 'edit-fridge-val');
+      const fridgeCtrl = buildAddonStepper('Single Fridge (from $54.99)', 'fridge', 'edit-fridge-val');
       const fridgeDoubleCtrl = buildAddonStepper(
-        'Double Fridge (+$75)',
+        'Double Fridge (from $64.99)',
         'fridgeDouble',
         'edit-fridge-double-val'
       );
-      const ovenCtrl = buildAddonStepper('Inside Oven (+$80)', 'oven', 'edit-oven-val');
+      const ovenCtrl = buildAddonStepper('Inside Oven (from $61.88)', 'oven', 'edit-oven-val');
+      const laundryCtrl = buildAddonStepper(
+        'Laundry — Wash, dry & fold (from $48.98/load)',
+        'laundry',
+        'edit-laundry-val'
+      );
+      const organizingCtrl = buildAddonStepper(
+        'Organizing per Area (from $29.60/area)',
+        'organizing',
+        'edit-organizing-val'
+      );
+      const dishesCtrl = buildAddonStepper('Dishes (from $24.78)', 'dishes', 'edit-dishes-val');
+      const windowsCtrl = buildAddonStepper('Windows (from $8 ea)', 'windows', 'edit-windows-val', 30);
+      const powerWashCtrl = buildAddonStepper(
+        'Power Wash Window Sets (from $25/set)',
+        'powerWashWindows',
+        'edit-powerwash-val',
+        30
+      );
 
-      // Specific Areas (+$50/hr, 1–6 hrs) Stackable Add-On Card
+      // Details on what they may need done
+      const editDetailsWrap = createEl('div', 'edit-specific-fields');
+      const editDetailsLabel = createEl(
+        'label',
+        'intake-label',
+        'Details on what you may need done (Optional):'
+      );
+      editDetailsLabel.setAttribute('for', 'edit-service-details-input');
+      const editServiceDetailsInput = createEl('input', 'intake-input');
+      editServiceDetailsInput.id = 'edit-service-details-input';
+      editServiceDetailsInput.type = 'text';
+      editServiceDetailsInput.maxLength = 500;
+      editServiceDetailsInput.autocomplete = 'off';
+      editServiceDetailsInput.placeholder = 'e.g., Extra baseboards, inside patio glass, laundry details...';
+      editServiceDetailsInput.addEventListener('input', (e) => {
+        handleModalQuoteAdjustment({
+          serviceDetails: String(e.target.value || '')
+        });
+      });
+      editDetailsWrap.append(editDetailsLabel, editServiceDetailsInput);
+
+      // Specific Areas (Starting at +$50, Levels 1–6) Stackable Add-On Card
       const editSpecificCard = createEl('div', 'edit-specific-addon-card');
       const editSpecificTop = createEl('div', 'edit-specific-addon-top');
       const editSpecificTitle = createEl(
         'span',
         'edit-addon-name',
-        'Specific Areas Add-On (+$50/hr, 1–6 extra hrs)'
+        'Specific Areas Add-On (Starting at +$50 · Levels 1–6)'
       );
       const editSpecificToggleBtn = createEl(
         'button',
         'edit-option-chip',
-        '+ Add Specific Areas (+$50/hr, 1–6 hrs)'
+        '+ Add Specific Areas (Starting at +$50)'
       );
       editSpecificToggleBtn.type = 'button';
       editSpecificToggleBtn.id = 'btn-edit-specific-toggle';
@@ -1783,7 +2110,7 @@
 
       const editSpecificFields = createEl('div', 'edit-specific-fields is-hidden');
       const hoursStepperWrap = createEl('div', 'edit-stepper-row');
-      const btnHoursMinus = createEl('button', 'edit-stepper-btn', '− 1 Hr');
+      const btnHoursMinus = createEl('button', 'edit-stepper-btn', '− 1 Level');
       btnHoursMinus.type = 'button';
       btnHoursMinus.id = 'btn-edit-hours-minus';
       btnHoursMinus.addEventListener('click', () => {
@@ -1793,9 +2120,9 @@
         const cur = Number(window.SmartsProCurrentQuote?.state?.specificHours) || 1;
         handleModalQuoteAdjustment({ scopeMode: 'specific', specificHours: Math.max(minHrs, cur - 1) });
       });
-      const editHoursVal = createEl('strong', 'edit-stepper-val', '+1 Hr (+$50)');
+      const editHoursVal = createEl('strong', 'edit-stepper-val', 'Level 1 (+$50)');
       editHoursVal.id = 'edit-hours-val';
-      const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Hr');
+      const btnHoursPlus = createEl('button', 'edit-stepper-btn', '+ 1 Level');
       btnHoursPlus.type = 'button';
       btnHoursPlus.id = 'btn-edit-hours-plus';
       btnHoursPlus.addEventListener('click', () => {
@@ -1825,7 +2152,7 @@
 
       editSpecificFields.append(hoursStepperWrap, editSpecificAreasLabel, editSpecificAreasInput);
       editSpecificCard.append(editSpecificTop, editSpecificFields);
-      addonsGroup.append(addonsLabel, addonsGrid, editSpecificCard);
+      addonsGroup.append(addonsLabel, addonsGrid, editDetailsWrap, editSpecificCard);
 
       // Cancel Edit Button (return to Confirmation Card without resending)
       const cancelEditRow = createEl('div', 'edit-cancel-row');
@@ -1858,76 +2185,97 @@
       const subtitle = createEl(
         'p',
         'scheduler-subtitle',
-        'We email your quote and confirm your slot—no online payment needed.'
+        'We email your quote and confirm your slot — 50% deposit required in person.'
       );
       headerWrap.append(title, subtitle);
 
       const fieldsGrid = createEl('div', 'intake-fields-grid');
 
-      // First Name
-      const firstWrap = createEl('div', 'intake-field-group');
-      const firstLabel = createEl('label', 'intake-label', 'First Name *');
-      firstLabel.setAttribute('for', 'intake-first-name');
-      const firstInput = createEl('input', 'intake-input');
-      firstInput.id = 'intake-first-name';
-      firstInput.type = 'text';
-      firstInput.maxLength = 60;
-      firstInput.required = true;
-      firstInput.autocomplete = 'given-name';
-      firstInput.placeholder = 'First name';
-      firstInput.addEventListener('input', updateSubmitButtonLockState);
-      firstWrap.append(firstLabel, firstInput);
+      const buildCheckableField = (fieldKey, id, labelText, type, maxLength, autocomplete, placeholder) => {
+        const wrap = createEl('div', 'intake-field-group');
+        const label = createEl('label', 'intake-label', labelText);
+        label.setAttribute('for', id);
+        const inputWrap = createEl('div', 'intake-input-wrap');
+        const input = createEl('input', 'intake-input intake-input-checkable');
+        input.id = id;
+        input.type = type;
+        input.maxLength = maxLength;
+        input.required = true;
+        input.autocomplete = autocomplete;
+        input.placeholder = placeholder;
 
-      // Last Name
-      const lastWrap = createEl('div', 'intake-field-group');
-      const lastLabel = createEl('label', 'intake-label', 'Last Name *');
-      lastLabel.setAttribute('for', 'intake-last-name');
-      const lastInput = createEl('input', 'intake-input');
-      lastInput.id = 'intake-last-name';
-      lastInput.type = 'text';
-      lastInput.maxLength = 60;
-      lastInput.required = true;
-      lastInput.autocomplete = 'family-name';
-      lastInput.placeholder = 'Last name';
-      lastInput.addEventListener('input', updateSubmitButtonLockState);
-      lastWrap.append(lastLabel, lastInput);
+        const validIcon = createEl('span', 'intake-valid-icon');
+        validIcon.setAttribute('aria-hidden', 'true');
+        validIcon.append(createSvgIcon('20 6 9 17 4 12', 16, 2.8));
 
-      // Phone Number
-      const phoneWrap = createEl('div', 'intake-field-group');
-      const phoneLabel = createEl('label', 'intake-label', 'Phone Number *');
-      phoneLabel.setAttribute('for', 'intake-phone');
-      const phoneInput = createEl('input', 'intake-input');
-      phoneInput.id = 'intake-phone';
-      phoneInput.type = 'tel';
-      phoneInput.maxLength = 32;
-      phoneInput.required = true;
-      phoneInput.autocomplete = 'tel';
-      phoneInput.placeholder = '(318) 555-0199';
-      phoneInput.addEventListener('input', updateSubmitButtonLockState);
-      phoneInput.addEventListener('blur', () => {
-        const check = validateClientUsPhone(phoneInput.value);
-        if (check.valid) {
-          phoneInput.value = check.formatted;
+        const hint = createEl('span', 'intake-field-hint is-hidden');
+        hint.id = `${id}-hint`;
+        hint.setAttribute('role', 'alert');
+
+        input.addEventListener('input', () => {
+          syncSingleContactFieldUI(fieldKey, false);
           updateSubmitButtonLockState();
-        }
-      });
-      phoneWrap.append(phoneLabel, phoneInput);
+        });
+        input.addEventListener('blur', () => {
+          schedulerState.contactTouched[fieldKey] = true;
+          if (fieldKey === 'phone') {
+            const check = validateClientUsPhone(input.value);
+            if (check.valid) {
+              input.value = check.formatted;
+            }
+          }
+          syncSingleContactFieldUI(fieldKey, false);
+          updateSubmitButtonLockState();
+        });
 
-      // Email Address
-      const emailWrap = createEl('div', 'intake-field-group');
-      const emailLabel = createEl('label', 'intake-label', 'Email Address *');
-      emailLabel.setAttribute('for', 'intake-email');
-      const emailInput = createEl('input', 'intake-input');
-      emailInput.id = 'intake-email';
-      emailInput.type = 'email';
-      emailInput.maxLength = 254;
-      emailInput.required = true;
-      emailInput.autocomplete = 'email';
-      emailInput.placeholder = 'you@example.com';
-      emailInput.addEventListener('input', updateSubmitButtonLockState);
-      emailWrap.append(emailLabel, emailInput);
+        inputWrap.append(input, validIcon);
+        wrap.append(label, inputWrap, hint);
+        return { wrap, input, hint };
+      };
 
-      fieldsGrid.append(firstWrap, lastWrap, phoneWrap, emailWrap);
+      const firstField = buildCheckableField(
+        'firstName',
+        'intake-first-name',
+        'First Name *',
+        'text',
+        60,
+        'given-name',
+        'First name'
+      );
+      const lastField = buildCheckableField(
+        'lastName',
+        'intake-last-name',
+        'Last Name *',
+        'text',
+        60,
+        'family-name',
+        'Last name'
+      );
+      const phoneField = buildCheckableField(
+        'phone',
+        'intake-phone',
+        'Phone Number *',
+        'tel',
+        32,
+        'tel',
+        '(318) 555-0199'
+      );
+      const emailField = buildCheckableField(
+        'email',
+        'intake-email',
+        'Email Address *',
+        'email',
+        254,
+        'email',
+        'you@example.com'
+      );
+
+      const firstInput = firstField.input;
+      const lastInput = lastField.input;
+      const phoneInput = phoneField.input;
+      const emailInput = emailField.input;
+
+      fieldsGrid.append(firstField.wrap, lastField.wrap, phoneField.wrap, emailField.wrap);
 
       // Additional Notes
       const notesWrap = createEl('div', 'intake-field-group intake-field-full');
@@ -1970,7 +2318,7 @@
       const consentNote = createEl(
         'p',
         'intake-consent-note',
-        'By sending, you confirm you are 18+ and accept our Privacy, Terms & No-Refunds Policy (10% fee on bounced checks). Zero tracking cookies or online payment; delete data anytime at smartsprosolutions@gmail.com.'
+        'By sending, you confirm you are 18+ and accept our Privacy, Terms & No-Refunds Policy (50% deposit required in person; 10% fee on bounced checks). Zero tracking cookies or online payment; delete data anytime at smartsprosolutions@gmail.com.'
       );
       consentNote.id = 'intake-consent-note';
 
@@ -2011,6 +2359,7 @@
       schedulerState.refs.editSpecificToggleBtn = editSpecificToggleBtn;
       schedulerState.refs.editSpecificFields = editSpecificFields;
       schedulerState.refs.editSpecificAreasInput = editSpecificAreasInput;
+      schedulerState.refs.editServiceDetailsInput = editServiceDetailsInput;
       schedulerState.refs.editHoursVal = editHoursVal;
       schedulerState.refs.btnHoursMinus = btnHoursMinus;
       schedulerState.refs.btnHoursPlus = btnHoursPlus;
@@ -2025,8 +2374,26 @@
       schedulerState.refs.btnFridgeDoubleMinus = fridgeDoubleCtrl.minusBtn;
       schedulerState.refs.editOvenVal = ovenCtrl.valEl;
       schedulerState.refs.btnOvenMinus = ovenCtrl.minusBtn;
+      schedulerState.refs.editLaundryVal = laundryCtrl.valEl;
+      schedulerState.refs.btnLaundryMinus = laundryCtrl.minusBtn;
+      schedulerState.refs.editOrganizingVal = organizingCtrl.valEl;
+      schedulerState.refs.btnOrganizingMinus = organizingCtrl.minusBtn;
+      schedulerState.refs.editDishesVal = dishesCtrl.valEl;
+      schedulerState.refs.btnDishesMinus = dishesCtrl.minusBtn;
+      schedulerState.refs.editWindowsVal = windowsCtrl.valEl;
+      schedulerState.refs.btnWindowsMinus = windowsCtrl.minusBtn;
+      schedulerState.refs.editPowerWashVal = powerWashCtrl.valEl;
+      schedulerState.refs.btnPowerWashMinus = powerWashCtrl.minusBtn;
       schedulerState.refs.intakeSection = intakeSection;
       schedulerState.refs.intakeTitle = title;
+      schedulerState.refs.firstWrap = firstField.wrap;
+      schedulerState.refs.firstHint = firstField.hint;
+      schedulerState.refs.lastWrap = lastField.wrap;
+      schedulerState.refs.lastHint = lastField.hint;
+      schedulerState.refs.phoneWrap = phoneField.wrap;
+      schedulerState.refs.phoneHint = phoneField.hint;
+      schedulerState.refs.emailWrap = emailField.wrap;
+      schedulerState.refs.emailHint = emailField.hint;
       schedulerState.refs.firstInput = firstInput;
       schedulerState.refs.lastInput = lastInput;
       schedulerState.refs.phoneInput = phoneInput;
@@ -2037,6 +2404,43 @@
       schedulerState.refs.postSubmitActions = postSubmitActions;
       schedulerState.refs.submitBtn = submitBtn;
     }
+  }
+
+  function getDaySlotsForDay(dayObj, isOvernightMode) {
+    if (!dayObj) return [];
+    if (isOvernightMode) {
+      if (Array.isArray(dayObj.overnightSlots) && dayObj.overnightSlots.length > 0) {
+        return dayObj.overnightSlots;
+      }
+      const holidayName = dayObj.holidayName || null;
+      return [
+        {
+          slotId: '18:00-22:00',
+          label: 'Evening Overnight (6:00 PM – 10:00 PM)',
+          shortLabel: '6:00 PM – 10:00 PM',
+          status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+          isOvernight: true,
+          serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+        },
+        {
+          slotId: '21:00-01:00',
+          label: 'Late Night Overnight (9:00 PM – 1:00 AM)',
+          shortLabel: '9:00 PM – 1:00 AM',
+          status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+          isOvernight: true,
+          serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+        },
+        {
+          slotId: '23:00-03:00',
+          label: 'Overnight Shift (11:00 PM – 3:00 AM)',
+          shortLabel: '11:00 PM – 3:00 AM',
+          status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
+          isOvernight: true,
+          serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
+        }
+      ];
+    }
+    return dayObj.slots || [];
   }
 
   function renderCalendarUI() {
@@ -2071,42 +2475,7 @@
     const durInfo = getActiveDurationInfo();
     const busyIntervals = schedulerState.busyIntervals || [];
 
-    const getDaySlots = (dayObj) => {
-      if (!dayObj) return [];
-      if (isOvernightMode) {
-        if (Array.isArray(dayObj.overnightSlots) && dayObj.overnightSlots.length > 0) {
-          return dayObj.overnightSlots;
-        }
-        const holidayName = dayObj.holidayName || null;
-        return [
-          {
-            slotId: '18:00-22:00',
-            label: 'Evening Overnight (6:00 PM – 10:00 PM)',
-            shortLabel: '6:00 PM – 10:00 PM',
-            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
-            isOvernight: true,
-            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
-          },
-          {
-            slotId: '21:00-01:00',
-            label: 'Late Night Overnight (9:00 PM – 1:00 AM)',
-            shortLabel: '9:00 PM – 1:00 AM',
-            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
-            isOvernight: true,
-            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
-          },
-          {
-            slotId: '23:00-03:00',
-            label: 'Overnight Shift (11:00 PM – 3:00 AM)',
-            shortLabel: '11:00 PM – 3:00 AM',
-            status: holidayName ? 'CLOSED_HOLIDAY' : 'AVAILABLE',
-            isOvernight: true,
-            serviceLabel: holidayName ? `Closed (${holidayName})` : 'Available (Tentative)'
-          }
-        ];
-      }
-      return dayObj.slots || [];
-    };
+    const getDaySlots = (dayObj) => getDaySlotsForDay(dayObj, isOvernightMode);
 
     if (isLockedEditMode) {
       schedulerState.selectedDate = confirmedDate;
@@ -2269,7 +2638,7 @@
       }
     }
 
-    // 2. Render All Weekday Date Buttons for Active Month
+    // 2. Render Vertical iOS-Style Scroll Wheel Weekday Items for Active Month
     dateGrid.replaceChildren();
     const activeMonthObj = months.find((m) => m.monthKey === schedulerState.activeMonthKey);
     const daysToRender =
@@ -2277,30 +2646,42 @@
         ? activeMonthObj.days
         : dates;
 
-    daysToRender.forEach((dayObj) => {
+    schedulerState.wheelDays = daysToRender;
+    if (schedulerState.refs.wheelFrame) {
+      schedulerState.refs.wheelFrame.classList.toggle('is-locked-wheel', isLockedEditMode);
+    }
+
+    let selectedIdx = 0;
+    daysToRender.forEach((dayObj, idx) => {
       const isHoliday = Boolean(dayObj.holidayName);
       const isBeyondLimit = dayObj.withinAdvanceWindow === false && !isHoliday;
       const openCount = countOpenSlotsForDay(dayObj);
       const isFull = !isHoliday && !isBeyondLimit && openCount === 0;
       const isSelected = dayObj.date === schedulerState.selectedDate && (!isFull || isLockedEditMode);
       const isDisabled = isLockedEditMode || isHoliday || isBeyondLimit || isFull;
+      if (dayObj.date === schedulerState.selectedDate) {
+        selectedIdx = idx;
+      }
 
       const btn = createEl(
         'button',
-        `calendar-date-btn${isSelected ? ' active' : ''}${isDisabled && !isSelected ? ' is-full' : ''}${isLockedEditMode ? ' is-locked-control' : ''}`
+        `calendar-date-btn calendar-wheel-item${isSelected ? ' active' : ''}${isDisabled && !isSelected ? ' is-full' : ''}${isLockedEditMode ? ' is-locked-control' : ''}`
       );
       btn.type = 'button';
       btn.disabled = isDisabled;
+      btn.setAttribute('role', 'option');
       btn.setAttribute('data-cal-date', dayObj.date);
+      btn.setAttribute('data-wheel-index', String(idx));
+      btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
       btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
 
       const parts = dayObj.dateFormatted.split(',');
       const weekday = (parts[0] || '').trim();
       const monthDay = (parts[1] || dayObj.date).trim();
 
-      let metaLabel = 'Available';
+      let metaLabel = openCount === 1 ? '1 open' : `${openCount} open`;
       if (isLockedEditMode && isSelected) metaLabel = 'Locked ✓';
-      else if (isLockedEditMode) metaLabel = 'Time Locked';
+      else if (isLockedEditMode) metaLabel = 'Locked';
       else if (isHoliday) metaLabel = 'Holiday';
       else if (isBeyondLimit) metaLabel = '1-Mo Limit';
       else if (isFull) metaLabel = 'Full';
@@ -2314,7 +2695,9 @@
       if (!isDisabled) {
         btn.addEventListener('click', () => {
           schedulerState.selectedDate = dayObj.date;
-          renderCalendarUI();
+          syncWheelActiveRowMetadata(idx);
+          scrollWheelToIndex(idx, true);
+          renderCalendarSlotsAndStatus(dayObj);
           updateSubmitButtonLockState();
         });
       }
@@ -2322,7 +2705,242 @@
       dateGrid.append(btn);
     });
 
-    // 3. Render Arrival Window Buttons for Selected Date
+    applyWheelVisualClasses(selectedIdx);
+    scrollWheelToIndex(selectedIdx, false);
+    requestAnimationFrame(() => recenterActiveWheelDate(false));
+    syncWheelNudgeButtons();
+
+    // 3. Render Arrival Windows & Status Banners for Active Day
+    const centeredDayObj = daysToRender[selectedIdx] || activeDateObj;
+    renderCalendarSlotsAndStatus(centeredDayObj);
+  }
+
+  function applyWheelVisualClasses(centerIdx) {
+    const { dateGrid } = schedulerState.refs;
+    if (!dateGrid) return;
+    const buttons = dateGrid.children;
+    for (let i = 0; i < buttons.length; i++) {
+      const dist = Math.abs(i - centerIdx);
+      buttons[i].classList.toggle('is-wheel-center', dist === 0);
+      buttons[i].classList.toggle('is-wheel-near', dist === 1);
+    }
+  }
+
+  function syncWheelActiveRowMetadata(selectedIdx) {
+    const { dateGrid } = schedulerState.refs;
+    if (!dateGrid) return;
+    const isLockedEditMode =
+      schedulerState.viewMode === 'editing' &&
+      Boolean(schedulerState.confirmedSubmission?.appointment?.preferredDate);
+    const days = schedulerState.wheelDays || [];
+    const buttons = dateGrid.children;
+    const isOvernightMode = isActiveOvernightMode();
+    const durInfo = getActiveDurationInfo();
+    const busyIntervals = schedulerState.busyIntervals || [];
+    const confirmedInfo = schedulerState.confirmedSubmission
+      ? {
+          date: schedulerState.confirmedSubmission.appointment?.preferredDate || '',
+          window: schedulerState.confirmedSubmission.appointment?.preferredWindow || '',
+          startMinutes: schedulerState.confirmedSubmission.confirmedStartMinutes,
+          endMinutes: schedulerState.confirmedSubmission.confirmedEndMinutes
+        }
+      : { date: '', window: '', startMinutes: null, endMinutes: null };
+
+    for (let i = 0; i < buttons.length; i++) {
+      const btn = buttons[i];
+      const dayObj = days[i];
+      if (!dayObj) continue;
+      const isSelected = i === selectedIdx && !btn.disabled;
+      btn.classList.toggle('active', isSelected);
+      btn.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+      btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
+      const metaEl = btn.querySelector('.cal-date-meta');
+      if (metaEl && !btn.disabled && !isLockedEditMode) {
+        if (isSelected) {
+          metaEl.textContent = 'Selected ✓';
+        } else {
+          const slots = getDaySlotsForDay(dayObj, isOvernightMode);
+          const openCount = slots.filter((s) =>
+            evaluateClientSlot(dayObj, s, durInfo.durationMinutes, confirmedInfo, busyIntervals).selectable
+          ).length;
+          metaEl.textContent = openCount === 1 ? '1 open' : `${openCount} open`;
+        }
+      }
+    }
+  }
+
+  function scrollWheelToIndex(idx, smooth) {
+    const { dateGrid } = schedulerState.refs;
+    if (!dateGrid) return;
+    const targetTop = Math.max(0, idx * WHEEL_ITEM_HEIGHT);
+    const useSmooth = Boolean(smooth) && !prefersReducedMotion();
+    schedulerState.wheelSuppressUntil = Date.now() + (useSmooth ? 360 : 180);
+    if (useSmooth && typeof dateGrid.scrollTo === 'function') {
+      dateGrid.scrollTo({ top: targetTop, behavior: 'smooth' });
+    } else if (typeof dateGrid.scrollTo === 'function') {
+      dateGrid.scrollTo({ top: targetTop, behavior: 'instant' });
+      dateGrid.scrollTop = targetTop;
+    } else {
+      dateGrid.scrollTop = targetTop;
+    }
+    applyWheelVisualClasses(idx);
+  }
+
+  function recenterActiveWheelDate(smooth) {
+    const days = schedulerState.wheelDays || [];
+    if (days.length === 0) return;
+    const idx = Math.max(
+      0,
+      days.findIndex((d) => d.date === schedulerState.selectedDate)
+    );
+    scrollWheelToIndex(idx, smooth);
+  }
+
+  function syncWheelNudgeButtons() {
+    const { dateGrid, btnWheelPrev, btnWheelNext } = schedulerState.refs;
+    if (!dateGrid || !btnWheelPrev || !btnWheelNext) return;
+    const isLockedEditMode =
+      schedulerState.viewMode === 'editing' &&
+      Boolean(schedulerState.confirmedSubmission?.appointment?.preferredDate);
+    if (isLockedEditMode) {
+      btnWheelPrev.disabled = true;
+      btnWheelNext.disabled = true;
+      return;
+    }
+    const buttons = Array.from(dateGrid.children);
+    const curIdx = buttons.findIndex((b) => b.getAttribute('data-cal-date') === schedulerState.selectedDate);
+    const hasPrev = curIdx > 0 && buttons.slice(0, curIdx).some((b) => !b.disabled);
+    const hasNext = curIdx >= 0 && buttons.slice(curIdx + 1).some((b) => !b.disabled);
+    btnWheelPrev.disabled = !hasPrev;
+    btnWheelNext.disabled = !hasNext;
+  }
+
+  function stepWheelSelectable(direction) {
+    const { dateGrid } = schedulerState.refs;
+    if (!dateGrid) return;
+    const isLockedEditMode =
+      schedulerState.viewMode === 'editing' &&
+      Boolean(schedulerState.confirmedSubmission?.appointment?.preferredDate);
+    if (isLockedEditMode) return;
+
+    const days = schedulerState.wheelDays || [];
+    const buttons = Array.from(dateGrid.children);
+    if (days.length === 0 || buttons.length === 0) return;
+
+    const curIdx = Math.max(
+      0,
+      Math.min(days.length - 1, Math.round(dateGrid.scrollTop / WHEEL_ITEM_HEIGHT))
+    );
+    let nextIdx = curIdx + direction;
+    while (nextIdx >= 0 && nextIdx < buttons.length) {
+      if (!buttons[nextIdx].disabled) {
+        const dayObj = days[nextIdx];
+        schedulerState.selectedDate = dayObj.date;
+        syncWheelActiveRowMetadata(nextIdx);
+        scrollWheelToIndex(nextIdx, true);
+        syncWheelNudgeButtons();
+        renderCalendarSlotsAndStatus(dayObj);
+        updateSubmitButtonLockState();
+        return;
+      }
+      nextIdx += direction;
+    }
+  }
+
+  function handleWheelScroll() {
+    const { dateGrid } = schedulerState.refs;
+    if (!dateGrid) return;
+    const days = schedulerState.wheelDays || [];
+    if (days.length === 0) return;
+
+    if (!schedulerState.wheelRafPending) {
+      schedulerState.wheelRafPending = true;
+      requestAnimationFrame(() => {
+        schedulerState.wheelRafPending = false;
+        const idx = Math.max(
+          0,
+          Math.min(days.length - 1, Math.round(dateGrid.scrollTop / WHEEL_ITEM_HEIGHT))
+        );
+        applyWheelVisualClasses(idx);
+      });
+    }
+
+    if (Date.now() < schedulerState.wheelSuppressUntil) return;
+
+    if (schedulerState.wheelScrollTimer) {
+      clearTimeout(schedulerState.wheelScrollTimer);
+    }
+    schedulerState.wheelScrollTimer = setTimeout(() => {
+      schedulerState.wheelScrollTimer = null;
+      const isLockedEditMode =
+        schedulerState.viewMode === 'editing' &&
+        Boolean(schedulerState.confirmedSubmission?.appointment?.preferredDate);
+      if (isLockedEditMode) return;
+      const settledIdx = Math.max(
+        0,
+        Math.min(days.length - 1, Math.round(dateGrid.scrollTop / WHEEL_ITEM_HEIGHT))
+      );
+      const dayObj = days[settledIdx];
+      const btn = dateGrid.children[settledIdx];
+      if (!dayObj || !btn) return;
+      if (!btn.disabled) {
+        if (schedulerState.selectedDate !== dayObj.date) {
+          schedulerState.selectedDate = dayObj.date;
+        }
+        syncWheelActiveRowMetadata(settledIdx);
+        syncWheelNudgeButtons();
+        renderCalendarSlotsAndStatus(dayObj);
+        updateSubmitButtonLockState();
+      } else {
+        schedulerState.selectedWindow = '';
+        renderCalendarSlotsAndStatus(dayObj, true);
+        updateSubmitButtonLockState();
+      }
+    }, 115);
+  }
+
+  function renderCalendarSlotsAndStatus(activeDateObj, isCenteredUnavailableDay = false) {
+    const { lockedBanner, slotGrid, selectedSummary } = schedulerState.refs;
+    if (!slotGrid) return;
+
+    const isOvernightMode = isActiveOvernightMode();
+    const confirmedInfo = schedulerState.confirmedSubmission
+      ? {
+          date: schedulerState.confirmedSubmission.appointment?.preferredDate || '',
+          window: schedulerState.confirmedSubmission.appointment?.preferredWindow || '',
+          startMinutes: schedulerState.confirmedSubmission.confirmedStartMinutes,
+          endMinutes: schedulerState.confirmedSubmission.confirmedEndMinutes
+        }
+      : { date: '', window: '', startMinutes: null, endMinutes: null };
+    const confirmedDate = confirmedInfo.date;
+    const confirmedWindow = confirmedInfo.window;
+    const isLockedEditMode =
+      schedulerState.viewMode === 'editing' && Boolean(confirmedDate && confirmedWindow);
+    const durInfo = getActiveDurationInfo();
+    const busyIntervals = schedulerState.busyIntervals || [];
+
+    const activeDaySlots = getDaySlotsForDay(activeDateObj, isOvernightMode);
+
+    if (!isLockedEditMode && activeDateObj && !isCenteredUnavailableDay) {
+      const evaluatedActiveSlots = activeDaySlots.map((s) => ({
+        slot: s,
+        evalResult: evaluateClientSlot(
+          activeDateObj,
+          s,
+          durInfo.durationMinutes,
+          confirmedInfo,
+          busyIntervals
+        )
+      }));
+      const currentMatch = evaluatedActiveSlots.find(
+        (entry) => entry.slot.slotId === schedulerState.selectedWindow && entry.evalResult.selectable
+      );
+      if (!currentMatch) {
+        const firstEligible = evaluatedActiveSlots.find((entry) => entry.evalResult.selectable);
+        schedulerState.selectedWindow = firstEligible ? firstEligible.slot.slotId : '';
+      }
+    }
+
     slotGrid.replaceChildren();
     if (activeDateObj) {
       activeDaySlots.forEach((slot) => {
@@ -2337,8 +2955,12 @@
           activeDateObj.date === confirmedDate && slot.slotId === confirmedWindow;
         const isSelected = isLockedEditMode
           ? isCustomerOwnSlot
-          : evalResult.selectable && slot.slotId === schedulerState.selectedWindow;
-        const isUnavailable = isLockedEditMode ? !isCustomerOwnSlot : !evalResult.selectable;
+          : !isCenteredUnavailableDay &&
+            evalResult.selectable &&
+            slot.slotId === schedulerState.selectedWindow;
+        const isUnavailable = isLockedEditMode
+          ? !isCustomerOwnSlot
+          : isCenteredUnavailableDay || !evalResult.selectable;
 
         const btn = createEl(
           'button',
@@ -2350,12 +2972,15 @@
         btn.setAttribute('aria-pressed', isSelected ? 'true' : 'false');
 
         const titleRow = createEl('strong', 'cal-slot-title', slot.shortLabel);
-        let statusText = isOvernightMode && evalResult.reasonText === 'Available'
-          ? 'Tentative Night Slot (Call Owner Req.)'
-          : evalResult.reasonText;
+        let statusText =
+          isOvernightMode && evalResult.reasonText === 'Available'
+            ? 'Tentative Night Slot (Call Owner Req.)'
+            : evalResult.reasonText;
         if (isLockedEditMode) {
-          statusText = isCustomerOwnSlot ? 'Locked Appointment Window ✓' : 'Locked on Edit (Call to Reschedule)';
-        } else if (evalResult.selectable) {
+          statusText = isCustomerOwnSlot
+            ? 'Locked Appointment Window ✓'
+            : 'Locked on Edit (Call to Reschedule)';
+        } else if (evalResult.selectable && !isCenteredUnavailableDay) {
           if (isCustomerOwnSlot && isSelected) {
             statusText = 'Your Current Slot ✓';
           } else if (isSelected) {
@@ -2367,10 +2992,10 @@
         const statusRow = createEl('span', 'cal-slot-status', statusText);
         btn.append(titleRow, statusRow);
 
-        if (!isLockedEditMode && evalResult.selectable) {
+        if (!isLockedEditMode && !isCenteredUnavailableDay && evalResult.selectable) {
           btn.addEventListener('click', () => {
             schedulerState.selectedWindow = slot.slotId;
-            renderCalendarUI();
+            renderCalendarSlotsAndStatus(activeDateObj);
             updateSubmitButtonLockState();
           });
         }
@@ -2379,13 +3004,13 @@
       });
     }
 
-    // 4. Keep Modal Recap Est. Hours synchronized
     updateRecapHoursDisplay();
 
-    // 5. Render Locked Banner & Selected Summary Banner
     const chosenSlot = activeDaySlots.find((s) => s.slotId === schedulerState.selectedWindow);
     const chosenSlotText = chosenSlot ? chosenSlot.shortLabel : schedulerState.selectedWindow;
-    const chosenDateText = activeDateObj ? activeDateObj.dateFormatted : formatFullDateUtc(schedulerState.selectedDate);
+    const chosenDateText = activeDateObj
+      ? activeDateObj.dateFormatted
+      : formatFullDateUtc(schedulerState.selectedDate);
 
     if (lockedBanner) {
       if (isLockedEditMode) {
@@ -2399,18 +3024,26 @@
 
     if (selectedSummary) {
       selectedSummary.classList.toggle('is-locked', isLockedEditMode);
-      if (activeDateObj && schedulerState.selectedWindow) {
+      selectedSummary.classList.toggle('is-unavailable-day', Boolean(isCenteredUnavailableDay));
+      if (isCenteredUnavailableDay && activeDateObj) {
+        const reason = activeDateObj.holidayName
+          ? `closed (${activeDateObj.holidayName})`
+          : 'fully booked';
+        selectedSummary.textContent = `${chosenDateText} is ${reason} — scroll or tap an open weekday.`;
+      } else if (activeDateObj && schedulerState.selectedWindow) {
         if (isLockedEditMode) {
-          selectedSummary.textContent = `Locked Window: ${chosenDateText} • ${chosenSlotText} · Est. ${formatDurationHours(durInfo.totalEstimatedHours)}`;
+          selectedSummary.textContent = `Locked Window: ${chosenDateText} • ${chosenSlotText}`;
         } else if (isOvernightMode) {
           selectedSummary.textContent = `Tentative Overnight: ${chosenDateText} • ${chosenSlotText} (Call (318) 564-4360)`;
         } else {
-          selectedSummary.textContent = `Selected: ${chosenDateText} • ${chosenSlotText} · Est. ${formatDurationHours(durInfo.totalEstimatedHours)}`;
+          selectedSummary.textContent = `Selected: ${chosenDateText} • ${chosenSlotText}`;
         }
       } else {
-        selectedSummary.textContent = 'Pick an available day and time window above.';
+        selectedSummary.textContent = 'Scroll or tap an available day and time window above.';
       }
     }
+
+    syncStickyFooterUI();
   }
 
   async function loadCalendarSchedule(isManualRefresh) {
@@ -2563,11 +3196,13 @@
     }
 
     if (!firstName) {
+      syncAllContactValidationUI(true);
       showIntakeStatus('error', 'First Name Required', 'Please enter your First Name.');
       refs.firstInput.focus();
       return;
     }
     if (!lastName) {
+      syncAllContactValidationUI(true);
       showIntakeStatus('error', 'Last Name Required', 'Please enter your Last Name.');
       refs.lastInput.focus();
       return;
@@ -2577,6 +3212,7 @@
       containsPhishingOrUrlLinks(lastName) ||
       containsPhishingOrUrlLinks(notes)
     ) {
+      syncAllContactValidationUI(true);
       showIntakeStatus(
         'error',
         'Links Not Permitted',
@@ -2587,6 +3223,7 @@
 
     const phoneCheck = validateClientUsPhone(phone);
     if (!phoneCheck.valid) {
+      syncAllContactValidationUI(true);
       showIntakeStatus(
         'error',
         'Valid US Phone Number Required',
@@ -2596,8 +3233,10 @@
       return;
     }
     refs.phoneInput.value = phoneCheck.formatted;
+    syncSingleContactFieldUI('phone', false);
 
     if (!email || !/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(email)) {
+      syncAllContactValidationUI(true);
       showIntakeStatus('error', 'Email Address Required', 'Please enter a valid Email Address.');
       refs.emailInput.focus();
       return;
@@ -2608,6 +3247,7 @@
       DISPOSABLE_OR_FAKE_EMAIL_DOMAINS.has(emailDomain) ||
       COMMON_TYPO_EMAIL_DOMAINS.has(emailDomain)
     ) {
+      syncAllContactValidationUI(true);
       showIntakeStatus(
         'error',
         'Real Email Address Required',
@@ -2713,7 +3353,7 @@
           headingText: confirmedIsUpdated
             ? `Updated Appointment Sent! (#${Math.max(1, nextUpdateCount)} · Ref: ${result.referenceCode})`
             : `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
-          detailText: `${result.message} Verified Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (No online payment required).`,
+          detailText: `${result.message} Verified Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (50% deposit required in person).`,
           icsContent: result.icsContent || '',
           icsFilename: result.icsFilename || '',
           fallbackMailtoUrl: '',
@@ -2777,8 +3417,13 @@
 
   function openBookingModal() {
     ensureMountedUI();
+    if (modalQuoteRecap && modalRecapToggle) {
+      modalQuoteRecap.classList.add('is-mobile-collapsed');
+      modalRecapToggle.setAttribute('aria-expanded', 'false');
+    }
     refreshModalRecapUI();
     loadCalendarSchedule();
+    syncAllContactValidationUI(false);
 
     // If a request was already confirmed in this session and calculator options match, keep Confirmed View locked
     if (schedulerState.confirmedSubmission) {
@@ -2797,8 +3442,11 @@
       modalOverlay.classList.add('open');
       document.body.classList.add('modal-open');
       void modalOverlay.offsetWidth;
+      if (modalBody) modalBody.scrollTop = 0;
+      requestAnimationFrame(() => recenterActiveWheelDate(false));
       if (btnCloseModal) btnCloseModal.focus();
     }
+    syncStickyFooterUI();
   }
 
   function closeBookingModal() {
@@ -2822,6 +3470,43 @@
   document.addEventListener('DOMContentLoaded', () => {
     if (btnOpenModal) btnOpenModal.addEventListener('click', handleBookingTriggerClick);
     if (btnContactOpenScheduler) btnContactOpenScheduler.addEventListener('click', handleBookingTriggerClick);
+    if (modalRecapToggle && modalQuoteRecap) {
+      modalRecapToggle.addEventListener('click', () => {
+        const isCollapsed = modalQuoteRecap.classList.toggle('is-mobile-collapsed');
+        modalRecapToggle.setAttribute('aria-expanded', isCollapsed ? 'false' : 'true');
+      });
+    }
+    if (modalStickyCta) {
+      modalStickyCta.addEventListener('click', () => {
+        if (schedulerState.isSubmitting || modalStickyCta.disabled) return;
+        if (schedulerState.viewMode === 'editing') {
+          handleEstimateSubmit();
+          return;
+        }
+        if (!schedulerState.selectedDate || !schedulerState.selectedWindow) {
+          if (schedulerState.refs.calSection) {
+            schedulerState.refs.calSection.scrollIntoView({
+              behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+              block: 'start'
+            });
+          }
+          if (schedulerState.refs.dateGrid) schedulerState.refs.dateGrid.focus();
+          return;
+        }
+        const firstInvalid = getFirstInvalidContactInput();
+        if (firstInvalid) {
+          if (schedulerState.refs.intakeSection) {
+            schedulerState.refs.intakeSection.scrollIntoView({
+              behavior: prefersReducedMotion() ? 'auto' : 'smooth',
+              block: 'start'
+            });
+          }
+          firstInvalid.focus();
+          return;
+        }
+        handleEstimateSubmit();
+      });
+    }
     if (btnEditDetails) {
       btnEditDetails.addEventListener('click', () => {
         if (schedulerState.confirmedSubmission && schedulerState.confirmedSubmission.updateToken) {
@@ -2847,6 +3532,12 @@
 
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeBookingModal();
+    });
+
+    window.addEventListener('resize', () => {
+      if (modalOverlay && modalOverlay.classList.contains('open')) {
+        recenterActiveWheelDate(false);
+      }
     });
   });
 

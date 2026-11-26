@@ -532,7 +532,7 @@
                       <div class="service-radio-custom"></div>
                     </div>
                     <div class="service-card-name">Residential Homes</div>
-                    <p class="service-card-desc">Standard or Deep home clean (+$50/hr Specific Areas option).</p>
+                    <p class="service-card-desc">Standard or Deep home clean (optional Specific Areas add-on).</p>
                     <span class="service-multiplier-tag">Flat-Rate Home Quote</span>
                   </label>
 
@@ -591,7 +591,7 @@
                   <div class="service-overview-grid" id="overview-items-grid">
                     <div class="overview-check-item">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                      <span id="overview-bullet-1"><strong>Residential:</strong> Kitchens, baths, floors &amp; dusting (Standard, Deep, or +$50/hr Specific Areas)</span>
+                      <span id="overview-bullet-1"><strong>Residential:</strong> Kitchens, baths, floors &amp; dusting (Standard, Deep, or Specific Areas add-on)</span>
                     </div>
                     <div class="overview-check-item">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>
@@ -722,6 +722,20 @@
                         <button type="button" class="stepper-btn" id="btn-halfbath-minus" aria-label="Decrease Half Bathrooms">−</button>
                         <span class="stepper-value" id="val-halfbaths">1</span>
                         <button type="button" class="stepper-btn" id="btn-halfbath-plus" aria-label="Increase Half Bathrooms">+</button>
+                      </div>
+                    </div>
+
+                    <!-- Extra Living Room -->
+                    <div class="spec-control-item">
+                      <div class="spec-icon-label">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 11V7a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"></path><path d="M2 13a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v4H2v-4z"></path><path d="M4 17v3"></path><path d="M20 17v3"></path></svg>
+                        <span class="spec-label-title">Extra Living Room</span>
+                        <span class="spec-label-sub">Bonus, den, or family room</span>
+                      </div>
+                      <div class="stepper-control">
+                        <button type="button" class="stepper-btn" id="btn-living-minus" aria-label="Decrease Extra Living Rooms">−</button>
+                        <span class="stepper-value" id="val-livingrooms">0</span>
+                        <button type="button" class="stepper-btn" id="btn-living-plus" aria-label="Increase Extra Living Rooms">+</button>
                       </div>
                     </div>
                   </div>
@@ -1009,7 +1023,7 @@
 
                 <div class="freq-policy-banner" id="step4-flat-rate-note">
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                  <span id="step4-flat-rate-text"><strong>Weekly-Anchor Pricing:</strong> Weekly &amp; Per Turnover keep our base rate (<strong>$0 extra</strong>). Less frequent visits add a schedule fee (Bi-Weekly +$30+, Monthly +$50+, One-Time +$65+; Overnight +$85+). <strong>No online payment required.</strong></span>
+                  <span id="step4-flat-rate-text"><strong>Weekly-Anchor Pricing:</strong> Weekly &amp; Per Turnover keep our base rate (<strong>$0 extra</strong>). Less frequent visits add a schedule fee (Bi-Weekly +$30+, Monthly +$50+, One-Time +$65+; Overnight +$85+). <strong>No online payment today — 50% deposit required in person.</strong></span>
                 </div>
               </div>
 
@@ -1021,48 +1035,48 @@
                   <div class="step-num" id="step-badge-5">5</div>
                   <div class="step-info">
                     <h3>Custom Add-Ons</h3>
-                    <p>Optional appliance detailing or extra Specific Areas time (+$50/hr).</p>
+                    <p>Optional add-ons (prices starting from) and priority room focus.</p>
                   </div>
                 </div>
 
                 <div class="addons-grid">
-                  <!-- Single Refrigerator: $65 each -->
+                  <!-- Single Refrigerator: Starting from $54.99 -->
                   <div class="addon-card-item" id="addon-item-fridge">
                     <div class="addon-info-block">
                       <div class="addon-icon-circle">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2"></rect><line x1="5" y1="10" x2="19" y2="10"></line><line x1="10" y1="6" x2="10" y2="7"></line><line x1="10" y1="14" x2="10" y2="16"></line></svg>
                       </div>
                       <div class="addon-text-wrap">
-                        <h4>Single Refrigerator</h4>
-                        <span class="addon-rate-badge">$65 each</span>
+                        <h4>Single Fridge</h4>
+                        <span class="addon-rate-badge">Starting from $54.99</span>
                       </div>
                     </div>
                     <div class="stepper-auto stepper-control">
-                      <button type="button" class="stepper-btn" id="btn-fridge-minus" aria-label="Decrease Single Refrigerator">−</button>
+                      <button type="button" class="stepper-btn" id="btn-fridge-minus" aria-label="Decrease Single Fridge">−</button>
                       <span class="stepper-value" id="val-addon-fridge">0</span>
-                      <button type="button" class="stepper-btn" id="btn-fridge-plus" aria-label="Increase Single Refrigerator">+</button>
+                      <button type="button" class="stepper-btn" id="btn-fridge-plus" aria-label="Increase Single Fridge">+</button>
                     </div>
                   </div>
 
-                  <!-- Double Refrigerator: $75 each -->
+                  <!-- Double Refrigerator: Starting from $64.99 -->
                   <div class="addon-card-item" id="addon-item-fridge-double">
                     <div class="addon-info-block">
                       <div class="addon-icon-circle">
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="2" width="16" height="20" rx="2"></rect><line x1="12" y1="2" x2="12" y2="22"></line><line x1="4" y1="11" x2="20" y2="11"></line><line x1="10" y1="6" x2="10" y2="8"></line><line x1="14" y1="6" x2="14" y2="8"></line></svg>
                       </div>
                       <div class="addon-text-wrap">
-                        <h4>Double / French Door Fridge</h4>
-                        <span class="addon-rate-badge">$75 each</span>
+                        <h4>Double Fridge</h4>
+                        <span class="addon-rate-badge">Starting from $64.99</span>
                       </div>
                     </div>
                     <div class="stepper-auto stepper-control">
-                      <button type="button" class="stepper-btn" id="btn-fridge-double-minus" aria-label="Decrease Double Refrigerator">−</button>
+                      <button type="button" class="stepper-btn" id="btn-fridge-double-minus" aria-label="Decrease Double Fridge">−</button>
                       <span class="stepper-value" id="val-addon-fridge-double">0</span>
-                      <button type="button" class="stepper-btn" id="btn-fridge-double-plus" aria-label="Increase Double Refrigerator">+</button>
+                      <button type="button" class="stepper-btn" id="btn-fridge-double-plus" aria-label="Increase Double Fridge">+</button>
                     </div>
                   </div>
 
-                  <!-- Inside Oven: $80 each -->
+                  <!-- Inside Oven: Starting from $61.88 -->
                   <div class="addon-card-item" id="addon-item-oven">
                     <div class="addon-info-block">
                       <div class="addon-icon-circle">
@@ -1070,36 +1084,144 @@
                       </div>
                       <div class="addon-text-wrap">
                         <h4>Inside Oven</h4>
-                        <span class="addon-rate-badge">$80 (per condition)</span>
+                        <span class="addon-rate-badge">Starting from $61.88</span>
                       </div>
                     </div>
                     <div class="stepper-auto stepper-control">
-                      <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Oven">−</button>
+                      <button type="button" class="stepper-btn" id="btn-oven-minus" aria-label="Decrease Inside Oven">−</button>
                       <span class="stepper-value" id="val-addon-oven">0</span>
-                      <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Oven">+</button>
+                      <button type="button" class="stepper-btn" id="btn-oven-plus" aria-label="Increase Inside Oven">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Laundry: Starting from $48.98 per load (Wash, dry, and fold) -->
+                  <div class="addon-card-item" id="addon-item-laundry">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="2" width="18" height="20" rx="2"></rect><circle cx="12" cy="13" r="5"></circle><line x1="7" y1="6" x2="10" y2="6"></line></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Laundry</h4>
+                        <span class="addon-rate-badge">Starting from $48.98 per load</span>
+                        <span class="addon-sub-note">Wash, dry, and fold</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-laundry-minus" aria-label="Decrease Laundry loads">−</button>
+                      <span class="stepper-value" id="val-addon-laundry">0</span>
+                      <button type="button" class="stepper-btn" id="btn-laundry-plus" aria-label="Increase Laundry loads">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Organizing per Area: Starting from $29.60 per area -->
+                  <div class="addon-card-item" id="addon-item-organizing">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="5" rx="1"></rect><path d="M5 9v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V9"></path><line x1="10" y1="13" x2="14" y2="13"></line></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Organizing per Area</h4>
+                        <span class="addon-rate-badge">Starting from $29.60 per area</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-organizing-minus" aria-label="Decrease Organizing per Area">−</button>
+                      <span class="stepper-value" id="val-addon-organizing">0</span>
+                      <button type="button" class="stepper-btn" id="btn-organizing-plus" aria-label="Increase Organizing per Area">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Dishes: Starting from $24.78 -->
+                  <div class="addon-card-item" id="addon-item-dishes">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Dishes</h4>
+                        <span class="addon-rate-badge">Starting from $24.78</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-dishes-minus" aria-label="Decrease Dishes">−</button>
+                      <span class="stepper-value" id="val-addon-dishes">0</span>
+                      <button type="button" class="stepper-btn" id="btn-dishes-plus" aria-label="Increase Dishes">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Windows: Starting from $8 each -->
+                  <div class="addon-card-item" id="addon-item-windows">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"></rect><line x1="12" y1="3" x2="12" y2="21"></line><line x1="3" y1="12" x2="21" y2="12"></line></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Windows</h4>
+                        <span class="addon-rate-badge">Starting from $8 each</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-windows-minus" aria-label="Decrease Windows">−</button>
+                      <span class="stepper-value" id="val-addon-windows">0</span>
+                      <button type="button" class="stepper-btn" id="btn-windows-plus" aria-label="Increase Windows">+</button>
+                    </div>
+                  </div>
+
+                  <!-- Power Wash Window Sets: Starting from $25 per set -->
+                  <div class="addon-card-item" id="addon-item-powerwash">
+                    <div class="addon-info-block">
+                      <div class="addon-icon-circle">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg>
+                      </div>
+                      <div class="addon-text-wrap">
+                        <h4>Power Wash Window Sets</h4>
+                        <span class="addon-rate-badge">Starting from $25 per set</span>
+                      </div>
+                    </div>
+                    <div class="stepper-auto stepper-control">
+                      <button type="button" class="stepper-btn" id="btn-powerwash-minus" aria-label="Decrease Power Wash Window Sets">−</button>
+                      <span class="stepper-value" id="val-addon-powerwash">0</span>
+                      <button type="button" class="stepper-btn" id="btn-powerwash-plus" aria-label="Increase Power Wash Window Sets">+</button>
                     </div>
                   </div>
                 </div>
 
-                <!-- Specific Areas Add-On Option (Stacks +$50/hr on top of selected base service) -->
+                <!-- Extra Details Box: What they may need done -->
+                <div class="step5-details-block" id="step5-service-details-block">
+                  <div class="specific-input-group" id="service-details-input-group">
+                    <label for="input-service-details" class="specific-input-label">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line></svg>
+                      <span>Details on what you may need done (Optional)</span>
+                    </label>
+                    <input id="input-service-details" class="specific-areas-input" placeholder="e.g., Focus on entry baseboards, wipe blinds, inside patio glass, laundry notes..." maxlength="500" autocomplete="off" aria-label="Details on what you may need done">
+                    <span class="specific-input-hint">Share any specific tasks, appliances, or window counts we should plan for.</span>
+                  </div>
+                </div>
+
+                <div class="freq-policy-banner step5-deposit-note" id="step5-deposit-note">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                  <span><strong>Starting-From Rates &amp; Deposit:</strong> Add-on totals start from the rates shown above. <strong>We require a 50% deposit for the service in person.</strong></span>
+                </div>
+
+                <!-- Specific Areas Add-On Option (Stacks starting at +$50 on top of selected base service) -->
                 <div class="step5-specific-areas-block" id="step5-specific-areas-block">
                   <div class="substep-label-row">
                     <span class="substep-title">Specific Areas Add-On</span>
-                    <span class="substep-req-badge">Optional · +$50/hr</span>
+                    <span class="substep-req-badge">Optional · Starting at +$50</span>
                   </div>
 
                   <button type="button" class="scope-mode-btn step5-specific-toggle" id="btn-scope-specific" data-res-tier="specific" data-scope-mode="specific" aria-pressed="false">
                     <span class="scope-mode-icon">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                     </span>
                     <span class="scope-mode-copy">
-                      <strong>Specific Areas (+$50/hr)</strong>
-                      <span>Add 1–6 extra hours for priority rooms or tasks</span>
+                      <strong>Specific Areas Add-On</strong>
+                      <span>Add priority room or custom task focus (Levels 1–6)</span>
                     </span>
                     <span class="specific-toggle-badge" id="specific-areas-toggle-badge">Add</span>
                   </button>
 
-                  <!-- PANEL: Specific Areas Custom Text Entry & Booked Hours (1-6 Hours) -->
+                  <!-- PANEL: Specific Areas Custom Text Entry & Level Selector (1-6) -->
                   <div class="scope-panel-specific is-hidden" id="scope-panel-specific">
                     <div class="specific-areas-box">
                       <div class="specific-input-group" id="specific-areas-input-group">
@@ -1114,39 +1236,39 @@
                       <div class="specific-hours-card">
                         <div class="specific-hours-header">
                           <div class="specific-hours-title-wrap">
-                            <h4>Extra hours to add</h4>
-                            <p><strong>$50/hr</strong> · Select <strong>1–6 hours</strong></p>
+                            <h4>Priority Focus Level</h4>
+                            <p><strong>+$50 per level</strong> · Select <strong>1–6</strong></p>
                           </div>
                           <div class="stepper-control specific-hours-stepper">
-                            <button type="button" class="stepper-btn" id="btn-hours-minus" aria-label="Decrease Specific Areas Hours">−</button>
+                            <button type="button" class="stepper-btn" id="btn-hours-minus" aria-label="Decrease Priority Focus Level">−</button>
                             <span class="stepper-value" id="val-specific-hours">1</span>
-                            <button type="button" class="stepper-btn" id="btn-hours-plus" aria-label="Increase Specific Areas Hours">+</button>
+                            <button type="button" class="stepper-btn" id="btn-hours-plus" aria-label="Increase Priority Focus Level">+</button>
                           </div>
                         </div>
 
-                        <div class="specific-hours-pills" role="group" aria-label="Select Specific Areas Add-On Hours">
+                        <div class="specific-hours-pills" role="group" aria-label="Select Specific Areas Focus Level">
                           <button type="button" class="hour-tier-btn active" data-hours-val="1">
-                            <strong>+1 Hour</strong>
+                            <strong>Level 1</strong>
                             <span>+$50 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="2">
-                            <strong>+2 Hours</strong>
+                            <strong>Level 2</strong>
                             <span>+$100 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="3">
-                            <strong>+3 Hours</strong>
+                            <strong>Level 3</strong>
                             <span>+$150 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="4">
-                            <strong>+4 Hours</strong>
+                            <strong>Level 4</strong>
                             <span>+$200 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="5">
-                            <strong>+5 Hours</strong>
+                            <strong>Level 5</strong>
                             <span>+$250 Add-On</span>
                           </button>
                           <button type="button" class="hour-tier-btn" data-hours-val="6">
-                            <strong>+6 Hours</strong>
+                            <strong>Level 6</strong>
                             <span>+$300 Add-On</span>
                           </button>
                         </div>
@@ -1199,7 +1321,7 @@
                 <div class="price-billing-freq" id="quote-billing-freq">Weekly · Base Rate ($0 extra)</div>
                 <div class="quote-minimum-note" id="quote-rate-basis-note">
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-                  <span id="quote-minimum-note-text">No Online Payment Required</span>
+                  <span id="quote-minimum-note-text">No Online Payment · 50% Deposit In Person</span>
                 </div>
               </div>
 
@@ -1256,7 +1378,7 @@
                 <div class="addons-hidden breakdown-row" id="summary-addons-row">
                   <span class="breakdown-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="16"></line><line x1="8" y1="12" x2="16" y2="12"></line></svg>
-                    Add-Ons
+                    Add-Ons (Starting From)
                   </span>
                   <span class="breakdown-value" id="summary-addons-val">+$0.00</span>
                 </div>
@@ -1272,14 +1394,14 @@
                 <div class="breakdown-row" id="summary-online-payment-row">
                   <span class="breakdown-label">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
-                    Online Payment
+                    Deposit Policy
                   </span>
-                  <span class="breakdown-value" id="summary-online-payment-val">None Required</span>
+                  <span class="breakdown-value" id="summary-online-payment-val">50% In Person</span>
                 </div>
               </div>
 
               <div class="quote-policy-callout" id="quote-policy-callout">
-                <strong>Weekly &amp; Turnover:</strong> Base rate (+$0). Less frequent &amp; overnight visits add a schedule fee. Returned checks incur a 10% fee.
+                <strong>Deposit &amp; Policy:</strong> 50% deposit required in person at service (no online payment today). Weekly &amp; Turnover keep our base rate; returned checks incur a 10% fee.
               </div>
 
               <!-- Action Buttons -->
@@ -1779,13 +1901,13 @@
               <td><span class="check-icon-yes">✔ Wall to Wall</span></td>
             </tr>
             <tr>
-              <td>Inside Refrigerator ($50 add-on)</td>
+              <td>Inside Refrigerator (starting from $54.99 add-on)</td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
             </tr>
             <tr>
-              <td>Inside Oven ($60 add-on)</td>
+              <td>Inside Oven (starting from $61.88 add-on)</td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
               <td><span class="check-icon-no">Optional Add-On</span></td>
@@ -1954,7 +2076,7 @@
           <p>Build your flat-rate estimate, pick an open calendar window, and send your request directly to our team.</p>
 
           <div class="intake-notice" id="contact-intake-notice">
-            <p><strong>No Online Payment Required:</strong> Pick a day and time window and send your request to <strong>smartsprosolutions@gmail.com</strong>.</p>
+            <p><strong>No Online Payment Today · 50% Deposit Required In Person:</strong> Pick a day and time window and send your request to <strong>smartsprosolutions@gmail.com</strong>.</p>
             <div class="contact-cta-row">
               <button type="button" class="btn btn-green btn-lg" id="btn-contact-open-scheduler">Estimate &amp; Schedule Now</button>
               <a class="btn btn-primary btn-lg" href="tel:3185644360">Call (318) 564-4360</a>
@@ -2102,11 +2224,11 @@
           </div>
           <div class="footer-legal-item">
             <h5>2. Terms of Service &amp; Transparent Flat-Rate Pricing</h5>
-            <p>Calculator estimates reflect our transparent flat-rate pricing (custom Standard, Deep, Move-In/Out, and Airbnb quotes starting at a $50 minimum, flat $35 pet fee, and flat appliance add-ons) and are subject to on-site property verification. No online payments or deposits are collected on this website.</p>
+            <p>Calculator estimates reflect our transparent pricing (Standard, Deep, Move-In/Out, and Airbnb quotes starting at a $50 minimum, $35 pet fee, and optional add-ons starting from listed rates) and are subject to on-site verification. No online payments are collected on this website; a <strong>50% deposit is required for the service in person</strong>.</p>
           </div>
           <div class="footer-legal-item">
             <h5>3. Payment &amp; Refund Policy</h5>
-            <p>You never pay online in advance. Once a cleaning service is completed, all payments follow our <strong>No Refunds Policy</strong>. If paid by check and the check bounces, a <strong>10% fee</strong> will be charged.</p>
+            <p>You never pay online in advance; we require a <strong>50% deposit in person</strong> at service. Once a cleaning service is completed, all payments follow our <strong>No Refunds Policy</strong>. If paid by check and the check bounces, a <strong>10% fee</strong> will be charged.</p>
           </div>
           <div class="footer-legal-item">
             <h5>4. Cookie Policy &amp; Zero Third-Party Trackers</h5>
@@ -2152,45 +2274,82 @@
           <button type="button" class="modal-close-btn" id="modal-close-btn" aria-label="Close estimate">&times;</button>
         </div>
       </div>
-      <div class="modal-body">
-        <div class="modal-quote-recap">
-          <div class="recap-row"><span>Service:</span><strong id="modal-recap-service">Standard Clean</strong></div>
-          <div class="recap-row is-hidden" id="modal-recap-proptype-row"><span>Property Type:</span><strong id="modal-recap-proptype">House</strong></div>
-          <div class="recap-row"><span id="modal-recap-specs-label">Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
-          <div class="recap-row is-hidden" id="modal-recap-areas-row"><span>Specific Areas:</span><strong id="modal-recap-areas">—</strong></div>
-          <div class="recap-row is-hidden" id="modal-recap-addinfo-row"><span>Home Info:</span><strong id="modal-recap-addinfo">—</strong></div>
-          <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Weekly (Base Rate)</strong></div>
-          <div class="recap-row is-hidden" id="modal-recap-freq-fee-row"><span>Schedule Fee:</span><strong id="modal-recap-freq-fee">+$0.00</strong></div>
-          <div class="recap-row" id="modal-recap-addons-row"><span>Add-Ons &amp; Pets:</span><span id="modal-recap-addons">None</span></div>
-          <div class="recap-row" id="modal-recap-hours-row"><span>Est. Time:</span><strong id="modal-recap-hours">5 Hours</strong></div>
-          <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote:</span><span id="modal-recap-total">$250.00</span></div>
-          <div class="recap-row recap-policy" id="modal-recap-policy-row"><span>Policy:</span><strong id="modal-recap-policy">No online payment required • 10% bounced check fee</strong></div>
-        </div>
+      <div class="modal-body" id="booking-modal-body">
+        <div class="modal-two-col-grid">
+          <aside class="modal-summary-col" aria-label="Estimate Summary">
+            <div class="modal-quote-recap is-mobile-collapsed" id="modal-quote-recap">
+              <button type="button" class="modal-recap-toggle" id="modal-recap-toggle" aria-expanded="false" aria-controls="modal-recap-collapsible">
+                <span class="recap-toggle-left">
+                  <span class="recap-toggle-title">Estimate Summary</span>
+                  <span class="recap-toggle-sub" id="modal-recap-toggle-service">Standard Clean · Weekly</span>
+                </span>
+                <span class="recap-toggle-right">
+                  <strong class="recap-toggle-total" id="modal-recap-toggle-total">$250.00</strong>
+                  <svg class="recap-toggle-chevron" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                </span>
+              </button>
 
-        <!-- Progressive-enhanced Calendar Appointment Picker -->
-        <div id="modal-calendar-mount"></div>
+              <div class="modal-recap-desktop-head">
+                <span class="recap-desktop-title">Your Estimate</span>
+                <span class="recap-desktop-note">50% deposit in person</span>
+              </div>
 
-        <!-- Progressive-enhanced Customer Contact (First Name, Last Name, Phone, Email, Additional Notes) & Automated Email Dispatch -->
-        <div id="modal-intake-mount"></div>
+              <div class="modal-recap-collapsible" id="modal-recap-collapsible">
+                <div class="recap-row"><span>Service:</span><strong id="modal-recap-service">Standard Clean</strong></div>
+                <div class="recap-row is-hidden" id="modal-recap-proptype-row"><span>Property Type:</span><strong id="modal-recap-proptype">House</strong></div>
+                <div class="recap-row"><span id="modal-recap-specs-label">Property Specs:</span><strong id="modal-recap-specs">3 Bed, 2 Full, 1 Half / 1,800 sq ft</strong></div>
+                <div class="recap-row is-hidden" id="modal-recap-areas-row"><span>Specific Areas:</span><strong id="modal-recap-areas">—</strong></div>
+                <div class="recap-row is-hidden" id="modal-recap-addinfo-row"><span>Home Info:</span><strong id="modal-recap-addinfo">—</strong></div>
+                <div class="recap-row"><span>Frequency:</span><strong id="modal-recap-freq">Weekly (Base Rate)</strong></div>
+                <div class="recap-row is-hidden" id="modal-recap-freq-fee-row"><span>Schedule Fee:</span><strong id="modal-recap-freq-fee">+$0.00</strong></div>
+                <div class="recap-row" id="modal-recap-addons-row"><span>Add-Ons &amp; Pets:</span><span id="modal-recap-addons">None</span></div>
+                <div class="recap-row is-hidden" id="modal-recap-hours-row"><span></span><strong id="modal-recap-hours"></strong></div>
+                <div class="recap-row recap-total"><span id="modal-recap-total-label">Estimated Quote:</span><span id="modal-recap-total">$250.00</span></div>
+                <div class="recap-row recap-policy" id="modal-recap-policy-row"><span>Policy:</span><strong id="modal-recap-policy">No online payment today • 50% deposit required in person • 10% bounced check fee</strong></div>
+              </div>
+            </div>
+          </aside>
 
-        <!-- Dispatch, Calendar & Owner Confirmation Workflow Groundwork (kept hidden to keep modal calm and easy to read) -->
-        <div class="modal-workflow-groundwork is-hidden" id="modal-workflow-groundwork">
-          <div class="workflow-groundwork-header">
-            <span class="workflow-groundwork-kicker" id="modal-workflow-kicker">AUTOMATED EMAIL &amp; CALENDAR WORKFLOW</span>
-            <h4 id="modal-workflow-title">Instant Estimate Email &amp; Calendar Appointment Request</h4>
-            <p id="modal-workflow-summary">Your estimate, contact info, and preferred window go directly to Smarts Pro Solutions.</p>
+          <div class="modal-main-col">
+            <!-- Progressive-enhanced Calendar Appointment Picker -->
+            <div id="modal-calendar-mount"></div>
+
+            <!-- Progressive-enhanced Customer Contact (First Name, Last Name, Phone, Email, Additional Notes) & Automated Email Dispatch -->
+            <div id="modal-intake-mount"></div>
+
+            <!-- Dispatch, Calendar & Owner Confirmation Workflow Groundwork (kept hidden to keep modal calm and easy to read) -->
+            <div class="modal-workflow-groundwork is-hidden" id="modal-workflow-groundwork">
+              <div class="workflow-groundwork-header">
+                <span class="workflow-groundwork-kicker" id="modal-workflow-kicker">AUTOMATED EMAIL &amp; CALENDAR WORKFLOW</span>
+                <h4 id="modal-workflow-title">Instant Estimate Email &amp; Calendar Appointment Request</h4>
+                <p id="modal-workflow-summary">Your estimate, contact info, and preferred window go directly to Smarts Pro Solutions.</p>
+              </div>
+              <ol class="workflow-stages-list" id="modal-workflow-stages">
+                <li><span class="workflow-stage-badge">1</span><span id="modal-workflow-stage-1">Pick an open day &amp; time window</span></li>
+                <li><span class="workflow-stage-badge">2</span><span id="modal-workflow-stage-2">Enter contact info &amp; send</span></li>
+                <li><span class="workflow-stage-badge">3</span><span id="modal-workflow-stage-3">We confirm your slot — 50% deposit required in person</span></li>
+              </ol>
+            </div>
+
+            <div class="intake-notice" id="booking-intake-notice">
+              <p id="modal-intake-primary-copy">No online payment today (50% deposit required in person). Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:</p>
+              <a class="btn btn-outline btn-lg" id="modal-call-cta" href="tel:3185644360">Call (318) 564-4360</a>
+            </div>
           </div>
-          <ol class="workflow-stages-list" id="modal-workflow-stages">
-            <li><span class="workflow-stage-badge">1</span><span id="modal-workflow-stage-1">Pick an open day &amp; time window</span></li>
-            <li><span class="workflow-stage-badge">2</span><span id="modal-workflow-stage-2">Enter contact info &amp; send</span></li>
-            <li><span class="workflow-stage-badge">3</span><span id="modal-workflow-stage-3">We confirm your slot — no online payment needed</span></li>
-          </ol>
         </div>
+      </div>
 
-        <div class="intake-notice" id="booking-intake-notice">
-          <p id="modal-intake-primary-copy">No online payment needed today. Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:</p>
-          <a class="btn btn-outline btn-lg" id="modal-call-cta" href="tel:3185644360">Call (318) 564-4360</a>
+      <div class="modal-sticky-footer" id="modal-sticky-footer" aria-live="polite">
+        <div class="modal-sticky-summary">
+          <div class="modal-sticky-slot" id="modal-sticky-slot">Loading available times...</div>
+          <div class="modal-sticky-meta">
+            <span id="modal-sticky-total-label">Estimated Quote</span>
+            <strong id="modal-sticky-total">$250.00</strong>
+            <span class="modal-sticky-sep" aria-hidden="true">·</span>
+            <span class="modal-sticky-deposit">50% deposit in person</span>
+          </div>
         </div>
+        <button type="button" class="btn btn-green modal-sticky-cta" id="modal-sticky-cta">Continue to Contact</button>
       </div>
     </div>
   </div>

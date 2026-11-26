@@ -282,7 +282,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     const availData = await availRes.json();
     assert.equal(availData.businessHours, 'Mon – Fri · 8:00 AM – 4:30 PM');
     assert.equal(availData.maxAdvanceDate, '2026-12-31');
-    assert.equal(availData.paymentPolicy, 'No Online Payment Required • Weekly-Anchor Estimate Sent to Owner Email');
+    assert.equal(availData.paymentPolicy, '50% Deposit Required In Person (No Online Payment) • Estimate Sent to Owner Email');
     assert.ok(Array.isArray(availData.availableDates));
     assert.ok(availData.availableDates.some(d => d.date === '2026-11-30'));
     assert.ok(availData.availableDates.some(d => d.date === '2026-12-31'));
@@ -604,7 +604,7 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(deep2000Quote.totalEstimatedHours, 5.5);
     assert.equal(deep2000Quote.grandTotal, 416);
 
-    // 8. Valid weekly anchor request recalculates authoritative total ($275 base + $0 weekly surcharge + $65 fridge + $35 pets = $375),
+    // 8. Valid weekly anchor request recalculates authoritative total ($275 base + $0 weekly surcharge + $54.99 fridge + $35 pets = $364.99),
     // sends automated email + .ics invite to smartsprosolutions@gmail.com, and locks the calendar slot!
     const idemKey = 'sps-test-idempotency-key-0001';
     const validRes = await fetch(`${base}/api/estimate-request`, {
@@ -621,11 +621,13 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     const validData = await validRes.json();
     assert.equal(validData.success, true);
     assert.match(validData.referenceCode, /^SPS-[0-9A-F]{10}$/);
-    assert.equal(validData.verifiedEstimate.grandTotal, 375);
+    assert.equal(validData.verifiedEstimate.grandTotal, 364.99);
     assert.equal(validData.verifiedEstimate.basePrice, 275);
     assert.equal(validData.verifiedEstimate.frequencySurcharge, 0);
-    assert.equal(validData.verifiedEstimate.addonsTotal, 100);
+    assert.equal(validData.verifiedEstimate.addonsTotal, 89.99);
     assert.equal(validData.verifiedEstimate.pricingModel, 'WEEKLY_ANCHOR_HYBRID_PRICING');
+    assert.match(validData.message, /50% deposit is required in person/i);
+    assert.doesNotMatch(validData.message, /\bHours?\b/i);
     assert.equal(sentEmails.length, 1);
     assert.equal(sentEmails[0].emailPackage.to, 'smartsprosolutions@gmail.com');
     assert.equal(sentEmails[0].emailPackage.replyTo, 'jose.garcia@example.com');
@@ -638,12 +640,17 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.match(sentEmails[0].emailPackage.icsContent, /DTSTART;TZID=America\/Chicago:20261106T080000/);
     assert.match(sentEmails[0].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261106T110000/);
     assert.match(sentEmails[0].emailPackage.icsContent, /RRULE:FREQ=WEEKLY/);
+    assert.match(sentEmails[0].emailPackage.icsContent, /50% deposit required in person/i);
+    assert.doesNotMatch(sentEmails[0].emailPackage.icsContent, /Est\. Cleaning Time:/);
     assert.match(sentEmails[0].emailPackage.finishEarlyUrl, /\/api\/finish-early\?token=/);
     assert.match(sentEmails[0].emailPackage.textBody, /Est\. Cleaning Time:/);
     assert.match(sentEmails[0].emailPackage.htmlBody, /Finish Early/);
     assert.ok(sentEmails[0].emailPackage.customerConfirmation);
     assert.equal(sentEmails[0].emailPackage.customerConfirmation.to, 'jose.garcia@example.com');
-    assert.match(sentEmails[0].emailPackage.customerConfirmation.htmlBody, /\$375\.00/);
+    assert.match(sentEmails[0].emailPackage.customerConfirmation.htmlBody, /\$364\.99/);
+    assert.match(sentEmails[0].emailPackage.customerConfirmation.htmlBody, /50% deposit is required in person/i);
+    assert.doesNotMatch(sentEmails[0].emailPackage.customerConfirmation.textBody, /Est\. Cleaning Time:/i);
+    assert.doesNotMatch(sentEmails[0].emailPackage.customerConfirmation.htmlBody, /Est\. Cleaning Time:/i);
     assert.doesNotMatch(sentEmails[0].emailPackage.customerConfirmation.textBody, /finish-early/i);
     assert.doesNotMatch(sentEmails[0].emailPackage.customerConfirmation.htmlBody, /Finish Early/i);
 
@@ -721,14 +728,14 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(unverifiedSameEmailOverwriteRes.status, 409);
     assert.equal(unverifiedSameEmailOverwriteRes.body.code, 'SLOT_ALREADY_BOOKED');
 
-    // 11b. Same customer with their signed updateToken can edit their confirmed request to add Specific Areas (+4 hrs = +$200) on top of base Standard Clean ($275) + Fridge ($65) + Pets ($35) = $575
+    // 11b. Same customer with their signed updateToken can edit their confirmed request to add Specific Areas (Level 4 = +$200) on top of base Standard Clean ($275) + Fridge ($54.99) + Pets ($35) = $564.99
     const editedSameCustomerRes = await intakeService.processEstimateRequest({
       rawBody: JSON.stringify({
         ...validPayload,
         quote: {
           ...validPayload.quote,
           scopeMode: 'specific',
-          specificHours: 4, // +4 hrs * $50 = +$200 add-on stacked on top of $275 base + $65 fridge + $35 pets = $575
+          specificHours: 4, // +Level 4 * $50 = +$200 add-on stacked on top of $275 base + $54.99 fridge + $35 pets = $564.99
           specificAreasText: 'Kitchen, living room, and master bath'
         },
         updateToken: validData.updateToken
@@ -741,8 +748,8 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.equal(editedSameCustomerRes.body.verifiedEstimate.basePrice, 275);
     assert.equal(editedSameCustomerRes.body.verifiedEstimate.specificAddonHours, 4);
     assert.equal(editedSameCustomerRes.body.verifiedEstimate.specificAddonPrice, 200);
-    assert.equal(editedSameCustomerRes.body.verifiedEstimate.addonsTotal, 300);
-    assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 575);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.addonsTotal, 289.99);
+    assert.equal(editedSameCustomerRes.body.verifiedEstimate.grandTotal, 564.99);
     const sameCustEditEmail = sentEmails[sentEmails.length - 1].emailPackage;
     assert.match(sameCustEditEmail.htmlBody, /Residential Standard Clean/);
     assert.match(sameCustEditEmail.htmlBody, /4 Bed, 2 Full Bath, 1 Half Bath/);
@@ -909,7 +916,7 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     assert.equal(morningDeepData.appointment.scheduledEndLabel, '11:00 AM');
     assert.match(sentEmails[emailIdxBeforeMorning].emailPackage.icsContent, /DTEND;TZID=America\/Chicago:20261110T110000/);
 
-    // 2b. Edit that booking using updateToken to add a fridge (+0.5h -> 6.0 hrs, $395) keeping SAME Reference ID
+    // 2b. Edit that booking using updateToken to add a fridge (+0.5h -> 6.0 hrs, $384.99) keeping SAME Reference ID
     const morningEditRes = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -923,7 +930,7 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     assert.equal(morningEditData.isUpdated, true);
     assert.equal(morningEditData.updateCount, 1);
     assert.equal(morningEditData.referenceCode, morningDeepData.referenceCode);
-    assert.equal(morningEditData.verifiedEstimate.grandTotal, 395);
+    assert.equal(morningEditData.verifiedEstimate.grandTotal, 384.99);
     assert.equal(morningEditData.verifiedEstimate.totalEstimatedHours, 6);
     assert.equal(morningEditData.appointment.scheduledEndLabel, '11:00 AM');
     const morningEmail = sentEmails[sentEmails.length - 1];
@@ -934,16 +941,16 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     assert.match(morningEmail.emailPackage.htmlBody, /What Was Added \/ Updated/);
     assert.match(morningEmail.emailPackage.htmlBody, /\+ ADDED/);
     assert.match(morningEmail.emailPackage.htmlBody, /Single Fridge Cleaning/);
-    assert.match(morningEmail.emailPackage.htmlBody, /\+1 added \(0x → 1x, \+\$65\.00\)/);
+    assert.match(morningEmail.emailPackage.htmlBody, /\+1 added \(0x → 1x, \+\$54\.99\)/);
     assert.match(morningEmail.emailPackage.icsContent, /UID:/);
     assert.match(morningEmail.emailPackage.icsContent, /SEQUENCE:1/);
     assert.match(morningEmail.emailPackage.icsContent, /SUMMARY:\\\[UPDATED\\\] |SUMMARY:\[UPDATED\] /);
     assert.match(morningEmail.emailPackage.customerConfirmation.subject, /^\[UPDATED APPOINTMENT\] /);
     assert.match(morningEmail.emailPackage.customerConfirmation.htmlBody, /\$330\.00/);
-    assert.match(morningEmail.emailPackage.customerConfirmation.htmlBody, /\$395\.00/);
+    assert.match(morningEmail.emailPackage.customerConfirmation.htmlBody, /\$384\.99/);
     assert.doesNotMatch(morningEmail.emailPackage.customerConfirmation.htmlBody, /Finish Early/i);
 
-    // 2c. Edit #2 on top of Edit #1 (adding an Inside Oven -> $475) STILL keeps exact same Reference ID & succeeds!
+    // 2c. Edit #2 on top of Edit #1 (adding an Inside Oven +$61.88 -> $446.87) STILL keeps exact same Reference ID & succeeds!
     const morningEdit2Res = await fetch(`${base}/api/estimate-request`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -956,13 +963,13 @@ test('fixed calendar time blocks, recurring monthly/weekly blocking, updateToken
     const morningEdit2Data = await morningEdit2Res.json();
     assert.equal(morningEdit2Data.referenceCode, morningDeepData.referenceCode);
     assert.equal(morningEdit2Data.updateCount, 2);
-    assert.equal(morningEdit2Data.verifiedEstimate.grandTotal, 475);
+    assert.equal(morningEdit2Data.verifiedEstimate.grandTotal, 446.87);
     assert.match(sentEmails[sentEmails.length - 1].emailPackage.subject, /^\[UPDATED #2\] /);
     assert.match(sentEmails[sentEmails.length - 1].emailPackage.htmlBody, /Inside Oven Cleaning/);
-    assert.match(sentEmails[sentEmails.length - 1].emailPackage.htmlBody, /\+1 added \(0x → 1x, \+\$80\.00\)/);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.htmlBody, /\+1 added \(0x → 1x, \+\$61\.88\)/);
     assert.match(sentEmails[sentEmails.length - 1].emailPackage.icsContent, /SEQUENCE:2/);
-    assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$395\.00/);
-    assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$475\.00/);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$384\.99/);
+    assert.match(sentEmails[sentEmails.length - 1].emailPackage.customerConfirmation.htmlBody, /\$446\.87/);
 
     // 2d. Locked date & window check: editing updateToken with a different date or time block is rejected (400 APPOINTMENT_TIME_LOCKED)
     const timeChangeAttempt = await fetch(`${base}/api/estimate-request`, {
@@ -1443,7 +1450,7 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     assert.equal(weeklyEdit1Webhook.recurrence.frequency, 'weekly');
     assert.match(weeklyEdit1Webhook.htmlBody, /#16A34A/);
     assert.match(weeklyEdit1Webhook.htmlBody, /\+ ADDED/);
-    assert.match(weeklyEdit1Webhook.htmlBody, /Specific Areas Add-On \(\+\$50\/hr\)/);
+    assert.match(weeklyEdit1Webhook.htmlBody, /Specific Areas Add-On \(Priority Focus\)/);
     assert.match(weeklyEdit1Webhook.htmlBody, /Residential Deep Clean/);
     assert.match(weeklyEdit1Webhook.htmlBody, /3 Bed, 2 Full Bath/);
 
@@ -1467,7 +1474,7 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     assert.equal(weeklyEdit2Res.status, 200);
     assert.equal(weeklyEdit2Res.body.referenceCode, weeklyRef);
     assert.equal(weeklyEdit2Res.body.updateCount, 2);
-    assert.equal(weeklyEdit2Res.body.verifiedEstimate.grandTotal, 510);
+    assert.equal(weeklyEdit2Res.body.verifiedEstimate.grandTotal, 491.88);
     const weeklyEdit2Webhook = webhookCalls[webhookCalls.length - 1];
     assert.equal(weeklyEdit2Webhook.previousFrequency, 'weekly');
     assert.equal(weeklyEdit2Webhook.recurrence.frequency, 'weekly');
@@ -1524,6 +1531,238 @@ test('remote Google Calendar webhook mode keeps same referenceCode across edits,
     globalThis.fetch = originalFetch;
   }
 });
+
+test('extra living room, service details validation/diffs, all 8 Starting From add-ons, and 50% in-person deposit policy work end-to-end', async () => {
+  const fixedNow = new Date('2026-11-04T15:00:00Z');
+  const sentEmails = [];
+  const service = createIntakeService({
+    nowFn: () => fixedNow,
+    includeBaselineSchedule: false,
+    rateLimitMax: 25,
+    finishEarlySecret: 'addons-living-details-secret-32-chars-ok',
+    mailTransport: async (emailPackage, record, referenceCode) => {
+      sentEmails.push({ emailPackage, record, referenceCode });
+      return { delivered: true, provider: 'test-double' };
+    }
+  });
+
+  // 1. Authoritative calculation checks: Extra Living Room (+0.5 hr) + all 8 custom add-ons with clean cent rounding
+  const fullAddonsQuote = calculateAuthoritativeQuote({
+    serviceCategory: 'residential',
+    serviceType: 'standard',
+    propertyType: '',
+    scopeMode: 'full',
+    specificAreasText: '',
+    specificHours: 1,
+    serviceDetails: 'Please wipe baseboards in sunroom and fold spare linens.',
+    bedrooms: 3,
+    fullBaths: 2,
+    halfBaths: 1,
+    extraLivingRooms: 1,
+    sqft: 1800, // 1.5 + 1.5 + 1.0 + 0.25 + 0.5 + 0.8 = 5.55 -> rounds to 5.5 hrs * $50 = $275 base
+    additionalInfo: { hasPets: 'no', lastCleaned: '1-3 Months ago', occupancy: 'Occupied, we live there', condition: 'Average, normal use' },
+    frequency: 'weekly',
+    addons: {
+      fridge: 1, // 54.99
+      fridgeDouble: 1, // 64.99
+      oven: 1, // 61.88
+      laundry: 1, // 48.98
+      organizing: 1, // 29.60
+      dishes: 1, // 24.78
+      windows: 4, // 32.00
+      powerWashWindows: 2, // 50.00
+      pets: 0
+    }
+  });
+  assert.equal(fullAddonsQuote.basePrice, 275);
+  assert.equal(fullAddonsQuote.addonsTotal, 367.22);
+  assert.equal(fullAddonsQuote.grandTotal, 642.22);
+
+  const validBase = {
+    customer: {
+      firstName: 'Nadia',
+      lastName: 'Comaneci',
+      phone: '(318) 555-0131',
+      email: 'nadia@example.com',
+      notes: 'Side door unlocked.'
+    },
+    appointment: {
+      preferredDate: '2026-11-06',
+      preferredWindow: '08:00-11:00'
+    },
+    quote: {
+      serviceCategory: 'residential',
+      serviceType: 'standard',
+      propertyType: '',
+      scopeMode: 'full',
+      specificAreasText: '',
+      specificHours: 1,
+      serviceDetails: 'Focus on living area baseboards and inside pantry shelves.',
+      bedrooms: 3,
+      fullBaths: 2,
+      halfBaths: 1,
+      extraLivingRooms: 1,
+      sqft: 1800,
+      additionalInfo: {
+        hasPets: 'no',
+        lastCleaned: '1-3 Months ago',
+        occupancy: 'Occupied, we live there',
+        condition: 'Average, normal use'
+      },
+      frequency: 'weekly',
+      addons: {
+        fridge: 0,
+        fridgeDouble: 0,
+        oven: 0,
+        laundry: 1,
+        organizing: 1,
+        dishes: 1,
+        windows: 30,
+        powerWashWindows: 0,
+        pets: 0
+      }
+    },
+    companyWebsite: ''
+  };
+
+  // 2. Bounds & security rejections for extraLivingRooms, serviceDetails, and new add-ons
+  const badLivingRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({ ...validBase, quote: { ...validBase.quote, extraLivingRooms: 5 } }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.10'
+  });
+  assert.equal(badLivingRes.status, 400);
+  assert.equal(badLivingRes.body.code, 'INVALID_PROPERTY_BOUNDS');
+
+  const badWindowRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: { ...validBase.quote, addons: { ...validBase.quote.addons, windows: 31 } }
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.11'
+  });
+  assert.equal(badWindowRes.status, 400);
+  assert.equal(badWindowRes.body.code, 'INVALID_ADDON_COUNTS');
+
+  const badLaundryRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: { ...validBase.quote, addons: { ...validBase.quote.addons, laundry: 6 } }
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.12'
+  });
+  assert.equal(badLaundryRes.status, 400);
+  assert.equal(badLaundryRes.body.code, 'INVALID_ADDON_COUNTS');
+
+  const tooLongDetailsRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: { ...validBase.quote, serviceDetails: 'a'.repeat(501) }
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.13'
+  });
+  assert.equal(tooLongDetailsRes.status, 400);
+  assert.equal(tooLongDetailsRes.body.code, 'INVALID_SERVICE_DETAILS');
+
+  const phishingDetailsRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: { ...validBase.quote, serviceDetails: 'Check list at https://evil-site.example/list' }
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.14'
+  });
+  assert.equal(phishingDetailsRes.status, 400);
+  assert.equal(phishingDetailsRes.body.code, 'PHISHING_LINK_REJECTED');
+
+  const cardDetailsRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: { ...validBase.quote, serviceDetails: 'Bill 4532 0151 1283 0366 for extras' }
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.15'
+  });
+  assert.equal(cardDetailsRes.status, 400);
+  assert.equal(cardDetailsRes.body.code, 'SENSITIVE_DATA_REJECTED');
+
+  // 3. Valid submission saves extraLivingRooms, serviceDetails, new add-ons, and includes 50% deposit policy
+  const okRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify(validBase),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.20'
+  });
+  assert.equal(okRes.status, 200);
+  // 275 + 48.98 + 29.60 + 24.78 + (30 * 8 = 240) = 618.36
+  assert.equal(okRes.body.verifiedEstimate.addonsTotal, 343.36);
+  assert.equal(okRes.body.verifiedEstimate.grandTotal, 618.36);
+  assert.match(okRes.body.message, /50% deposit is required in person/i);
+  assert.doesNotMatch(okRes.body.message, /\bHours?\b/i);
+
+  const initialEmail = sentEmails[sentEmails.length - 1].emailPackage;
+  assert.match(initialEmail.textBody, /1 Extra Living Room/);
+  assert.match(initialEmail.textBody, /Focus on living area baseboards and inside pantry shelves/);
+  assert.match(initialEmail.textBody, /50% Deposit Required In Person/);
+  assert.match(initialEmail.customerConfirmation.htmlBody, /Focus on living area baseboards and inside pantry shelves/);
+  assert.match(initialEmail.customerConfirmation.htmlBody, /50% deposit is required in person/i);
+  assert.match(initialEmail.customerConfirmation.htmlBody, /Laundry Load — Wash, dry, and fold \(from \$48\.98\/load\)/);
+  assert.match(initialEmail.customerConfirmation.htmlBody, /Organizing per Area \(from \$29\.60\/area\)/);
+  assert.doesNotMatch(initialEmail.customerConfirmation.htmlBody, /Est\. Cleaning Time:/i);
+  assert.match(initialEmail.icsContent, /50% deposit required in person/i);
+
+  // 4. Editing via updateToken locks extraLivingRooms and prevents downgrading laundry/windows, while allowing additions & serviceDetails edits
+  const downgradeLivingRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: { ...validBase.quote, extraLivingRooms: 0 },
+      updateToken: okRes.body.updateToken
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.20'
+  });
+  assert.equal(downgradeLivingRes.status, 400);
+  assert.equal(downgradeLivingRes.body.code, 'DOWNGRADE_NOT_PERMITTED');
+
+  const downgradeLaundryRes = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: {
+        ...validBase.quote,
+        addons: { ...validBase.quote.addons, laundry: 0 }
+      },
+      updateToken: okRes.body.updateToken
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.20'
+  });
+  assert.equal(downgradeLaundryRes.status, 400);
+  assert.equal(downgradeLaundryRes.body.code, 'DOWNGRADE_NOT_PERMITTED');
+
+  const addPowerWashEdit = await service.processEstimateRequest({
+    rawBody: JSON.stringify({
+      ...validBase,
+      quote: {
+        ...validBase.quote,
+        serviceDetails: 'Focus on living area baseboards, pantry shelves, and patio glass.',
+        addons: { ...validBase.quote.addons, powerWashWindows: 2 }
+      },
+      updateToken: okRes.body.updateToken
+    }),
+    headers: { 'content-type': 'application/json' },
+    clientIp: '10.0.2.20'
+  });
+  assert.equal(addPowerWashEdit.status, 200);
+  assert.equal(addPowerWashEdit.body.verifiedEstimate.grandTotal, 668.36);
+  const editedEmail = sentEmails[sentEmails.length - 1].emailPackage;
+  assert.match(editedEmail.htmlBody, /Power Wash Window Sets/);
+  assert.match(editedEmail.htmlBody, /from \$25\/set/);
+  assert.match(editedEmail.htmlBody, /Details on What Is Needed/);
+  assert.doesNotMatch(editedEmail.customerConfirmation.htmlBody, /Estimated Cleaning Duration/i);
+});
+
 
 test('weekly-anchor hybrid pricing, Commercial-only Overnight Mon-Fri tentative scheduling, midnight-crossing .ics, and daytime vs overnight isolation', async () => {
   // 1. Hybrid pricing formula across $250 residential base, $400 larger residential base, Airbnb turnover, and Commercial overnight

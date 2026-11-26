@@ -109,6 +109,10 @@ export const OVERNIGHT_ARRIVAL_WINDOWS = Object.freeze([
   })
 ]);
 
+function roundMoney(value) {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
 const SERVER_PRICING_CONFIG = Object.freeze({
   minimumJobCharge: 50,
   specificAreas: Object.freeze({
@@ -129,6 +133,7 @@ const SERVER_PRICING_CONFIG = Object.freeze({
     perBedroomHours: 0.5,
     perFullBathHours: 0.5,
     perHalfBathHours: 0.25,
+    perExtraLivingRoomHours: 0.5,
     sqftBaseline: 1000,
     sqftStepSize: 500,
     hoursPerSqftStep: 0.5
@@ -148,9 +153,14 @@ const SERVER_PRICING_CONFIG = Object.freeze({
     overnight: Object.freeze({ flatMin: 85, pct: 0.30 })
   }),
   addons: Object.freeze({
-    fridge: 65,
-    fridgeDouble: 75,
-    oven: 80,
+    fridge: 54.99,
+    fridgeDouble: 64.99,
+    oven: 61.88,
+    laundry: 48.98,
+    organizing: 29.60,
+    dishes: 24.78,
+    windows: 8,
+    powerWashWindows: 25,
     pets: 35
   })
 });
@@ -216,7 +226,7 @@ const SERVICE_DISPLAY_LABELS = Object.freeze({
   deep: 'Residential Deep Clean',
   moveinout: 'Move-In / Move-Out Clean',
   airbnb: 'Airbnb / STR Turnover',
-  specific: 'Specific Areas (Timed Package)',
+  specific: 'Specific Areas (Priority Focus)',
   commercial: 'Commercial & Offices (Walkthrough & Custom Bid)'
 });
 
@@ -885,6 +895,7 @@ export function calculateAuthoritativeQuote(quoteInput) {
     quoteInput.bedrooms * tf.perBedroomHours +
     quoteInput.fullBaths * tf.perFullBathHours +
     quoteInput.halfBaths * tf.perHalfBathHours +
+    (Number(quoteInput.extraLivingRooms) || 0) * tf.perExtraLivingRoomHours +
     sqftHours;
   const serviceMult = cfg.serviceMultipliers[effectiveServiceType] || 1.0;
   const estimatedHours = Math.max(1.0, Math.round(rawHours * serviceMult * 2) / 2);
@@ -898,30 +909,50 @@ export function calculateAuthoritativeQuote(quoteInput) {
   const specificAddonPrice = specificAddonHours * cfg.specificAreas.extraHourRate;
 
   const hasPets = quoteInput.additionalInfo?.hasPets || '';
+  const addons = quoteInput.addons || {};
   const petsAddonCount =
     hasPets === 'no'
       ? 0
       : hasPets === 'yes'
         ? 1
-        : quoteInput.addons.pets > 0
+        : Number(addons.pets) > 0
           ? 1
           : 0;
 
-  const addonsTotal =
-    quoteInput.addons.fridge * cfg.addons.fridge +
-    quoteInput.addons.fridgeDouble * cfg.addons.fridgeDouble +
-    quoteInput.addons.oven * cfg.addons.oven +
-    petsAddonCount * cfg.addons.pets +
-    specificAddonPrice;
+  const fridgeCount = Number(addons.fridge) || 0;
+  const fridgeDoubleCount = Number(addons.fridgeDouble) || 0;
+  const ovenCount = Number(addons.oven) || 0;
+  const laundryCount = Number(addons.laundry) || 0;
+  const organizingCount = Number(addons.organizing) || 0;
+  const dishesCount = Number(addons.dishes) || 0;
+  const windowsCount = Number(addons.windows) || 0;
+  const powerWashWindowsCount = Number(addons.powerWashWindows) || 0;
 
-  const addonHours =
-    (quoteInput.addons.fridge + quoteInput.addons.fridgeDouble + quoteInput.addons.oven) * 0.5 +
+  const addonsTotal = roundMoney(
+    fridgeCount * cfg.addons.fridge +
+    fridgeDoubleCount * cfg.addons.fridgeDouble +
+    ovenCount * cfg.addons.oven +
+    laundryCount * cfg.addons.laundry +
+    organizingCount * cfg.addons.organizing +
+    dishesCount * cfg.addons.dishes +
+    windowsCount * cfg.addons.windows +
+    powerWashWindowsCount * cfg.addons.powerWashWindows +
+    petsAddonCount * cfg.addons.pets +
+    specificAddonPrice
+  );
+
+  const addonHours = Number((
+    (fridgeCount + fridgeDoubleCount + ovenCount + laundryCount + organizingCount) * 0.5 +
+    dishesCount * 0.25 +
+    windowsCount * 0.1 +
+    powerWashWindowsCount * 0.25 +
     petsAddonCount * 0.25 +
-    specificAddonHours;
+    specificAddonHours
+  ).toFixed(2));
   const totalEstimatedHours = Number((estimatedHours + addonHours).toFixed(2));
   const durationMinutes = Math.max(60, Math.round(totalEstimatedHours * 60));
 
-  const grandTotal = basePrice + frequencySurcharge + addonsTotal;
+  const grandTotal = roundMoney(basePrice + frequencySurcharge + addonsTotal);
 
   return Object.freeze({
     pricingRulesVersion: PRICING_RULES_VERSION,
@@ -1101,9 +1132,11 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     'scopeMode',
     'specificAreasText',
     'specificHours',
+    'serviceDetails',
     'bedrooms',
     'fullBaths',
     'halfBaths',
+    'extraLivingRooms',
     'sqft',
     'additionalInfo',
     'frequency',
@@ -1234,14 +1267,22 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   const bedrooms = quote.bedrooms ?? 3;
   const fullBaths = quote.fullBaths ?? 2;
   const halfBaths = quote.halfBaths ?? 1;
+  const extraLivingRooms = quote.extraLivingRooms ?? 0;
   const sqft = quote.sqft ?? 1800;
   const specificHours = quote.specificHours ?? 1;
   const specificAreasText = typeof quote.specificAreasText === 'string' ? quote.specificAreasText.trim() : '';
+  const serviceDetails =
+    quote.serviceDetails === undefined || quote.serviceDetails === null
+      ? ''
+      : typeof quote.serviceDetails === 'string'
+        ? quote.serviceDetails.trim()
+        : null;
 
   if (
     !isIntInRange(bedrooms, 0, 10) ||
     !isIntInRange(fullBaths, 1, 8) ||
     !isIntInRange(halfBaths, 0, 6) ||
+    !isIntInRange(extraLivingRooms, 0, 4) ||
     !isIntInRange(sqft, 400, 6000) ||
     !isIntInRange(specificHours, 1, 6)
   ) {
@@ -1254,6 +1295,27 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
 
   if (serviceCategory !== 'commercial' && scopeMode === 'specific' && specificAreasText.length === 0) {
     return { ok: false, status: 400, code: 'MISSING_SPECIFIC_AREAS', error: 'Please specify which areas you want cleaned.' };
+  }
+
+  if (
+    serviceDetails === null ||
+    serviceDetails.length > 500 ||
+    containsControlChars(serviceDetails, false)
+  ) {
+    return { ok: false, status: 400, code: 'INVALID_SERVICE_DETAILS', error: 'Service details must be plain text under 500 characters.' };
+  }
+
+  if (containsPhishingOrUrlLinks(serviceDetails)) {
+    return {
+      ok: false,
+      status: 400,
+      code: 'PHISHING_LINK_REJECTED',
+      error: 'For security and anti-phishing protection, website links and URLs are not permitted in contact or note fields.'
+    };
+  }
+
+  if (looksLikePaymentCard(serviceDetails)) {
+    return { ok: false, status: 400, code: 'SENSITIVE_DATA_REJECTED', error: 'Please do not include credit card or payment card numbers in your request.' };
   }
 
   // Additional Info validation
@@ -1282,18 +1344,43 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
   }
 
   // Add-ons validation
-  const addons = quote.addons || { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 };
-  const allowedAddonKeys = new Set(['fridge', 'fridgeDouble', 'oven', 'pets']);
-  if (!hasOnlyAllowedKeys(addons, allowedAddonKeys)) {
+  const rawAddons = quote.addons || {};
+  const allowedAddonKeys = new Set([
+    'fridge',
+    'fridgeDouble',
+    'oven',
+    'laundry',
+    'organizing',
+    'dishes',
+    'windows',
+    'powerWashWindows',
+    'pets'
+  ]);
+  if (!hasOnlyAllowedKeys(rawAddons, allowedAddonKeys)) {
     return { ok: false, status: 400, code: 'INVALID_ADDONS', error: 'Custom add-ons contain unrecognized items.' };
   }
+  const fridgeCount = rawAddons.fridge ?? 0;
+  const fridgeDoubleCount = rawAddons.fridgeDouble ?? 0;
+  const ovenCount = rawAddons.oven ?? 0;
+  const laundryCount = rawAddons.laundry ?? 0;
+  const organizingCount = rawAddons.organizing ?? 0;
+  const dishesCount = rawAddons.dishes ?? 0;
+  const windowsCount = rawAddons.windows ?? 0;
+  const powerWashWindowsCount = rawAddons.powerWashWindows ?? 0;
+  const petsCount = rawAddons.pets ?? 0;
+
   if (
-    !isIntInRange(addons.fridge, 0, 5) ||
-    !isIntInRange(addons.fridgeDouble, 0, 5) ||
-    !isIntInRange(addons.oven, 0, 5) ||
-    !isIntInRange(addons.pets, 0, 5)
+    !isIntInRange(fridgeCount, 0, 5) ||
+    !isIntInRange(fridgeDoubleCount, 0, 5) ||
+    !isIntInRange(ovenCount, 0, 5) ||
+    !isIntInRange(laundryCount, 0, 5) ||
+    !isIntInRange(organizingCount, 0, 5) ||
+    !isIntInRange(dishesCount, 0, 5) ||
+    !isIntInRange(windowsCount, 0, 30) ||
+    !isIntInRange(powerWashWindowsCount, 0, 30) ||
+    !isIntInRange(petsCount, 0, 5)
   ) {
-    return { ok: false, status: 400, code: 'INVALID_ADDON_COUNTS', error: 'Add-on quantities must be integers between 0 and 5.' };
+    return { ok: false, status: 400, code: 'INVALID_ADDON_COUNTS', error: 'Add-on quantities must be valid integers within allowed limits.' };
   }
 
   const normalizedQuote = {
@@ -1303,17 +1390,24 @@ export function validateEstimateRequest(payload, { now = new Date() } = {}) {
     scopeMode,
     specificAreasText,
     specificHours,
+    serviceDetails,
     bedrooms,
     fullBaths,
     halfBaths,
+    extraLivingRooms,
     sqft,
     additionalInfo: { hasPets, lastCleaned, occupancy, condition },
     frequency,
     addons: {
-      fridge: addons.fridge,
-      fridgeDouble: addons.fridgeDouble,
-      oven: addons.oven,
-      pets: hasPets === 'no' ? 0 : hasPets === 'yes' ? 1 : addons.pets > 0 ? 1 : 0
+      fridge: fridgeCount,
+      fridgeDouble: fridgeDoubleCount,
+      oven: ovenCount,
+      laundry: laundryCount,
+      organizing: organizingCount,
+      dishes: dishesCount,
+      windows: windowsCount,
+      powerWashWindows: powerWashWindowsCount,
+      pets: hasPets === 'no' ? 0 : hasPets === 'yes' ? 1 : petsCount > 0 ? 1 : 0
     }
   };
 
@@ -1456,14 +1550,18 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
     `Phone: ${customer.phone}`,
     `Email: ${customer.email}`,
     `Service: ${serviceLabel}`,
-    ...(calculation.isSpecificAreas
-      ? [`Specific Areas Add-On: +${specificAddonHours} hr(s) (+$${specificAddonHours * 50}.00) — ${quote.specificAreasText}`]
+    ...(quote.serviceCategory !== 'commercial' && quote.extraLivingRooms > 0
+      ? [`Extra Living Rooms: ${quote.extraLivingRooms}`]
       : []),
+    ...(calculation.isSpecificAreas
+      ? [`Specific Areas Add-On: Level ${specificAddonHours} (+$${(specificAddonHours * 50).toFixed(2)}) — ${quote.specificAreasText}`]
+      : []),
+    ...(quote.serviceDetails ? [`Details Needed: ${quote.serviceDetails}`] : []),
     `Scheduled Window: ${startLabel} – ${endLabel}${endDayOffset > 0 ? ' (Next Morning)' : ''}`,
-    `Est. Cleaning Time: ${formatDurationHours(durationHours)}`,
     `Schedule: ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`,
     ...(scheduleSurcharge > 0 ? [`Schedule Adjustment: +$${scheduleSurcharge.toFixed(2)}`] : []),
     `Estimated Total: $${calculation.grandTotal.toFixed(2)}`,
+    'Payment Policy: 50% deposit required in person (No Online Payment Collected)',
     customer.notes ? `Customer Notes: ${customer.notes}` : 'Customer Notes: None provided'
   ];
 
@@ -1508,6 +1606,7 @@ function buildUpdateTokenSnapshot(validatedRecord) {
   const addInfo = quote.additionalInfo || {};
   const addons = quote.addons || {};
   const notesStr = String(cust.notes || '').trim();
+  const detailsStr = String(quote.serviceDetails || '').trim();
   return {
     cat: quote.serviceCategory || 'residential',
     type: quote.serviceType || 'standard',
@@ -1520,6 +1619,7 @@ function buildUpdateTokenSnapshot(validatedRecord) {
     beds: quote.bedrooms ?? 3,
     fb: quote.fullBaths ?? 2,
     hb: quote.halfBaths ?? 1,
+    lv: quote.extraLivingRooms ?? 0,
     sqft: quote.sqft ?? 1800,
     freq: quote.frequency || 'onetime',
     pets: addInfo.hasPets || 'no',
@@ -1529,9 +1629,15 @@ function buildUpdateTokenSnapshot(validatedRecord) {
     fr: addons.fridge || 0,
     fr2: addons.fridgeDouble || 0,
     ov: addons.oven || 0,
+    ln: addons.laundry || 0,
+    org: addons.organizing || 0,
+    dsh: addons.dishes || 0,
+    win: addons.windows || 0,
+    pww: addons.powerWashWindows || 0,
     hrs: calc.totalEstimatedHours || calc.estimatedHours || 1,
     tot: calc.grandTotal || 0,
     nHash: createHash('sha256').update(notesStr, 'utf8').digest('hex').slice(0, 12),
+    dtHash: createHash('sha256').update(detailsStr, 'utf8').digest('hex').slice(0, 12),
     emH: hashContactIdentityField(cust.email),
     phH: hashContactIdentityField(cust.phone),
     nmH: hashContactIdentityField(cust.fullName)
@@ -1540,12 +1646,12 @@ function buildUpdateTokenSnapshot(validatedRecord) {
 
 function enforceNoDowngradeOnUpdate(verifiedUpdate, record) {
   const prevTotal = Number(verifiedUpdate?.prevTotal);
-  if (Number.isFinite(prevTotal) && record.calculation.grandTotal < prevTotal) {
+  if (Number.isFinite(prevTotal) && roundMoney(record.calculation.grandTotal) < roundMoney(prevTotal)) {
     return {
       ok: false,
       code: 'DOWNGRADE_NOT_PERMITTED',
       message:
-        'Online edits can only add extra items or hours to your confirmed appointment. To remove items or reduce your service scope, please call (318) 564-4360.'
+        'Online edits can only add extra items or Priority Focus levels to your confirmed appointment. To remove items or reduce your service scope, please call (318) 564-4360.'
     };
   }
 
@@ -1567,7 +1673,7 @@ function enforceNoDowngradeOnUpdate(verifiedUpdate, record) {
       ok: false,
       code: 'DOWNGRADE_NOT_PERMITTED',
       message:
-        'Your confirmed base service tier, size, and schedule frequency are locked. You can add appliances, Specific Areas hours, or pet detailing online, or call (318) 564-4360 to change your base service.'
+        'Your confirmed base service tier, size, and schedule frequency are locked. You can add custom add-ons, Specific Areas Priority Focus, or pet detailing online, or call (318) 564-4360 to change your base service.'
     };
   }
 
@@ -1576,26 +1682,32 @@ function enforceNoDowngradeOnUpdate(verifiedUpdate, record) {
       Number(q.bedrooms) !== Number(snap.beds) ||
       Number(q.fullBaths) !== Number(snap.fb) ||
       Number(q.halfBaths) !== Number(snap.hb) ||
+      Number(q.extraLivingRooms || 0) !== Number(snap.lv || 0) ||
       Number(q.sqft) !== Number(snap.sqft)
     ) {
       return {
         ok: false,
         code: 'DOWNGRADE_NOT_PERMITTED',
         message:
-          'Your confirmed home size (bedrooms, bathrooms, and square footage) is locked once booked. You can add appliances, Specific Areas hours (+$50/hr), or pet detailing online, or call (318) 564-4360 to change your base property size.'
+          'Your confirmed home size (bedrooms, bathrooms, extra living rooms, and square footage) is locked once booked. You can add custom add-ons, Specific Areas Priority Focus (+$50/level), or pet detailing online, or call (318) 564-4360 to change your base property size.'
       };
     }
 
     if (
       Number(addons.fridge || 0) < Number(snap.fr || 0) ||
       Number(addons.fridgeDouble || 0) < Number(snap.fr2 || 0) ||
-      Number(addons.oven || 0) < Number(snap.ov || 0)
+      Number(addons.oven || 0) < Number(snap.ov || 0) ||
+      Number(addons.laundry || 0) < Number(snap.ln || 0) ||
+      Number(addons.organizing || 0) < Number(snap.org || 0) ||
+      Number(addons.dishes || 0) < Number(snap.dsh || 0) ||
+      Number(addons.windows || 0) < Number(snap.win || 0) ||
+      Number(addons.powerWashWindows || 0) < Number(snap.pww || 0)
     ) {
       return {
         ok: false,
         code: 'DOWNGRADE_NOT_PERMITTED',
         message:
-          'Already-confirmed appliance add-ons cannot be removed online. You can add additional items online, or call (318) 564-4360 for reductions.'
+          'Already-confirmed custom add-ons cannot be removed online. You can add additional items online, or call (318) 564-4360 for reductions.'
       };
     }
 
@@ -1614,7 +1726,7 @@ function enforceNoDowngradeOnUpdate(verifiedUpdate, record) {
           ok: false,
           code: 'DOWNGRADE_NOT_PERMITTED',
           message:
-            'Confirmed Specific Areas Add-On hours cannot be reduced or removed online. You can add additional hours online, or call (318) 564-4360 for reductions.'
+            'Confirmed Specific Areas Add-On levels cannot be reduced or removed online. You can add additional levels online, or call (318) 564-4360 for reductions.'
         };
       }
     }
@@ -1636,57 +1748,37 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
   const { quote, calculation, customer } = validatedRecord;
   const addons = quote.addons || {};
   const addInfo = quote.additionalInfo || {};
+  const cfgAddons = SERVER_PRICING_CONFIG.addons;
 
-  // 1. Add-ons (ordered: Single Fridge, Double Fridge, Inside Oven, Pets)
-  const prevFr = Number(prevSnap.fr || 0);
-  const curFr = Number(addons.fridge || 0);
-  if (curFr > prevFr) {
-    const added = curFr - prevFr;
-    items.push({
-      badge: 'ADDED',
-      label: 'Single Fridge Cleaning (+$65/ea)',
-      detail: `+${added} added (${prevFr}x → ${curFr}x, +$${added * 65}.00)`
-    });
-  } else if (curFr < prevFr) {
-    items.push({
-      badge: 'UPDATED',
-      label: 'Single Fridge Cleaning',
-      detail: `Adjusted from ${prevFr}x → ${curFr}x`
-    });
-  }
+  const addonMetaList = [
+    { key: 'fridge', snapKey: 'fr', label: 'Single Fridge Cleaning', rateLabel: 'from $54.99/ea', unitPrice: cfgAddons.fridge },
+    { key: 'fridgeDouble', snapKey: 'fr2', label: 'Double Fridge Cleaning', rateLabel: 'from $64.99/ea', unitPrice: cfgAddons.fridgeDouble },
+    { key: 'oven', snapKey: 'ov', label: 'Inside Oven Cleaning', rateLabel: 'from $61.88/ea', unitPrice: cfgAddons.oven },
+    { key: 'laundry', snapKey: 'ln', label: 'Laundry (Wash, dry, and fold)', rateLabel: 'from $48.98/load', unitPrice: cfgAddons.laundry },
+    { key: 'organizing', snapKey: 'org', label: 'Organizing per Area', rateLabel: 'from $29.60/area', unitPrice: cfgAddons.organizing },
+    { key: 'dishes', snapKey: 'dsh', label: 'Dishes Cleaning', rateLabel: 'from $24.78/ea', unitPrice: cfgAddons.dishes },
+    { key: 'windows', snapKey: 'win', label: 'Window Cleaning', rateLabel: 'from $8/ea', unitPrice: cfgAddons.windows },
+    { key: 'powerWashWindows', snapKey: 'pww', label: 'Power Wash Window Sets', rateLabel: 'from $25/set', unitPrice: cfgAddons.powerWashWindows }
+  ];
 
-  const prevFr2 = Number(prevSnap.fr2 || 0);
-  const curFr2 = Number(addons.fridgeDouble || 0);
-  if (curFr2 > prevFr2) {
-    const added = curFr2 - prevFr2;
-    items.push({
-      badge: 'ADDED',
-      label: 'Double Fridge Cleaning (+$75/ea)',
-      detail: `+${added} added (${prevFr2}x → ${curFr2}x, +$${added * 75}.00)`
-    });
-  } else if (curFr2 < prevFr2) {
-    items.push({
-      badge: 'UPDATED',
-      label: 'Double Fridge Cleaning',
-      detail: `Adjusted from ${prevFr2}x → ${curFr2}x`
-    });
-  }
-
-  const prevOv = Number(prevSnap.ov || 0);
-  const curOv = Number(addons.oven || 0);
-  if (curOv > prevOv) {
-    const added = curOv - prevOv;
-    items.push({
-      badge: 'ADDED',
-      label: 'Inside Oven Cleaning (+$80/ea)',
-      detail: `+${added} added (${prevOv}x → ${curOv}x, +$${added * 80}.00)`
-    });
-  } else if (curOv < prevOv) {
-    items.push({
-      badge: 'UPDATED',
-      label: 'Inside Oven Cleaning',
-      detail: `Adjusted from ${prevOv}x → ${curOv}x`
-    });
+  for (const meta of addonMetaList) {
+    const prevVal = Number(prevSnap[meta.snapKey] || 0);
+    const curVal = Number(addons[meta.key] || 0);
+    if (curVal > prevVal) {
+      const added = curVal - prevVal;
+      const addedCost = roundMoney(added * meta.unitPrice).toFixed(2);
+      items.push({
+        badge: 'ADDED',
+        label: `${meta.label} (+${meta.rateLabel})`,
+        detail: `+${added} added (${prevVal}x → ${curVal}x, +$${addedCost})`
+      });
+    } else if (curVal < prevVal) {
+      items.push({
+        badge: 'UPDATED',
+        label: meta.label,
+        detail: `Adjusted from ${prevVal}x → ${curVal}x`
+      });
+    }
   }
 
   const prevPets = prevSnap.pets || 'no';
@@ -1709,24 +1801,24 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
   if (!prevSpecificOn && curSpecificOn) {
     items.push({
       badge: 'ADDED',
-      label: 'Specific Areas Add-On (+$50/hr)',
-      detail: `Added +${curSh} hr(s) (+$${curSh * 50}.00)${curSaTxt ? ` — ${curSaTxt}` : ''}`
+      label: 'Specific Areas Add-On (Priority Focus)',
+      detail: `Added Level ${curSh} (+$${(curSh * 50).toFixed(2)})${curSaTxt ? ` — ${curSaTxt}` : ''}`
     });
   } else if (prevSpecificOn && !curSpecificOn) {
     items.push({
       badge: 'UPDATED',
       label: 'Specific Areas Add-On',
-      detail: `Removed Specific Areas Add-On (${prevSh} hr(s), -$${prevSh * 50}.00)`
+      detail: `Removed Specific Areas Add-On (Level ${prevSh}, -$${(prevSh * 50).toFixed(2)})`
     });
   } else if (prevSpecificOn && curSpecificOn) {
     if (curSh !== prevSh) {
       items.push({
         badge: curSh > prevSh ? 'ADDED' : 'UPDATED',
-        label: curSh > prevSh ? 'Specific Areas Add-On Hours (+$50/hr)' : 'Specific Areas Add-On Hours',
+        label: curSh > prevSh ? 'Specific Areas Priority Focus (+$50/level)' : 'Specific Areas Priority Focus',
         detail:
           curSh > prevSh
-            ? `+${curSh - prevSh} hr(s) added (${prevSh} hrs → ${curSh} hrs, +$${(curSh - prevSh) * 50}.00)`
-            : `Adjusted from ${prevSh} hrs → ${curSh} hrs`
+            ? `+Level ${curSh - prevSh} added (Level ${prevSh} → Level ${curSh}, +$${((curSh - prevSh) * 50).toFixed(2)})`
+            : `Adjusted from Level ${prevSh} → Level ${curSh}`
       });
     }
     if (curSaTxt && curSaTxt !== prevSaTxt) {
@@ -1770,6 +1862,13 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
         detail: `${prevSnap.hb} Half Bath → ${quote.halfBaths} Half Bath`
       });
     }
+    if (Number(prevSnap.lv || 0) !== Number(quote.extraLivingRooms || 0)) {
+      items.push({
+        badge: Number(quote.extraLivingRooms || 0) > Number(prevSnap.lv || 0) ? 'ADDED' : 'UPDATED',
+        label: 'Extra Living Rooms',
+        detail: `${prevSnap.lv || 0} → ${quote.extraLivingRooms || 0}`
+      });
+    }
     if (Number(prevSnap.sqft) !== Number(quote.sqft)) {
       items.push({
         badge: 'UPDATED',
@@ -1809,7 +1908,19 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
     });
   }
 
-  // 5. Customer Notes
+  // 5. Service Details & Customer Notes
+  const curDetailsHash = createHash('sha256')
+    .update(String(quote.serviceDetails || '').trim(), 'utf8')
+    .digest('hex')
+    .slice(0, 12);
+  if (prevSnap.dtHash && curDetailsHash !== prevSnap.dtHash) {
+    items.push({
+      badge: quote.serviceDetails ? 'ADDED' : 'UPDATED',
+      label: 'Details on What Is Needed',
+      detail: quote.serviceDetails ? `"${quote.serviceDetails}"` : 'Service details cleared'
+    });
+  }
+
   const curNotesHash = createHash('sha256')
     .update(String(customer?.notes || '').trim(), 'utf8')
     .digest('hex')
@@ -1822,20 +1933,11 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
     });
   }
 
-  // 6. Cleaning Duration & Price Summary
-  const prevHrs = Number(prevSnap.hrs);
-  const curHrs = Number(calculation.totalEstimatedHours || calculation.estimatedHours);
-  if (Number.isFinite(prevHrs) && prevHrs !== curHrs) {
-    items.push({
-      badge: curHrs > prevHrs ? 'ADDED' : 'UPDATED',
-      label: 'Estimated Cleaning Duration',
-      detail: `${formatDurationHours(prevHrs)} → ${formatDurationHours(curHrs)}`
-    });
-  }
+  // 6. Price Summary
   const prevTot = Number(prevSnap.tot);
   const curTot = Number(calculation.grandTotal);
   if (Number.isFinite(prevTot) && prevTot !== curTot) {
-    const delta = curTot - prevTot;
+    const delta = roundMoney(curTot - prevTot);
     items.push({
       badge: delta > 0 ? 'ADDED' : 'UPDATED',
       label: 'Quote Total Change',
@@ -1883,22 +1985,40 @@ export function buildAutomatedEmailContent(
   const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
   const durationSummary = `${formatDurationHours(durationHours)} (Calendar Time Block: ${appointment.preferredWindowShort})`;
 
+  const extraLivingPart =
+    quote.extraLivingRooms > 0
+      ? `, ${quote.extraLivingRooms} Extra Living Room${quote.extraLivingRooms > 1 ? 's' : ''}`
+      : '';
   const specsLine = isCommercial
     ? isOvernight
       ? 'Commercial Overnight Cleaning Request (Tentative — Call Owner to Confirm)'
       : 'On-Site Facility Walkthrough Requested'
-    : `${quote.bedrooms} Bed, ${quote.fullBaths} Full Bath, ${quote.halfBaths} Half Bath • ${quote.sqft.toLocaleString()} sq ft${quote.propertyType ? ` (${quote.propertyType})` : ''}`;
+    : `${quote.bedrooms} Bed, ${quote.fullBaths} Full Bath, ${quote.halfBaths} Half Bath${extraLivingPart} • ${quote.sqft.toLocaleString()} sq ft${quote.propertyType ? ` (${quote.propertyType})` : ''}`;
 
   const addonParts = [];
-  if (quote.addons.fridge > 0) addonParts.push(`${quote.addons.fridge}x Single Fridge ($65)`);
-  if (quote.addons.fridgeDouble > 0) addonParts.push(`${quote.addons.fridgeDouble}x Double Fridge ($75)`);
-  if (quote.addons.oven > 0) addonParts.push(`${quote.addons.oven}x Inside Oven ($80)`);
+  if (quote.addons.fridge > 0) addonParts.push(`${quote.addons.fridge}x Single Fridge (from $54.99)`);
+  if (quote.addons.fridgeDouble > 0) addonParts.push(`${quote.addons.fridgeDouble}x Double Fridge (from $64.99)`);
+  if (quote.addons.oven > 0) addonParts.push(`${quote.addons.oven}x Inside Oven (from $61.88)`);
+  if (quote.addons.laundry > 0) {
+    addonParts.push(
+      `${quote.addons.laundry}x Laundry Load${quote.addons.laundry > 1 ? 's' : ''} — Wash, dry, and fold (from $48.98/load)`
+    );
+  }
+  if (quote.addons.organizing > 0) {
+    addonParts.push(`${quote.addons.organizing}x Organizing per Area (from $29.60/area)`);
+  }
+  if (quote.addons.dishes > 0) addonParts.push(`${quote.addons.dishes}x Dishes (from $24.78)`);
+  if (quote.addons.windows > 0) addonParts.push(`${quote.addons.windows}x Windows (from $8 ea)`);
+  if (quote.addons.powerWashWindows > 0) {
+    addonParts.push(
+      `${quote.addons.powerWashWindows}x Power Wash Window Set${quote.addons.powerWashWindows > 1 ? 's' : ''} (from $25/set)`
+    );
+  }
   if (calculation.isSpecificAreas) {
     const specHrs = Math.max(1, Number(quote.specificHours) || 1);
     const specCost = specHrs * 50;
-    const hrUnit = specHrs === 1 ? 'hr' : 'hrs';
     addonParts.push(
-      `Specific Areas Add-On (+${specHrs} ${hrUnit} / +$${specCost}.00${quote.specificAreasText ? `: ${quote.specificAreasText}` : ''})`
+      `Specific Areas Add-On (Level ${specHrs} / +$${specCost}.00${quote.specificAreasText ? `: ${quote.specificAreasText}` : ''})`
     );
   }
   if (quote.addons.pets > 0) addonParts.push('Pet Hair & Detailing ($35 flat fee)');
@@ -1968,8 +2088,9 @@ export function buildAutomatedEmailContent(
     `Frequency:           ${freqLabel}`,
     `Schedule Adjustment: ${scheduleSurchargeLine}`,
     `Custom Add-Ons:      ${addonsLine}`,
+    ...(quote.serviceDetails ? [`Details Needed:      ${quote.serviceDetails}`] : []),
     `Est. Cleaning Hrs:   ${formatDurationHours(durationHours)}`,
-    `Estimated Total:     $${calculation.grandTotal.toFixed(2)} (No Online Payment Collected)`,
+    `Estimated Total:     $${calculation.grandTotal.toFixed(2)} (50% Deposit Required In Person • No Online Payment)`,
     ``,
     `4. ADDITIONAL CUSTOMER NOTES`,
     `----------------------------`,
@@ -2095,9 +2216,10 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B;">Frequency:</td><td style="padding: 6px 0;">${escapeHtml(freqLabel)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Schedule Adjustment:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(scheduleSurchargeLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
+          ${quote.serviceDetails ? `<tr><td style="padding: 6px 0; color: #64748B;">Details Needed:</td><td style="padding: 6px 0;">${escapeHtml(quote.serviceDetails)}</td></tr>` : ''}
           <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
           ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Total:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? '<span style="color: #16A34A;">Updated Total:</span>' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(No Online Payment)</span></td></tr>
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? '<span style="color: #16A34A;">Updated Total:</span>' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(50% Deposit Required In Person &bull; No Online Payment)</span></td></tr>
         </table>
 
         <h3 style="margin: 0 0 8px; font-size: 15px; color: #0066CC; text-transform: uppercase;">4. Additional Customer Notes</h3>
@@ -2136,9 +2258,10 @@ export function buildAutomatedEmailContent(
     `Property Scope:      ${specsLine}`,
     `Additional Info:     ${addInfoLine}`,
     `Custom Add-Ons:      ${addonsLine}`,
-    `Est. Cleaning Time:  ${formatDurationHours(durationHours)}`,
+    ...(quote.serviceDetails ? [`Details Needed:      ${quote.serviceDetails}`] : []),
     ...(isUpdated && previousTotal !== null ? [`Previous Total:      $${previousTotal.toFixed(2)}`] : []),
-    `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}     $${calculation.grandTotal.toFixed(2)} (No Online Payment Required)`,
+    `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}     $${calculation.grandTotal.toFixed(2)} (50% Deposit Required In Person • No Online Payment)`,
+    `Deposit Policy:      A 50% deposit is required in person for the service.`,
     ...(customer.notes ? [`Your Notes:          ${customer.notes}`] : []),
     ``,
     isOvernight
@@ -2203,10 +2326,14 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B;">Additional Info:</td><td style="padding: 6px 0;">${escapeHtml(addInfoLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Schedule Adjustment:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(scheduleSurchargeLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
-          <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
+          ${quote.serviceDetails ? `<tr><td style="padding: 6px 0; color: #64748B;">Details Needed:</td><td style="padding: 6px 0;">${escapeHtml(quote.serviceDetails)}</td></tr>` : ''}
           ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Estimate:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? 'Updated Total:' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(No Online Payment)</span></td></tr>
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? 'Updated Total:' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(50% Deposit Required In Person &bull; No Online Payment)</span></td></tr>
         </table>
+
+        <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #1E3A8A;">
+          <strong>Deposit Policy:</strong> A 50% deposit is required in person for the service.
+        </div>
 
         ${customer.notes ? `<div style="background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 8px; padding: 12px 16px; margin-bottom: 18px; font-size: 13px;"><strong>Your Notes:</strong> ${escapeHtml(customer.notes)}</div>` : ''}
 
@@ -2860,7 +2987,7 @@ export function createIntakeService({
       minAdvanceDate,
       maxAdvanceDate,
       maxAdvanceDateFormatted: formatReadableDate(maxAdvanceDate),
-      paymentPolicy: 'No Online Payment Required • Weekly-Anchor Estimate Sent to Owner Email',
+      paymentPolicy: '50% Deposit Required In Person (No Online Payment) • Estimate Sent to Owner Email',
       intakeConfigured: transportConfigured,
       liveCalendarSyncConfigured: Boolean(process.env.EMAIL_WEBHOOK_URL),
       arrivalWindows: ARRIVAL_WINDOWS,
@@ -3414,7 +3541,7 @@ export function createIntakeService({
         ? `Updated appointment receipt (#${record.updateCount || 1}, Ref: ${referenceCode}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) schedule have been emailed to Smarts Pro Solutions and your email address.`
         : isOvernightBooking
           ? `Your tentative Commercial Overnight Request (${record.appointment.preferredDateFormatted}, ${record.appointment.preferredWindowShort}) has been emailed to Smarts Pro Solutions and your email address. Please call (318) 564-4360 to coordinate overnight access and finalize confirmation.`
-          : `Your estimate (${formatDurationHours(record.calculation.totalEstimatedHours)}) and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions and your email address.`,
+          : `Your estimate and ${record.appointment.preferredDateFormatted} (${record.appointment.preferredWindowShort}) appointment request have been emailed to Smarts Pro Solutions and your email address. A 50% deposit is required in person.`,
       verifiedEstimate: verifiedEstimateSummary,
       appointment: appointmentSummary,
       icsContent: emailPackage.icsContent,

@@ -107,10 +107,12 @@
         propertyType: String(q.propertyType || ''),
         scopeMode: String(q.scopeMode || 'full'),
         specificAreasText: String(q.specificAreasText || ''),
+        serviceDetails: String(q.serviceDetails || ''),
         specificHours: Number(q.specificHours) || 1,
         bedrooms: Number(q.bedrooms) || 3,
         fullBaths: Number(q.fullBaths) || 2,
         halfBaths: Number(q.halfBaths) || 0,
+        extraLivingRooms: Number(q.extraLivingRooms) || 0,
         sqft: Number(q.sqft) || 1800,
         additionalInfo: {
           hasPets: String(addInfo.hasPets || ''),
@@ -123,6 +125,11 @@
           fridge: Number(addons.fridge) || 0,
           fridgeDouble: Number(addons.fridgeDouble) || 0,
           oven: Number(addons.oven) || 0,
+          laundry: Number(addons.laundry) || 0,
+          organizing: Number(addons.organizing) || 0,
+          dishes: Number(addons.dishes) || 0,
+          windows: Number(addons.windows) || 0,
+          powerWashWindows: Number(addons.powerWashWindows) || 0,
           pets: Number(addons.pets) || 0
         }
       },
@@ -268,7 +275,7 @@
       summary: 'When you complete your estimate, choose an open cleaning window and enter your contact details & notes. Your full estimate and appointment request are emailed directly to Smarts Pro Solutions.',
       calendarAction: 'Select Cleaning Date & Arrival Window (Shows Upcoming Bookings)',
       ownerAlertAction: 'Automated Email to Business Owner (First & Last Name, Phone, Email, Notes & Estimate)',
-      paymentAction: 'No Online Payment Required — Flat-Rate Estimate Reviewed by Owner',
+      paymentAction: 'No Online Payment Today — 50% Deposit Required In Person',
       stages: Object.freeze([
         Object.freeze({
           title: '1. Check Upcoming Bookings & Pick a Window',

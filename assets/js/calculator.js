@@ -35,6 +35,7 @@
       perBedroomHours: 0.5,
       perFullBathHours: 0.5,
       perHalfBathHours: 0.25,
+      perExtraLivingRoomHours: 0.5,
       sqftBaseline: 1000,
       sqftStepSize: 500,
       hoursPerSqftStep: 0.5
@@ -54,14 +55,23 @@
       overnight: { flatMin: 85, pct: 0.30 }
     },
     addons: {
-      fridge: 65,
-      fridgeDouble: 75,
-      oven: 80,
+      fridge: 54.99,
+      fridgeDouble: 64.99,
+      oven: 61.88,
+      laundry: 48.98,
+      organizing: 29.60,
+      dishes: 24.78,
+      windows: 8,
+      powerWashWindows: 25,
       pets: 35
     },
     recurringDiscountsEnabled: false,
     onlinePaymentsEnabled: false
   };
+
+  function roundMoney(val) {
+    return Math.round((Number(val) || 0) * 100) / 100;
+  }
 
   function calcFrequencySurcharge(basePrice, freq) {
     const rule = PRICING_CONFIG.scheduleSurcharges[freq];
@@ -78,7 +88,7 @@
       title: 'Compare Cleaning Categories',
       desc: 'Pick a card above to view what is included and unlock the next step.',
       items: [
-        'Residential: Kitchens, baths, floors & dusting (Standard, Deep, or +$50/hr Specific Areas)',
+        'Residential: Kitchens, baths, floors & dusting (Standard, Deep, or Specific Areas add-on)',
         'Commercial: Lobbies, desks, restrooms, breakrooms & custom schedule',
         'Move-In / Out: Inside empty cabinets, closets, baseboards & lease prep',
         'Airbnb / STR: Linen reset, kitchen & bath sanitize, restock check'
@@ -86,13 +96,13 @@
     },
     residential: {
       kicker: 'RESIDENTIAL HOMES',
-      title: 'Whole-Home Care (Standard · Deep · +$50/hr Specific Areas)',
+      title: 'Whole-Home Care (Standard · Deep · Specific Areas)',
       desc: 'Tailored cleaning for houses and apartments across Shreveport & Bossier City.',
       items: [
         'Kitchens: Counters, sink, stovetop degrease, microwave & cabinet fronts',
         'Bathrooms: Showers, tubs, toilets, mirrors & fixtures sanitized',
         'Living & Bedrooms: Fans, sills, baseboards, dusting & floor care',
-        'Flexible Options: Standard, Deep Clean, or +$50/hr Specific Areas'
+        'Flexible Options: Standard, Deep Clean, or Specific Areas add-on'
       ]
     },
     commercial: {
@@ -142,10 +152,12 @@
     propertyType: '', // 'House' | 'Apartment' | 'Condo' | 'Townhome'
     scopeMode: 'full', // 'full' | 'specific'
     specificAreasText: '',
+    serviceDetails: '',
     specificHours: 1,
     bedrooms: 3,
     fullBaths: 2,
     halfBaths: 1,
+    extraLivingRooms: 0,
     sqft: 1800,
     serviceType: 'standard', // 'standard' | 'deep' | 'moveinout' | 'airbnb'
     additionalInfo: {
@@ -159,6 +171,11 @@
       fridge: 0,
       fridgeDouble: 0,
       oven: 0,
+      laundry: 0,
+      organizing: 0,
+      dishes: 0,
+      windows: 0,
+      powerWashWindows: 0,
       pets: 0
     }
   };
@@ -239,6 +256,10 @@
     btnHalfBathMinus: document.getElementById('btn-halfbath-minus'),
     btnHalfBathPlus: document.getElementById('btn-halfbath-plus'),
 
+    valLivingRooms: document.getElementById('val-livingrooms'),
+    btnLivingMinus: document.getElementById('btn-living-minus'),
+    btnLivingPlus: document.getElementById('btn-living-plus'),
+
     // Square Footage
     sliderSqft: document.getElementById('slider-sqft'),
     inputSqft: document.getElementById('input-sqft'),
@@ -264,7 +285,9 @@
     freqTurnoverTitle: document.getElementById('freq-turnover-title'),
     freqTurnoverSub: document.getElementById('freq-turnover-sub'),
 
-    // Step 5: Add-Ons
+    // Step 5: Add-Ons & Service Details
+    inputServiceDetails: document.getElementById('input-service-details'),
+
     valFridge: document.getElementById('val-addon-fridge'),
     btnFridgeMinus: document.getElementById('btn-fridge-minus'),
     btnFridgePlus: document.getElementById('btn-fridge-plus'),
@@ -279,6 +302,31 @@
     btnOvenMinus: document.getElementById('btn-oven-minus'),
     btnOvenPlus: document.getElementById('btn-oven-plus'),
     cardOven: document.getElementById('addon-item-oven'),
+
+    valLaundry: document.getElementById('val-addon-laundry'),
+    btnLaundryMinus: document.getElementById('btn-laundry-minus'),
+    btnLaundryPlus: document.getElementById('btn-laundry-plus'),
+    cardLaundry: document.getElementById('addon-item-laundry'),
+
+    valOrganizing: document.getElementById('val-addon-organizing'),
+    btnOrganizingMinus: document.getElementById('btn-organizing-minus'),
+    btnOrganizingPlus: document.getElementById('btn-organizing-plus'),
+    cardOrganizing: document.getElementById('addon-item-organizing'),
+
+    valDishes: document.getElementById('val-addon-dishes'),
+    btnDishesMinus: document.getElementById('btn-dishes-minus'),
+    btnDishesPlus: document.getElementById('btn-dishes-plus'),
+    cardDishes: document.getElementById('addon-item-dishes'),
+
+    valWindows: document.getElementById('val-addon-windows'),
+    btnWindowsMinus: document.getElementById('btn-windows-minus'),
+    btnWindowsPlus: document.getElementById('btn-windows-plus'),
+    cardWindows: document.getElementById('addon-item-windows'),
+
+    valPowerWash: document.getElementById('val-addon-powerwash'),
+    btnPowerWashMinus: document.getElementById('btn-powerwash-minus'),
+    btnPowerWashPlus: document.getElementById('btn-powerwash-plus'),
+    cardPowerWash: document.getElementById('addon-item-powerwash'),
 
     // Summary Output Elements
     quoteTotalAmount: document.getElementById('quote-total-amount'),
@@ -521,6 +569,7 @@
       state.bedrooms * tf.perBedroomHours +
       state.fullBaths * tf.perFullBathHours +
       state.halfBaths * tf.perHalfBathHours +
+      state.extraLivingRooms * tf.perExtraLivingRoomHours +
       sqftHours;
 
     const serviceMult = cfg.serviceMultipliers[state.serviceType] || 1.0;
@@ -532,7 +581,7 @@
     const safeFrequency = state.frequency === 'overnight' ? 'weekly' : state.frequency;
     const frequencySurcharge = calcFrequencySurcharge(basePrice, safeFrequency);
 
-    // Specific Areas Add-On adds 1 to 6 hours at $50/hr on top of base service
+    // Specific Areas Add-On stacks +$50 per focus level (1-6) on top of base service
     const specificAddonHours = isSpecificAreas
       ? Math.min(
           cfg.specificAreas.maxHours,
@@ -541,18 +590,31 @@
       : 0;
     const specificAddonPrice = specificAddonHours * cfg.specificAreas.extraHourRate;
 
-    // Add-ons total
-    const addonsTotal =
+    // Add-ons total (Starting from rates, rounded cleanly to cents)
+    const addonsTotal = roundMoney(
       state.addons.fridge * cfg.addons.fridge +
       state.addons.fridgeDouble * cfg.addons.fridgeDouble +
       state.addons.oven * cfg.addons.oven +
+      state.addons.laundry * cfg.addons.laundry +
+      state.addons.organizing * cfg.addons.organizing +
+      state.addons.dishes * cfg.addons.dishes +
+      state.addons.windows * cfg.addons.windows +
+      state.addons.powerWashWindows * cfg.addons.powerWashWindows +
       state.addons.pets * cfg.addons.pets +
-      specificAddonPrice;
+      specificAddonPrice
+    );
 
-    const grandTotal = basePrice + frequencySurcharge + addonsTotal;
+    const grandTotal = roundMoney(basePrice + frequencySurcharge + addonsTotal);
 
     const addonHours =
-      (state.addons.fridge + state.addons.fridgeDouble + state.addons.oven) * 0.5 +
+      (state.addons.fridge +
+        state.addons.fridgeDouble +
+        state.addons.oven +
+        state.addons.laundry +
+        state.addons.organizing) * 0.5 +
+      state.addons.dishes * 0.25 +
+      state.addons.windows * 0.1 +
+      state.addons.powerWashWindows * 0.25 +
       state.addons.pets * 0.25 +
       specificAddonHours;
     const totalHours = estimatedHours + addonHours;
@@ -909,6 +971,10 @@
     if (els.btnHalfBathMinus) els.btnHalfBathMinus.disabled = state.halfBaths <= 0;
     if (els.btnHalfBathPlus) els.btnHalfBathPlus.disabled = state.halfBaths >= 4;
 
+    if (els.valLivingRooms) els.valLivingRooms.textContent = state.extraLivingRooms;
+    if (els.btnLivingMinus) els.btnLivingMinus.disabled = state.extraLivingRooms <= 0;
+    if (els.btnLivingPlus) els.btnLivingPlus.disabled = state.extraLivingRooms >= 4;
+
     if (els.sliderSqft && document.activeElement !== els.sliderSqft) {
       els.sliderSqft.value = state.sqft;
     }
@@ -946,14 +1012,18 @@
     if (els.freqBadgeOnetime) els.freqBadgeOnetime.textContent = `+$${onetimeExtra}`;
     if (els.freqBadgeOvernight) els.freqBadgeOvernight.textContent = `+$${overnightExtra} · Special`;
 
-    // 5. Update Step 5 Add-on Quantities & Pet Lock State
+    // 5. Update Step 5 Add-on Quantities
     if (els.valFridge) els.valFridge.textContent = state.addons.fridge;
     if (els.btnFridgeMinus) els.btnFridgeMinus.disabled = state.addons.fridge <= 0;
+    if (els.btnFridgePlus) els.btnFridgePlus.disabled = state.addons.fridge >= 5;
     if (els.cardFridge) els.cardFridge.classList.toggle('has-quantity', state.addons.fridge > 0);
 
     if (els.valFridgeDouble) els.valFridgeDouble.textContent = state.addons.fridgeDouble;
     if (els.btnFridgeDoubleMinus) {
       els.btnFridgeDoubleMinus.disabled = state.addons.fridgeDouble <= 0;
+    }
+    if (els.btnFridgeDoublePlus) {
+      els.btnFridgeDoublePlus.disabled = state.addons.fridgeDouble >= 5;
     }
     if (els.cardFridgeDouble) {
       els.cardFridgeDouble.classList.toggle('has-quantity', state.addons.fridgeDouble > 0);
@@ -961,7 +1031,37 @@
 
     if (els.valOven) els.valOven.textContent = state.addons.oven;
     if (els.btnOvenMinus) els.btnOvenMinus.disabled = state.addons.oven <= 0;
+    if (els.btnOvenPlus) els.btnOvenPlus.disabled = state.addons.oven >= 5;
     if (els.cardOven) els.cardOven.classList.toggle('has-quantity', state.addons.oven > 0);
+
+    if (els.valLaundry) els.valLaundry.textContent = state.addons.laundry;
+    if (els.btnLaundryMinus) els.btnLaundryMinus.disabled = state.addons.laundry <= 0;
+    if (els.btnLaundryPlus) els.btnLaundryPlus.disabled = state.addons.laundry >= 5;
+    if (els.cardLaundry) els.cardLaundry.classList.toggle('has-quantity', state.addons.laundry > 0);
+
+    if (els.valOrganizing) els.valOrganizing.textContent = state.addons.organizing;
+    if (els.btnOrganizingMinus) els.btnOrganizingMinus.disabled = state.addons.organizing <= 0;
+    if (els.btnOrganizingPlus) els.btnOrganizingPlus.disabled = state.addons.organizing >= 5;
+    if (els.cardOrganizing) els.cardOrganizing.classList.toggle('has-quantity', state.addons.organizing > 0);
+
+    if (els.valDishes) els.valDishes.textContent = state.addons.dishes;
+    if (els.btnDishesMinus) els.btnDishesMinus.disabled = state.addons.dishes <= 0;
+    if (els.btnDishesPlus) els.btnDishesPlus.disabled = state.addons.dishes >= 5;
+    if (els.cardDishes) els.cardDishes.classList.toggle('has-quantity', state.addons.dishes > 0);
+
+    if (els.valWindows) els.valWindows.textContent = state.addons.windows;
+    if (els.btnWindowsMinus) els.btnWindowsMinus.disabled = state.addons.windows <= 0;
+    if (els.btnWindowsPlus) els.btnWindowsPlus.disabled = state.addons.windows >= 30;
+    if (els.cardWindows) els.cardWindows.classList.toggle('has-quantity', state.addons.windows > 0);
+
+    if (els.valPowerWash) els.valPowerWash.textContent = state.addons.powerWashWindows;
+    if (els.btnPowerWashMinus) els.btnPowerWashMinus.disabled = state.addons.powerWashWindows <= 0;
+    if (els.btnPowerWashPlus) els.btnPowerWashPlus.disabled = state.addons.powerWashWindows >= 30;
+    if (els.cardPowerWash) els.cardPowerWash.classList.toggle('has-quantity', state.addons.powerWashWindows > 0);
+
+    if (els.inputServiceDetails && document.activeElement !== els.inputServiceDetails) {
+      els.inputServiceDetails.value = state.serviceDetails;
+    }
 
     // 6. Update Summary Card Outputs
     if (els.quoteTotalAmount) {
@@ -1008,10 +1108,10 @@
       if (isCommercial) {
         els.quoteMinimumNoteText.textContent =
           state.frequency === 'overnight'
-            ? 'Tentative Overnight · Call (318) 564-4360'
-            : 'Walkthrough confirms final scope';
+            ? 'Tentative Overnight · 50% Deposit In Person'
+            : 'Walkthrough Confirms · 50% Deposit In Person';
       } else {
-        els.quoteMinimumNoteText.textContent = 'No Online Payment Required';
+        els.quoteMinimumNoteText.textContent = 'No Online Payment · 50% Deposit In Person';
       }
     }
 
@@ -1053,7 +1153,11 @@
           state.halfBaths > 0
             ? `${state.fullBaths} Full, ${state.halfBaths} Half`
             : `${state.fullBaths} Full Bath`;
-        els.summaryBaseRate.textContent = `${state.bedrooms} Bed, ${bathText} • ${state.sqft.toLocaleString()} sq ft`;
+        const livingText =
+          state.extraLivingRooms > 0
+            ? `, ${state.extraLivingRooms} Extra Living`
+            : '';
+        els.summaryBaseRate.textContent = `${state.bedrooms} Bed, ${bathText}${livingText} • ${state.sqft.toLocaleString()} sq ft`;
       }
     }
 
@@ -1061,11 +1165,10 @@
       if (isSpecific) {
         els.summarySpecificAreasRow.classList.remove('is-hidden');
         const cleanedText = state.specificAreasText.trim();
-        const hrUnit = calc.specificAddonHours === 1 ? 'hr' : 'hrs';
         els.summarySpecificAreasVal.textContent =
           cleanedText.length > 0
-            ? `+${calc.specificAddonHours} ${hrUnit} (+$${calc.specificAddonPrice}): ${cleanedText}`
-            : `+${calc.specificAddonHours} ${hrUnit} (+$${calc.specificAddonPrice}) — Describe in Step 5`;
+            ? `Level ${calc.specificAddonHours} (+$${calc.specificAddonPrice}): ${cleanedText}`
+            : `Level ${calc.specificAddonHours} (+$${calc.specificAddonPrice}) — Describe in Step 5`;
       } else {
         els.summarySpecificAreasRow.classList.add('is-hidden');
       }
@@ -1106,7 +1209,7 @@
     }
 
     if (els.summaryOnlinePaymentVal) {
-      els.summaryOnlinePaymentVal.textContent = 'None Required';
+      els.summaryOnlinePaymentVal.textContent = '50% In Person';
     }
 
     if (els.btnBookQuoteLabel) {
@@ -1343,6 +1446,30 @@
       });
     }
 
+    // Extra Living Rooms
+    if (els.btnLivingMinus) {
+      els.btnLivingMinus.addEventListener('click', () => {
+        if (state.extraLivingRooms > 0) {
+          state.extraLivingRooms--;
+          state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
+          updateUI();
+        }
+      });
+    }
+    if (els.btnLivingPlus) {
+      els.btnLivingPlus.addEventListener('click', () => {
+        if (state.extraLivingRooms < 4) {
+          state.extraLivingRooms++;
+          state.step2ResidentialFulfilled = true;
+          state.step2AirbnbConfirmed = true;
+          clearValidationErrors();
+          updateUI();
+        }
+      });
+    }
+
     // Sqft Slider
     if (els.sliderSqft) {
       els.sliderSqft.addEventListener('input', (e) => {
@@ -1477,6 +1604,38 @@
       });
     }
 
+    const bindStepper = (minusBtn, plusBtn, key, maxVal) => {
+      if (minusBtn) {
+        minusBtn.addEventListener('click', () => {
+          if (state.addons[key] > 0) {
+            state.addons[key]--;
+            updateUI();
+          }
+        });
+      }
+      if (plusBtn) {
+        plusBtn.addEventListener('click', () => {
+          if (state.addons[key] < maxVal) {
+            state.addons[key]++;
+            updateUI();
+          }
+        });
+      }
+    };
+
+    bindStepper(els.btnLaundryMinus, els.btnLaundryPlus, 'laundry', 5);
+    bindStepper(els.btnOrganizingMinus, els.btnOrganizingPlus, 'organizing', 5);
+    bindStepper(els.btnDishesMinus, els.btnDishesPlus, 'dishes', 5);
+    bindStepper(els.btnWindowsMinus, els.btnWindowsPlus, 'windows', 30);
+    bindStepper(els.btnPowerWashMinus, els.btnPowerWashPlus, 'powerWashWindows', 30);
+
+    if (els.inputServiceDetails) {
+      els.inputServiceDetails.addEventListener('input', (e) => {
+        state.serviceDetails = String(e.target.value || '').slice(0, 500);
+        updateUI();
+      });
+    }
+
     // Print Quote
     if (els.btnPrintQuote) {
       els.btnPrintQuote.addEventListener('click', () => {
@@ -1497,10 +1656,12 @@
         state.propertyType = '';
         state.scopeMode = 'full';
         state.specificAreasText = '';
+        state.serviceDetails = '';
         state.specificHours = 1;
         state.bedrooms = 3;
         state.fullBaths = 2;
         state.halfBaths = 1;
+        state.extraLivingRooms = 0;
         state.sqft = 1800;
         state.serviceType = 'standard';
         state.additionalInfo = {
@@ -1510,8 +1671,19 @@
           condition: ''
         };
         state.frequency = 'weekly';
-        state.addons = { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 };
+        state.addons = {
+          fridge: 0,
+          fridgeDouble: 0,
+          oven: 0,
+          laundry: 0,
+          organizing: 0,
+          dishes: 0,
+          windows: 0,
+          powerWashWindows: 0,
+          pets: 0
+        };
         if (els.inputSpecificAreas) els.inputSpecificAreas.value = '';
+        if (els.inputServiceDetails) els.inputServiceDetails.value = '';
         clearValidationErrors();
         updateUI();
       });
@@ -1613,6 +1785,21 @@
       }
     }
 
+    if (typeof patch.serviceDetails === 'string') {
+      state.serviceDetails = patch.serviceDetails.slice(0, 500);
+      if (els.inputServiceDetails) {
+        els.inputServiceDetails.value = state.serviceDetails;
+      }
+    }
+
+    if (patch.extraLivingRooms !== undefined) {
+      const lv = parseInt(patch.extraLivingRooms, 10);
+      if (!Number.isNaN(lv)) {
+        state.extraLivingRooms = Math.min(4, Math.max(0, lv));
+        state.step2ResidentialFulfilled = true;
+      }
+    }
+
     if (patch.halfBaths !== undefined) {
       const hb = parseInt(patch.halfBaths, 10);
       if (!Number.isNaN(hb)) {
@@ -1649,18 +1836,24 @@
     }
 
     if (patch.addons && typeof patch.addons === 'object') {
-      if (patch.addons.fridge !== undefined) {
-        const f = parseInt(patch.addons.fridge, 10);
-        if (!Number.isNaN(f)) state.addons.fridge = Math.min(5, Math.max(0, f));
-      }
-      if (patch.addons.fridgeDouble !== undefined) {
-        const fd = parseInt(patch.addons.fridgeDouble, 10);
-        if (!Number.isNaN(fd)) state.addons.fridgeDouble = Math.min(5, Math.max(0, fd));
-      }
-      if (patch.addons.oven !== undefined) {
-        const ov = parseInt(patch.addons.oven, 10);
-        if (!Number.isNaN(ov)) state.addons.oven = Math.min(5, Math.max(0, ov));
-      }
+      const addonLimits = {
+        fridge: 5,
+        fridgeDouble: 5,
+        oven: 5,
+        laundry: 5,
+        organizing: 5,
+        dishes: 5,
+        windows: 30,
+        powerWashWindows: 30
+      };
+      Object.entries(addonLimits).forEach(([addonKey, maxQty]) => {
+        if (patch.addons[addonKey] !== undefined) {
+          const qty = parseInt(patch.addons[addonKey], 10);
+          if (!Number.isNaN(qty)) {
+            state.addons[addonKey] = Math.min(maxQty, Math.max(0, qty));
+          }
+        }
+      });
     }
 
     updateUI();

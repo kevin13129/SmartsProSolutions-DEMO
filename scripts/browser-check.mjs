@@ -142,6 +142,14 @@ try {
   await evaluate('document.getElementById("btn-bed-plus").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 275);
 
+  // Extra Living Room stepper in Step 2 (0 -> 1 adds 0.5h and increases Standard Clean from $275 to $300, then revert to 0)
+  await evaluate('document.getElementById("btn-living-plus").click()');
+  assert.equal(await evaluate('document.getElementById("val-livingrooms").textContent'), '1');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 300);
+  await evaluate('document.getElementById("btn-living-minus").click()');
+  assert.equal(await evaluate('document.getElementById("val-livingrooms").textContent'), '0');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 275);
+
   // Advance to Step 3 (Additional Information) and verify mandatory 4-question validation
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 3);
@@ -184,10 +192,11 @@ try {
     assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.onlinePaymentsEnabled'), false);
   }
 
+  // Single Fridge Starting from $54.99 (275 + 54.99 = 329.99)
   await evaluate('document.getElementById("btn-fridge-plus").click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 340);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 329.99);
   assert.equal(await evaluate('document.getElementById("summary-dispatch-val").textContent'), 'Calendar Slot + Email');
-  assert.equal(await evaluate('document.getElementById("summary-online-payment-val").textContent'), 'None Required');
+  assert.equal(await evaluate('document.getElementById("summary-online-payment-val").textContent'), '50% In Person');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.onlinePaymentEnabled'), false);
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.paymentPolicy'), 'NO_ONLINE_PAYMENT_REQUIRED');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.pricingModel'), 'WEEKLY_ANCHOR_HYBRID_PRICING');
@@ -199,18 +208,46 @@ try {
   assert.equal(await evaluate('!!document.querySelector("#calc-step-5 #btn-scope-specific")'), true);
   assert.equal(await evaluate('!!document.querySelector("#calc-step-5 #scope-panel-specific")'), true);
 
-  // Advance to Step 5, toggle Specific Areas Add-On (+1 hr / +$50 on top of $275 base + $65 fridge = $390), validate required text, then toggle off ($340)
+  // Advance to Step 5, check zero hours wording, test new add-ons + service details input, and Specific Areas toggle
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 5);
+  assert.doesNotMatch(await evaluate('document.getElementById("calc-step-5").textContent'), /\/hr|\bHours?\b/i);
+  assert.match(await evaluate('document.getElementById("step5-deposit-note").textContent'), /50% deposit/i);
+
+  // Verify updated Step 5 add-on titles & unit descriptions, then test Laundry ($48.98/load), Organizing per Area ($29.60/area), Dishes ($24.78), Windows ($8), Power Wash Window Sets ($25/set)
+  assert.match(await evaluate('document.getElementById("addon-item-laundry").textContent'), /Starting from \$48\.98 per load/);
+  assert.match(await evaluate('document.getElementById("addon-item-laundry").textContent'), /Wash, dry, and fold/);
+  assert.match(await evaluate('document.getElementById("addon-item-organizing").textContent'), /Organizing per Area/);
+  assert.match(await evaluate('document.getElementById("addon-item-organizing").textContent'), /Starting from \$29\.60 per area/);
+  assert.match(await evaluate('document.getElementById("addon-item-powerwash").textContent'), /Power Wash Window Sets/);
+  assert.match(await evaluate('document.getElementById("addon-item-powerwash").textContent'), /Starting from \$25 per set/);
+  await evaluate('document.getElementById("btn-laundry-plus").click()');
+  await evaluate('document.getElementById("btn-organizing-plus").click()');
+  await evaluate('document.getElementById("btn-dishes-plus").click()');
+  await evaluate('document.getElementById("btn-windows-plus").click()');
+  await evaluate('document.getElementById("btn-powerwash-plus").click()');
+  // 329.99 + 48.98 + 29.60 + 24.78 + 8 + 25 = 466.35
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 466.35);
+  await evaluate('document.getElementById("btn-laundry-minus").click()');
+  await evaluate('document.getElementById("btn-organizing-minus").click()');
+  await evaluate('document.getElementById("btn-dishes-minus").click()');
+  await evaluate('document.getElementById("btn-windows-minus").click()');
+  await evaluate('document.getElementById("btn-powerwash-minus").click()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 329.99);
+
+  // Test Details on what you may need done input box
+  await evaluate('(() => { const d = document.getElementById("input-service-details"); d.value = "Inside kitchen pantry shelves"; d.dispatchEvent(new Event("input")); })()');
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.state.serviceDetails'), 'Inside kitchen pantry shelves');
+
   await evaluate('document.getElementById("btn-scope-specific").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.scopeMode'), 'specific');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 390);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 379.99);
   assert.equal(await evaluate('document.getElementById("summary-service-type").textContent'), 'Standard Clean');
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('document.getElementById("specific-areas-input-group").classList.contains("wizard-field-missing")'), true);
   await evaluate('document.getElementById("btn-scope-specific").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.scopeMode'), 'full');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 340);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 329.99);
 
   for (const [input, expected] of [['-100', 400], ['999999', 6000], ['', 400], ['1800', 1800]]) {
     await evaluate(`(() => { const field = document.getElementById('input-sqft'); field.value = ${JSON.stringify(input)}; field.dispatchEvent(new Event('input')); })()`);
@@ -219,11 +256,46 @@ try {
   await evaluate('document.getElementById("btn-book-quote-now").click()');
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
-  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$340.00');
-  assert.match(await evaluate('document.getElementById("modal-recap-hours").textContent'), /Hours/i);
+  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), '$329.99');
+  assert.equal(await evaluate('document.getElementById("modal-recap-hours").textContent'), '');
+  assert.equal(await evaluate('document.getElementById("modal-recap-hours-row").classList.contains("is-hidden")'), true);
+  assert.match(await evaluate('document.getElementById("modal-recap-policy").textContent'), /50% deposit/i);
   assert.equal(await evaluate('!!document.getElementById("modal-edit-details-btn")'), true);
   assert.equal(await evaluate('!!document.getElementById("btn-refresh-calendar")'), true);
   assert.equal(await evaluate('!!document.getElementById("calendar-date-grid")'), true);
+  assert.equal(await evaluate('document.getElementById("calendar-date-grid").classList.contains("calendar-date-wheel")'), true);
+  assert.equal(await evaluate('document.querySelectorAll("#calendar-date-grid .calendar-wheel-item").length > 0'), true);
+  assert.equal(await evaluate('!!document.querySelector("#calendar-date-grid .calendar-wheel-item.is-wheel-center")'), true);
+  assert.equal(await evaluate('!!document.getElementById("btn-wheel-prev") && !!document.getElementById("btn-wheel-next")'), true);
+  assert.equal(await evaluate('!!document.getElementById("modal-sticky-footer")'), true);
+  assert.equal(await evaluate('document.getElementById("modal-sticky-total").textContent'), '$329.99');
+  assert.equal(await evaluate('document.getElementById("modal-sticky-cta").textContent'), 'Continue to Contact');
+
+  // Verify vertical wheel Next Day nudge advances selected date and syncs sticky footer & banner
+  const initialWheelDate = await evaluate('document.querySelector("#calendar-date-grid .calendar-wheel-item.active")?.getAttribute("data-cal-date")');
+  const nextWheelBtnDisabled = await evaluate('document.getElementById("btn-wheel-next").disabled');
+  if (!nextWheelBtnDisabled) {
+    await evaluate('document.getElementById("btn-wheel-next").click()');
+    await evaluate('new Promise(resolve => setTimeout(resolve, 60))');
+    const steppedWheelDate = await evaluate('document.querySelector("#calendar-date-grid .calendar-wheel-item.active")?.getAttribute("data-cal-date")');
+    assert.notEqual(steppedWheelDate, initialWheelDate);
+    assert.ok((await evaluate('document.getElementById("modal-sticky-slot").textContent')).includes('·'));
+  }
+
+  // Verify live green validation checkmarks on First Name, Last Name, Phone, Email and sticky CTA transition
+  await evaluate(`(() => {
+    const setVal = (id, val) => { const el = document.getElementById(id); el.value = val; el.dispatchEvent(new Event('input')); el.dispatchEvent(new Event('blur')); };
+    setVal('intake-first-name', 'Jordan');
+    setVal('intake-last-name', 'Taylor');
+    setVal('intake-phone', '3185550199');
+    setVal('intake-email', 'jordan.taylor@example.com');
+  })()`);
+  assert.equal(await evaluate('document.getElementById("intake-first-name").closest(".intake-field-group").classList.contains("is-field-valid")'), true);
+  assert.equal(await evaluate('document.getElementById("intake-last-name").closest(".intake-field-group").classList.contains("is-field-valid")'), true);
+  assert.equal(await evaluate('document.getElementById("intake-phone").closest(".intake-field-group").classList.contains("is-field-valid")'), true);
+  assert.equal(await evaluate('document.getElementById("intake-email").closest(".intake-field-group").classList.contains("is-field-valid")'), true);
+  assert.equal(await evaluate('document.getElementById("modal-sticky-cta").textContent'), 'Send Estimate & Request Slot');
+
   assert.equal(await evaluate('!!document.getElementById("calendar-slot-grid")'), true);
   assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').disabled'), false);
   assert.equal(await evaluate('document.querySelector(\'[data-cal-slot="14:00-16:30"]\').classList.contains("is-cutoff")'), false);
@@ -234,18 +306,25 @@ try {
   assert.equal(await evaluate('!!document.getElementById("intake-phone")'), true);
   assert.equal(await evaluate('!!document.getElementById("intake-email")'), true);
   assert.equal(await evaluate('!!document.getElementById("intake-notes")'), true);
-  assert.equal(await evaluate('document.activeElement.id'), 'modal-close-btn', await evaluate(`JSON.stringify({ active: document.activeElement.outerHTML.slice(0, 150), modalVisibility: getComputedStyle(document.getElementById('booking-modal-overlay')).visibility, buttonVisibility: getComputedStyle(document.getElementById('modal-close-btn')).visibility, rect: document.getElementById('modal-close-btn').getBoundingClientRect().toJSON() })`));
+
+  // Capture desktop 2-column modal screenshot at 1440x1000
+  await send('Emulation.setDeviceMetricsOverride', { width: 1440, height: 1000, deviceScaleFactor: 1, mobile: false });
+  await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  assert.equal(await evaluate('document.getElementById("booking-modal-container").scrollWidth <= document.getElementById("booking-modal-container").clientWidth + 1'), true);
+  const desktopModalCapture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
+  await writeFile(resolve(artifacts, 'estimate-desktop.png'), Buffer.from(desktopModalCapture.data, 'base64'));
 
   // Verify Edit Details button returns from modal directly to Step 2
   await evaluate('document.getElementById("modal-edit-details-btn").click()');
   assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 2);
 
-  // Re-open with long unbroken Specific Areas text and verify zero horizontal modal overflow
+  // Re-open with long unbroken Specific Areas text and verify zero horizontal modal overflow + initial focus target
   await evaluate('document.getElementById("btn-scope-specific").click()');
   await evaluate('(() => { const el = document.getElementById("input-specific-areas"); el.value = "testing area, " + "d".repeat(140); el.dispatchEvent(new Event("input")); })()');
   await evaluate('document.getElementById("btn-book-quote-now").click()');
   await evaluate('new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))');
+  assert.equal(await evaluate('document.activeElement.id'), 'modal-close-btn', await evaluate(`JSON.stringify({ active: document.activeElement.outerHTML.slice(0, 150), modalVisibility: getComputedStyle(document.getElementById('booking-modal-overlay')).visibility, buttonVisibility: getComputedStyle(document.getElementById('modal-close-btn')).visibility, rect: document.getElementById('modal-close-btn').getBoundingClientRect().toJSON() })`));
   assert.equal(await evaluate('document.getElementById("booking-modal-container").scrollWidth <= document.getElementById("booking-modal-container").clientWidth + 1'), true);
   await evaluate('document.getElementById("btn-scope-specific").click()');
   await evaluate('document.dispatchEvent(new KeyboardEvent("keydown", {key:"Escape"}))');
@@ -260,8 +339,17 @@ try {
   }
   await evaluate('SmartsProModal.openBookingModal()');
   await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
+  // Verify mobile collapsible estimate summary starts collapsed and toggles cleanly
+  assert.equal(await evaluate('document.getElementById("modal-quote-recap").classList.contains("is-mobile-collapsed")'), true);
+  assert.equal(await evaluate('document.getElementById("modal-recap-toggle").getAttribute("aria-expanded")'), 'false');
+  assert.equal(await evaluate('document.getElementById("booking-modal-container").scrollWidth <= document.getElementById("booking-modal-container").clientWidth + 1'), true);
   const modalCapture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
   await writeFile(resolve(artifacts, 'estimate-mobile.png'), Buffer.from(modalCapture.data, 'base64'));
+  await evaluate('document.getElementById("modal-recap-toggle").click()');
+  assert.equal(await evaluate('document.getElementById("modal-quote-recap").classList.contains("is-mobile-collapsed")'), false);
+  assert.equal(await evaluate('document.getElementById("modal-recap-toggle").getAttribute("aria-expanded")'), 'true');
+  await evaluate('document.getElementById("modal-recap-toggle").click()');
+  assert.equal(await evaluate('document.getElementById("modal-quote-recap").classList.contains("is-mobile-collapsed")'), true);
   await evaluate('SmartsProModal.closeBookingModal(); document.getElementById("contact-intake-notice").scrollIntoView({behavior:"instant", block:"center"})');
   await evaluate('new Promise(resolve => setTimeout(resolve, 300))');
   const contactCapture = await send('Page.captureScreenshot', { format: 'png', captureBeyondViewport: false });
@@ -270,7 +358,7 @@ try {
   assert.ok(responses.filter(response => response.url.startsWith(base)).every(response => response.status === 200), 'A page asset failed to load');
   assert.ok(requests.every(url => url.startsWith(base)), 'Unexpected third-party network request');
   assert.equal(await evaluate('[...document.fonts].filter(font => font.status === "loaded").length'), 3);
-  console.log('PASS calculator, estimate modal, calendar scheduler, mobile layout, local fonts, and legacy cleanup');
+  console.log('PASS calculator, estimate modal, vertical date wheel, live validation, mobile layout, local fonts, and legacy cleanup');
 
   // Exercise the browser's real CSP enforcement with harmless attack probes.
   await evaluate(`(() => {
