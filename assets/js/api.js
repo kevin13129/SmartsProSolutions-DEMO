@@ -335,6 +335,11 @@
       }),
       estimatedHours: Number(calc.totalEstimatedHours || calc.estimatedHours) || 0,
       estimatedTotal: total,
+      customQuoteAtWalkthrough: Boolean(calc.customQuoteAtWalkthrough || state.serviceCategory === 'commercial'),
+      priceDisplay:
+        calc.customQuoteAtWalkthrough || state.serviceCategory === 'commercial'
+          ? 'Custom Quote at Walkthrough'
+          : `$${total.toFixed(2)}`,
       adapters: Object.freeze({
         calendarAvailabilityFeed: '/api/calendar-availability',
         ownerEmailAndCalendarDispatch: '/api/estimate-request',

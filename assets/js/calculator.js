@@ -284,6 +284,7 @@
     freqBadgeOvernight: document.getElementById('freq-badge-overnight'),
     freqTurnoverTitle: document.getElementById('freq-turnover-title'),
     freqTurnoverSub: document.getElementById('freq-turnover-sub'),
+    step4FlatRateText: document.getElementById('step4-flat-rate-text'),
 
     // Step 5: Add-Ons & Service Details
     inputServiceDetails: document.getElementById('input-service-details'),
@@ -329,6 +330,12 @@
     cardPowerWash: document.getElementById('addon-item-powerwash'),
 
     // Summary Output Elements
+    quoteSummaryCard: document.querySelector('.quote-summary-card'),
+    quoteHeaderTitle: document.querySelector('.quote-header-title'),
+    quoteLivePill: document.getElementById('quote-live-pill'),
+    quotePolicyCallout: document.getElementById('quote-policy-callout'),
+    quotePriceLabel: document.getElementById('quote-price-label'),
+    quotePriceCurrency: document.getElementById('quote-price-currency'),
     quoteTotalAmount: document.getElementById('quote-total-amount'),
     quoteBillingFreq: document.getElementById('quote-billing-freq'),
     quoteRateBasisNote: document.getElementById('quote-rate-basis-note'),
@@ -532,12 +539,14 @@
     if (state.serviceCategory === 'commercial') {
       const baseRate = cfg.hourlyRates.commercial;
       const estimatedHours = 3.0;
-      const basePrice = Math.round(estimatedHours * baseRate);
-      const frequencySurcharge = calcFrequencySurcharge(basePrice, state.frequency);
-      const grandTotal = basePrice + frequencySurcharge;
+      const basePrice = 0;
+      const frequencySurcharge = 0;
+      const grandTotal = 0;
       return {
         isCommercial: true,
         isSpecificAreas: false,
+        customQuoteAtWalkthrough: true,
+        priceDisplay: 'Custom Quote at Walkthrough',
         hourlyRate: baseRate,
         estimatedHours,
         addonHours: 0,
@@ -1000,17 +1009,34 @@
       if (radio) radio.checked = isSelected;
     });
 
-    const biweeklyExtra = calcFrequencySurcharge(calc.basePrice, 'biweekly');
-    const monthlyExtra = calcFrequencySurcharge(calc.basePrice, 'monthly');
-    const onetimeExtra = calcFrequencySurcharge(calc.basePrice, 'onetime');
-    const overnightExtra = calcFrequencySurcharge(calc.basePrice, 'overnight');
+    if (isCommercial) {
+      if (els.freqBadgeWeekly) els.freqBadgeWeekly.textContent = 'Preferred';
+      if (els.freqBadgeTurnover) els.freqBadgeTurnover.textContent = 'Multi-Day';
+      if (els.freqBadgeBiweekly) els.freqBadgeBiweekly.textContent = 'Every 2 Weeks';
+      if (els.freqBadgeMonthly) els.freqBadgeMonthly.textContent = 'Monthly';
+      if (els.freqBadgeOnetime) els.freqBadgeOnetime.textContent = 'Single Visit';
+      if (els.freqBadgeOvernight) els.freqBadgeOvernight.textContent = 'After-Hours';
+      if (els.step4FlatRateText) {
+        els.step4FlatRateText.textContent =
+          'Commercial Walkthrough Pricing: Choose your preferred facility cleaning schedule above, then pick a walkthrough time. The owner settles your custom quote with you at the walkthrough (50% deposit required in person once finalized).';
+      }
+    } else {
+      const biweeklyExtra = calcFrequencySurcharge(calc.basePrice, 'biweekly');
+      const monthlyExtra = calcFrequencySurcharge(calc.basePrice, 'monthly');
+      const onetimeExtra = calcFrequencySurcharge(calc.basePrice, 'onetime');
+      const overnightExtra = calcFrequencySurcharge(calc.basePrice, 'overnight');
 
-    if (els.freqBadgeWeekly) els.freqBadgeWeekly.textContent = 'Anchor · $0';
-    if (els.freqBadgeTurnover) els.freqBadgeTurnover.textContent = '$0 Extra';
-    if (els.freqBadgeBiweekly) els.freqBadgeBiweekly.textContent = `+$${biweeklyExtra}`;
-    if (els.freqBadgeMonthly) els.freqBadgeMonthly.textContent = `+$${monthlyExtra}`;
-    if (els.freqBadgeOnetime) els.freqBadgeOnetime.textContent = `+$${onetimeExtra}`;
-    if (els.freqBadgeOvernight) els.freqBadgeOvernight.textContent = `+$${overnightExtra} · Special`;
+      if (els.freqBadgeWeekly) els.freqBadgeWeekly.textContent = 'Anchor · $0';
+      if (els.freqBadgeTurnover) els.freqBadgeTurnover.textContent = '$0 Extra';
+      if (els.freqBadgeBiweekly) els.freqBadgeBiweekly.textContent = `+$${biweeklyExtra}`;
+      if (els.freqBadgeMonthly) els.freqBadgeMonthly.textContent = `+$${monthlyExtra}`;
+      if (els.freqBadgeOnetime) els.freqBadgeOnetime.textContent = `+$${onetimeExtra}`;
+      if (els.freqBadgeOvernight) els.freqBadgeOvernight.textContent = 'After-Hours';
+      if (els.step4FlatRateText) {
+        els.step4FlatRateText.textContent =
+          'Weekly-Anchor Pricing: Weekly & Per Turnover keep our base rate ($0 extra). Less frequent visits add a schedule fee (Bi-Weekly +$30+, Monthly +$50+, One-Time +$65+). No online payment today — 50% deposit required in person.';
+      }
+    }
 
     // 5. Update Step 5 Add-on Quantities
     if (els.valFridge) els.valFridge.textContent = state.addons.fridge;
@@ -1064,10 +1090,33 @@
     }
 
     // 6. Update Summary Card Outputs
+    if (els.quoteSummaryCard) {
+      els.quoteSummaryCard.classList.toggle('is-commercial-quote', isCommercial);
+    }
+    if (els.quoteHeaderTitle) {
+      els.quoteHeaderTitle.textContent = isCommercial ? 'Your Walkthrough' : 'Your Estimate';
+    }
+    if (els.quoteLivePill) {
+      els.quoteLivePill.textContent = isCommercial ? 'On-Site Quote' : 'Live Quote';
+    }
+    if (els.quotePolicyCallout) {
+      els.quotePolicyCallout.textContent = isCommercial
+        ? 'Deposit & Policy: Owner settles your custom quote at the walkthrough. 50% deposit required in person once finalized (no online payment today); returned checks incur a 10% fee.'
+        : 'Deposit & Policy: 50% deposit required in person at service (no online payment today). Weekly & Turnover keep our base rate; returned checks incur a 10% fee.';
+    }
+    if (els.quotePriceLabel) {
+      els.quotePriceLabel.textContent = isCommercial ? 'Walkthrough Pricing' : 'Estimated Total';
+    }
+    if (els.quotePriceCurrency) {
+      els.quotePriceCurrency.classList.toggle('is-hidden', isCommercial);
+    }
     if (els.quoteTotalAmount) {
-      els.quoteTotalAmount.textContent = calc.grandTotal.toFixed(2);
+      els.quoteTotalAmount.textContent = isCommercial
+        ? 'Custom Quote at Walkthrough'
+        : calc.grandTotal.toFixed(2);
       const priceParent = els.quoteTotalAmount.closest('.quote-price-amount');
       if (priceParent) {
+        priceParent.classList.toggle('is-custom-walkthrough-quote', isCommercial);
         priceParent.classList.remove('price-pulse');
         void priceParent.offsetWidth;
         priceParent.classList.add('price-pulse');
@@ -1080,11 +1129,11 @@
       weekly: 'Weekly · Base Rate ($0 extra)',
       biweekly: `Bi-Weekly (+$${calc.frequencySurcharge} schedule fee)`,
       turnover: isCommercial
-        ? 'Custom / Daily ($0 extra)'
+        ? 'Custom / Daily'
         : 'Per Turnover · Base Rate ($0 extra)',
       monthly: `Monthly (+$${calc.frequencySurcharge} schedule fee)`,
       onetime: `One-Time (+$${calc.frequencySurcharge} schedule fee)`,
-      overnight: `Overnight (+$${calc.frequencySurcharge} · Tentative)`
+      overnight: 'Overnight (Tentative)'
     };
     const freqShortNames = {
       weekly: 'Weekly',
@@ -1096,20 +1145,22 @@
     };
     if (els.quoteBillingFreq) {
       els.quoteBillingFreq.textContent = isCommercial
-        ? `Walkthrough · ${freqLabels[state.frequency] || 'Custom Schedule'}`
+        ? `Preferred Schedule: ${freqShortNames[state.frequency] || 'Weekly'}`
         : freqLabels[state.frequency] || 'Weekly · Base Rate ($0 extra)';
     }
 
     if (els.summaryFrequencyVal) {
-      els.summaryFrequencyVal.textContent = `${freqShortNames[state.frequency] || 'Weekly'} (${surchargeText})`;
+      els.summaryFrequencyVal.textContent = isCommercial
+        ? `${freqShortNames[state.frequency] || 'Weekly'}`
+        : `${freqShortNames[state.frequency] || 'Weekly'} (${surchargeText})`;
     }
 
     if (els.quoteMinimumNoteText) {
       if (isCommercial) {
         els.quoteMinimumNoteText.textContent =
           state.frequency === 'overnight'
-            ? 'Tentative Overnight · 50% Deposit In Person'
-            : 'Walkthrough Confirms · 50% Deposit In Person';
+            ? 'Tentative Slot · Owner Quotes On-Site'
+            : 'Owner Quotes On-Site · 50% Deposit In Person';
       } else {
         els.quoteMinimumNoteText.textContent = 'No Online Payment · 50% Deposit In Person';
       }
@@ -1130,7 +1181,13 @@
       }
     }
     if (els.summaryServiceRate) {
-      els.summaryServiceRate.textContent = `$${calc.basePrice.toFixed(2)}`;
+      els.summaryServiceRate.textContent = isCommercial
+        ? 'Custom Quote at Walkthrough'
+        : `$${calc.basePrice.toFixed(2)}`;
+      const serviceRow = els.summaryServiceRate.closest('.breakdown-row');
+      if (serviceRow) {
+        serviceRow.classList.add('breakdown-row-service');
+      }
     }
 
     // Property Type Row (for Move-In/Out when selected)

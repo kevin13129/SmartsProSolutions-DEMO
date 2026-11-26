@@ -643,7 +643,8 @@ test('server intake API enforces SECURITY-ROADMAP Section 1 validation, price re
     assert.match(sentEmails[0].emailPackage.icsContent, /50% deposit required in person/i);
     assert.doesNotMatch(sentEmails[0].emailPackage.icsContent, /Est\. Cleaning Time:/);
     assert.match(sentEmails[0].emailPackage.finishEarlyUrl, /\/api\/finish-early\?token=/);
-    assert.match(sentEmails[0].emailPackage.textBody, /Est\. Cleaning Time:/);
+    assert.doesNotMatch(sentEmails[0].emailPackage.textBody, /Est\. Cleaning Time:/);
+    assert.doesNotMatch(sentEmails[0].emailPackage.htmlBody, /Est\. Cleaning Time:/);
     assert.match(sentEmails[0].emailPackage.htmlBody, /Finish Early/);
     assert.ok(sentEmails[0].emailPackage.customerConfirmation);
     assert.equal(sentEmails[0].emailPackage.customerConfirmation.to, 'jose.garcia@example.com');
@@ -1847,9 +1848,11 @@ test('weekly-anchor hybrid pricing, Commercial-only Overnight Mon-Fri tentative 
     frequency: 'overnight',
     addons: { fridge: 0, fridgeDouble: 0, oven: 0, pets: 0 }
   });
-  assert.equal(commercialOvernightQuote.basePrice, 150);
-  assert.equal(commercialOvernightQuote.frequencySurcharge, 85);
-  assert.equal(commercialOvernightQuote.grandTotal, 235);
+  assert.equal(commercialOvernightQuote.basePrice, 0);
+  assert.equal(commercialOvernightQuote.frequencySurcharge, 0);
+  assert.equal(commercialOvernightQuote.grandTotal, 0);
+  assert.equal(commercialOvernightQuote.customQuoteAtWalkthrough, true);
+  assert.equal(commercialOvernightQuote.priceDisplay, 'Custom Quote at Walkthrough');
 
   // 2. Non-commercial overnight requests fail closed; window mismatches fail closed
   let activeNow = new Date('2026-11-04T15:00:00Z');
@@ -1969,9 +1972,11 @@ test('weekly-anchor hybrid pricing, Commercial-only Overnight Mon-Fri tentative 
     clientIp: '10.0.1.13'
   });
   assert.equal(overnightBookRes.status, 200);
-  assert.equal(overnightBookRes.body.verifiedEstimate.basePrice, 150);
-  assert.equal(overnightBookRes.body.verifiedEstimate.frequencySurcharge, 85);
-  assert.equal(overnightBookRes.body.verifiedEstimate.grandTotal, 235);
+  assert.equal(overnightBookRes.body.verifiedEstimate.basePrice, 0);
+  assert.equal(overnightBookRes.body.verifiedEstimate.frequencySurcharge, 0);
+  assert.equal(overnightBookRes.body.verifiedEstimate.grandTotal, 0);
+  assert.equal(overnightBookRes.body.verifiedEstimate.customQuoteAtWalkthrough, true);
+  assert.equal(overnightBookRes.body.verifiedEstimate.priceDisplay, 'Custom Quote at Walkthrough');
   assert.equal(overnightBookRes.body.verifiedEstimate.isOvernight, true);
   assert.equal(overnightBookRes.body.appointment.isOvernight, true);
   assert.equal(overnightBookRes.body.appointment.scheduledEndLabel, '1:00 AM');
@@ -1983,9 +1988,17 @@ test('weekly-anchor hybrid pricing, Commercial-only Overnight Mon-Fri tentative 
   assert.doesNotMatch(overnightEmail.icsContent, /RRULE:/);
   assert.match(overnightEmail.icsContent, /DTSTART;TZID=America\/Chicago:20261106T210000/);
   assert.match(overnightEmail.icsContent, /DTEND;TZID=America\/Chicago:20261107T010000/);
+  assert.match(overnightEmail.icsContent, /Custom Quote at Walkthrough/);
+  assert.doesNotMatch(overnightEmail.icsContent, /\$\d+/);
   assert.match(overnightEmail.htmlBody, /SPECIAL OVERNIGHT COMMERCIAL REQUEST/);
+  assert.match(overnightEmail.htmlBody, /Custom Quote at Walkthrough/);
+  assert.doesNotMatch(overnightEmail.textBody, /\$\d+/);
+  assert.doesNotMatch(overnightEmail.htmlBody, /\$\d+/);
   assert.match(overnightEmail.customerConfirmation.subject, /\[TENTATIVE OVERNIGHT REQUEST\]/);
   assert.match(overnightEmail.customerConfirmation.htmlBody, /\(318\) 564-4360/);
+  assert.match(overnightEmail.customerConfirmation.htmlBody, /Custom Quote at Walkthrough/);
+  assert.doesNotMatch(overnightEmail.customerConfirmation.textBody, /\$\d+/);
+  assert.doesNotMatch(overnightEmail.customerConfirmation.htmlBody, /\$\d+/);
   assert.equal(sentEmails[sentEmails.length - 1].record.appointment.recurrence.isRecurring, false);
 
   // Verify daytime slots stay AVAILABLE on 2026-11-06 and next Friday overnight does NOT auto-recur

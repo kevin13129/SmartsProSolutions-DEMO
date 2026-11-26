@@ -107,17 +107,34 @@ try {
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
   assert.equal(await evaluate('document.getElementById("step1-service-grid").classList.contains("wizard-field-missing")'), true);
 
-  // Commercial flow: selecting Commercial reveals Overnight card and clicking Next skips directly to Cleaning Frequency (Step 2 of 2)
+  // Commercial flow: selecting Commercial reveals Overnight card and clicking Next skips directly to Cleaning Frequency (Step 2 of 2) with Custom Quote at Walkthrough
   await evaluate('document.getElementById("card-cat-commercial").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.dispatchEnvelope.workflow.id'), 'commercial_walkthrough_pipeline');
   assert.equal(await evaluate('document.getElementById("freq-card-overnight").classList.contains("is-hidden")'), false);
+  assert.equal(await evaluate('document.getElementById("quote-total-amount").textContent'), 'Custom Quote at Walkthrough');
+  assert.equal(await evaluate('document.getElementById("quote-price-currency").classList.contains("is-hidden")'), true);
+  assert.equal(await evaluate('document.getElementById("summary-service-rate").textContent'), 'Custom Quote at Walkthrough');
+  assert.equal(await evaluate('document.getElementById("freq-badge-weekly").textContent'), 'Preferred');
+  assert.equal(await evaluate('document.getElementById("freq-badge-overnight").textContent'), 'After-Hours');
   await evaluate('document.getElementById("btn-wizard-next").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 4);
   assert.equal(await evaluate('document.getElementById("calc-step-total").textContent'), '2');
   await evaluate('document.querySelector(\'[data-freq="overnight"]\').click()');
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.frequencySurcharge'), 85);
-  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 235);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.frequencySurcharge'), 0);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.grandTotal'), 0);
+  assert.equal(await evaluate('window.SmartsProCurrentQuote.calculation.customQuoteAtWalkthrough'), true);
+  assert.equal(await evaluate('document.getElementById("quote-total-amount").textContent'), 'Custom Quote at Walkthrough');
   assert.equal(await evaluate('document.getElementById("step4-overnight-notice").classList.contains("is-hidden")'), false);
+  // Open Commercial Walkthrough modal and verify Custom Quote at Walkthrough across recap, toggle, and sticky bar
+  await evaluate('document.getElementById("btn-book-quote-now").click()');
+  assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), true);
+  assert.equal(await evaluate('document.getElementById("modal-recap-total").textContent'), 'Custom Quote at Walkthrough');
+  assert.equal(await evaluate('document.getElementById("modal-recap-toggle-total").textContent'), 'Custom Quote at Walkthrough');
+  assert.equal(await evaluate('document.getElementById("modal-sticky-total").textContent'), 'Custom Quote at Walkthrough');
+  assert.equal(await evaluate('document.getElementById("modal-recap-freq-fee-row").classList.contains("is-hidden")'), true);
+  assert.equal(await evaluate('document.getElementById("btn-submit-estimate-email").textContent'), 'Schedule Walkthrough & Send Request');
+  await evaluate('document.getElementById("modal-close-btn").click()');
+  assert.equal(await evaluate('document.getElementById("booking-modal-overlay").classList.contains("open")'), false);
   await evaluate('document.getElementById("btn-wizard-prev").click()');
   assert.equal(await evaluate('window.SmartsProCurrentQuote.state.wizardStep'), 1);
 

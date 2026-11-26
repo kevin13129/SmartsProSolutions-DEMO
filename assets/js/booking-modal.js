@@ -15,7 +15,13 @@
   const modalOverlay = document.getElementById('booking-modal-overlay');
   const modalBody = document.getElementById('booking-modal-body');
   const modalQuoteRecap = document.getElementById('modal-quote-recap');
+  const modalRecapDesktopTitle = modalQuoteRecap
+    ? modalQuoteRecap.querySelector('.recap-desktop-title')
+    : null;
   const modalRecapToggle = document.getElementById('modal-recap-toggle');
+  const modalRecapToggleTitle = modalRecapToggle
+    ? modalRecapToggle.querySelector('.recap-toggle-title')
+    : null;
   const modalRecapToggleService = document.getElementById('modal-recap-toggle-service');
   const modalRecapToggleTotal = document.getElementById('modal-recap-toggle-total');
   const modalStickyFooter = document.getElementById('modal-sticky-footer');
@@ -534,8 +540,17 @@
 
     if (modalBookingTitle) {
       modalBookingTitle.textContent = isCommercial
-        ? 'Schedule Walkthrough & Send Bid'
+        ? 'Review Walkthrough & Pick a Time'
         : 'Review Estimate & Pick a Time';
+    }
+    if (modalQuoteRecap) {
+      modalQuoteRecap.classList.toggle('is-custom-walkthrough-quote', isCommercial);
+    }
+    if (modalRecapDesktopTitle) {
+      modalRecapDesktopTitle.textContent = isCommercial ? 'Walkthrough Summary' : 'Your Estimate';
+    }
+    if (modalRecapToggleTitle) {
+      modalRecapToggleTitle.textContent = isCommercial ? 'Walkthrough Summary' : 'Estimate Summary';
     }
 
     if (recapService) {
@@ -562,16 +577,22 @@
 
     if (isCommercial) {
       if (recapSpecsLabel) recapSpecsLabel.textContent = 'Facility Scope:';
-      if (recapSpecs) recapSpecs.textContent = 'On-site owner walkthrough';
+      if (recapSpecs) {
+        recapSpecs.textContent = 'On-site owner walkthrough';
+        const specsRow = recapSpecs.closest('.recap-row');
+        if (specsRow) specsRow.classList.remove('is-stacked-specs');
+      }
       if (recapAreasRow) recapAreasRow.classList.add('is-hidden');
       if (recapAddinfoRow) recapAddinfoRow.classList.add('is-hidden');
       if (recapAddonsRow) recapAddonsRow.classList.add('is-hidden');
-      if (recapTotalLabel) recapTotalLabel.textContent = 'Walkthrough Baseline:';
+      if (recapTotalLabel) recapTotalLabel.textContent = 'Walkthrough Pricing';
     } else {
       if (recapSpecsLabel) recapSpecsLabel.textContent = 'Property Specs:';
       if (recapSpecs) {
         const livingTxt = quote.state.extraLivingRooms > 0 ? `, ${quote.state.extraLivingRooms} Extra Living` : '';
-        recapSpecs.textContent = `${quote.state.bedrooms} Bed, ${quote.state.fullBaths} Full, ${quote.state.halfBaths} Half${livingTxt} / ${quote.state.sqft.toLocaleString()} sq ft`;
+        recapSpecs.textContent = `${quote.state.bedrooms} Bed, ${quote.state.fullBaths} Full, ${quote.state.halfBaths} Half${livingTxt} · ${quote.state.sqft.toLocaleString()}\u00A0sq\u00A0ft`;
+        const specsRow = recapSpecs.closest('.recap-row');
+        if (specsRow) specsRow.classList.add('is-stacked-specs');
       }
       if (recapAreasRow) {
         recapAreasRow.classList.toggle('is-hidden', !isSpecific);
@@ -609,18 +630,27 @@
       }
     }
 
+    const commercialFreqLabels = {
+      weekly: 'Weekly',
+      biweekly: 'Every 2 Weeks',
+      turnover: 'Custom / Daily',
+      monthly: 'Monthly',
+      onetime: 'One-Time Cleaning',
+      overnight: 'Overnight (Tentative)'
+    };
+
     if (recapFreq) {
-      recapFreq.textContent = freqLabels[quote.state.frequency] || 'Weekly (Base Rate)';
+      recapFreq.textContent = isCommercial
+        ? commercialFreqLabels[quote.state.frequency] || 'Weekly'
+        : freqLabels[quote.state.frequency] || 'Weekly (Base Rate)';
     }
 
     const surchargeAmount = Number(quote.calculation?.frequencySurcharge) || 0;
     const isOvernight = isCommercial && quote.state.frequency === 'overnight';
     if (recapFreqFeeRow && recapFreqFee) {
-      if (surchargeAmount > 0 || isOvernight) {
+      if (!isCommercial && surchargeAmount > 0) {
         recapFreqFeeRow.classList.remove('is-hidden');
-        recapFreqFee.textContent = isOvernight
-          ? `+$${surchargeAmount.toFixed(2)} (Tentative)`
-          : `+$${surchargeAmount.toFixed(2)}`;
+        recapFreqFee.textContent = `+$${surchargeAmount.toFixed(2)}`;
       } else {
         recapFreqFeeRow.classList.add('is-hidden');
         recapFreqFee.textContent = '+$0.00';
@@ -629,8 +659,8 @@
 
     if (isCommercial && recapTotalLabel) {
       recapTotalLabel.textContent = isOvernight
-        ? 'Overnight Baseline (Tentative):'
-        : 'Walkthrough Baseline:';
+        ? 'Overnight Pricing'
+        : 'Walkthrough Pricing';
     } else if (recapTotalLabel) {
       recapTotalLabel.textContent = 'Estimated Quote:';
     }
@@ -683,23 +713,34 @@
     }
 
     if (recapTotal) {
-      recapTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
+      recapTotal.textContent = isCommercial
+        ? 'Custom Quote at Walkthrough'
+        : `$${quote.calculation.grandTotal.toFixed(2)}`;
+      recapTotal.classList.toggle('is-custom-walkthrough-quote', isCommercial);
     }
     if (modalRecapToggleTotal) {
-      modalRecapToggleTotal.textContent = `$${quote.calculation.grandTotal.toFixed(2)}`;
+      modalRecapToggleTotal.textContent = isCommercial
+        ? 'Custom Quote at Walkthrough'
+        : `$${quote.calculation.grandTotal.toFixed(2)}`;
+      modalRecapToggleTotal.classList.toggle('is-custom-walkthrough-quote', isCommercial);
     }
     if (modalRecapToggleService) {
       const svcShort = recapService ? recapService.textContent : 'Standard Clean';
-      const freqShort = (freqLabels[quote.state.frequency] || 'Weekly').split(' (')[0];
-      modalRecapToggleService.textContent = `${svcShort} · ${freqShort}`;
+      const freqShort = isCommercial
+        ? commercialFreqLabels[quote.state.frequency] || 'Weekly'
+        : (freqLabels[quote.state.frequency] || 'Weekly').split(' (')[0];
+      modalRecapToggleService.textContent = isCommercial
+        ? `Schedule: ${freqShort}`
+        : `${svcShort} · ${freqShort}`;
     }
 
     updateRecapHoursDisplay();
 
     if (recapPolicyRow && recapPolicy) {
-      if (isOvernight) {
-        recapPolicy.textContent =
-          'Tentative slot • Call (318) 564-4360 • 50% deposit required in person • 10% bounced check fee';
+      if (isCommercial) {
+        recapPolicy.textContent = isOvernight
+          ? 'Tentative slot • Call (318) 564-4360 • Owner settles price at walkthrough • 50% deposit in person'
+          : 'Owner settles price at walkthrough • 50% deposit required in person • 10% bounced check fee';
       } else {
         recapPolicy.textContent =
           'No online payment today • 50% deposit required in person • 10% bounced check fee';
@@ -708,8 +749,10 @@
 
     if (intakePrimaryCopy) {
       intakePrimaryCopy.textContent = isOvernight
-        ? 'Overnight cleaning is a special request (50% deposit required in person). Pick a tentative Mon–Fri night window, then call (318) 564-4360 to coordinate access & scope:'
-        : 'No online payment today (50% deposit required in person). Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:';
+        ? 'Overnight cleaning is a special request (owner settles price at walkthrough; 50% deposit required in person once finalized). Pick a tentative Mon–Fri night window, then call (318) 564-4360 to coordinate access & scope:'
+        : isCommercial
+          ? 'Owner settles your custom quote at the walkthrough (50% deposit required in person once finalized). Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:'
+          : 'No online payment today (50% deposit required in person). Prefer to book by phone? Call Mon–Fri, 8:00 AM – 4:30 PM:';
     }
 
     if (
@@ -970,7 +1013,9 @@
         : null;
 
     if (refs.editLivePriceBadge) {
-      refs.editLivePriceBadge.textContent = `Auto-Adjusted Total: $${calc.grandTotal.toFixed(2)}`;
+      refs.editLivePriceBadge.textContent = isCommercial
+        ? 'Custom Quote at Walkthrough'
+        : `Auto-Adjusted Total: $${calc.grandTotal.toFixed(2)}`;
     }
 
     // Base service tier & room dimensions are locked once confirmed (upgrade & add only via Add-Ons)
@@ -995,6 +1040,12 @@
 
     if (refs.editRoomsRow) {
       refs.editRoomsRow.classList.toggle('is-hidden', isCommercial);
+    }
+    if (refs.addInfoGroup) {
+      refs.addInfoGroup.classList.toggle('is-hidden', isCommercial);
+    }
+    if (refs.addonsGroup) {
+      refs.addonsGroup.classList.toggle('is-hidden', isCommercial);
     }
     if (refs.btnBedMinus) {
       refs.btnBedMinus.disabled = Boolean(confirmedQuote);
@@ -1213,14 +1264,17 @@
     const isOvernight = isCommercial && st.frequency === 'overnight';
 
     if (modalStickyTotalLabel) {
-      modalStickyTotalLabel.textContent = isCommercial
-        ? isOvernight
-          ? 'Overnight Baseline'
-          : 'Walkthrough Baseline'
-        : 'Estimated Quote';
+      modalStickyTotalLabel.classList.toggle('is-hidden', isCommercial);
+      modalStickyTotalLabel.textContent = 'Estimated Quote:';
     }
     if (modalStickyTotal) {
-      modalStickyTotal.textContent = `$${grandTotal.toFixed(2)}`;
+      modalStickyTotal.textContent = isCommercial
+        ? 'Custom Quote at Walkthrough'
+        : `$${grandTotal.toFixed(2)}`;
+      modalStickyTotal.classList.toggle('is-custom-walkthrough-quote', isCommercial);
+    }
+    if (modalStickyFooter) {
+      modalStickyFooter.classList.toggle('is-custom-walkthrough-quote', isCommercial);
     }
 
     if (modalStickySlot) {
@@ -1245,7 +1299,9 @@
         const hasChanges = currentKey !== schedulerState.confirmedSubmission.snapshotKey;
         modalStickyCta.disabled = !hasChanges;
         modalStickyCta.textContent = hasChanges
-          ? `Send Update ($${grandTotal.toFixed(2)})`
+          ? isCommercial
+            ? 'Send Updated Request'
+            : `Send Update ($${grandTotal.toFixed(2)})`
           : 'Make a Change Above';
       } else if (!schedulerState.selectedDate || !schedulerState.selectedWindow) {
         modalStickyCta.disabled = false;
@@ -1255,7 +1311,9 @@
         modalStickyCta.textContent = 'Continue to Contact';
       } else {
         modalStickyCta.disabled = false;
-        modalStickyCta.textContent = 'Send Estimate & Request Slot';
+        modalStickyCta.textContent = isCommercial
+          ? 'Schedule Walkthrough'
+          : 'Send Estimate & Request Slot';
       }
     }
   }
@@ -1273,6 +1331,7 @@
     }
 
     const quote = window.SmartsProCurrentQuote;
+    const isCommercial = quote?.state?.serviceCategory === 'commercial';
     const grandTotal = Number(quote?.calculation?.grandTotal || 0);
 
     if (schedulerState.viewMode === 'editing' && schedulerState.confirmedSubmission) {
@@ -1280,11 +1339,15 @@
       const hasChanges = currentKey !== schedulerState.confirmedSubmission.snapshotKey;
       refs.submitBtn.disabled = !hasChanges;
       refs.submitBtn.textContent = hasChanges
-        ? `Send Updated Estimate ($${grandTotal.toFixed(2)})`
+        ? isCommercial
+          ? 'Send Updated Walkthrough Request'
+          : `Send Updated Estimate ($${grandTotal.toFixed(2)})`
         : 'Make a change above to send update';
     } else {
       refs.submitBtn.disabled = false;
-      refs.submitBtn.textContent = 'Send Estimate & Request Slot';
+      refs.submitBtn.textContent = isCommercial
+        ? 'Schedule Walkthrough & Send Request'
+        : 'Send Estimate & Request Slot';
     }
     syncStickyFooterUI();
   }
@@ -1398,32 +1461,34 @@
       );
     }
 
-    const addonItems = [];
-    if (q.addons?.fridge > 0) addonItems.push(`${q.addons.fridge}x Single Fridge (from $54.99)`);
-    if (q.addons?.fridgeDouble > 0) addonItems.push(`${q.addons.fridgeDouble}x Double Fridge (from $64.99)`);
-    if (q.addons?.oven > 0) addonItems.push(`${q.addons.oven}x Inside Oven (from $61.88)`);
-    if (q.addons?.laundry > 0) {
-      addonItems.push(
-        `${q.addons.laundry}x Laundry Load${q.addons.laundry > 1 ? 's' : ''} — Wash, dry, and fold (from $48.98/load)`
+    if (!isCommercial) {
+      const addonItems = [];
+      if (q.addons?.fridge > 0) addonItems.push(`${q.addons.fridge}x Single Fridge (from $54.99)`);
+      if (q.addons?.fridgeDouble > 0) addonItems.push(`${q.addons.fridgeDouble}x Double Fridge (from $64.99)`);
+      if (q.addons?.oven > 0) addonItems.push(`${q.addons.oven}x Inside Oven (from $61.88)`);
+      if (q.addons?.laundry > 0) {
+        addonItems.push(
+          `${q.addons.laundry}x Laundry Load${q.addons.laundry > 1 ? 's' : ''} — Wash, dry, and fold (from $48.98/load)`
+        );
+      }
+      if (q.addons?.organizing > 0) {
+        addonItems.push(`${q.addons.organizing}x Organizing per Area (from $29.60/area)`);
+      }
+      if (q.addons?.dishes > 0) addonItems.push(`${q.addons.dishes}x Dishes (from $24.78)`);
+      if (q.addons?.windows > 0) addonItems.push(`${q.addons.windows}x Windows (from $8 ea)`);
+      if (q.addons?.powerWashWindows > 0) {
+        addonItems.push(
+          `${q.addons.powerWashWindows}x Power Wash Window Set${q.addons.powerWashWindows > 1 ? 's' : ''} (from $25/set)`
+        );
+      }
+      if (isSpecific) addonItems.push(`Specific Areas (Level ${specHrs}, +$${specPrice})`);
+      if (q.addons?.pets > 0) addonItems.push('Pet Hair & Detailing ($35 flat fee)');
+      addDetailRow(
+        'Selected Add-Ons:',
+        addonItems.length > 0 ? addonItems.join(', ') : 'None selected',
+        false
       );
     }
-    if (q.addons?.organizing > 0) {
-      addonItems.push(`${q.addons.organizing}x Organizing per Area (from $29.60/area)`);
-    }
-    if (q.addons?.dishes > 0) addonItems.push(`${q.addons.dishes}x Dishes (from $24.78)`);
-    if (q.addons?.windows > 0) addonItems.push(`${q.addons.windows}x Windows (from $8 ea)`);
-    if (q.addons?.powerWashWindows > 0) {
-      addonItems.push(
-        `${q.addons.powerWashWindows}x Power Wash Window Set${q.addons.powerWashWindows > 1 ? 's' : ''} (from $25/set)`
-      );
-    }
-    if (isSpecific) addonItems.push(`Specific Areas (Level ${specHrs}, +$${specPrice})`);
-    if (q.addons?.pets > 0) addonItems.push('Pet Hair & Detailing ($35 flat fee)');
-    addDetailRow(
-      'Selected Add-Ons:',
-      addonItems.length > 0 ? addonItems.join(', ') : 'None selected',
-      false
-    );
 
     if (q.serviceDetails) {
       addDetailRow('Details Needed:', q.serviceDetails, false);
@@ -1435,12 +1500,22 @@
 
     const confirmedFreqSurcharge = Number(confirmed.verifiedEstimate?.frequencySurcharge) || 0;
     const isConfirmedOvernight = isCommercial && q.frequency === 'overnight';
+    const commercialFreqMap = {
+      weekly: 'Weekly',
+      biweekly: 'Every 2 Weeks',
+      turnover: 'Custom / Daily',
+      monthly: 'Monthly',
+      onetime: 'One-Time Cleaning',
+      overnight: 'Overnight Business (Tentative)'
+    };
     addDetailRow(
       'Schedule Frequency:',
-      freqLabels[q.frequency] || 'Weekly',
+      isCommercial
+        ? commercialFreqMap[q.frequency] || 'Weekly'
+        : freqLabels[q.frequency] || 'Weekly',
       false
     );
-    if (confirmedFreqSurcharge > 0 || isConfirmedOvernight) {
+    if (!isCommercial && confirmedFreqSurcharge > 0) {
       addDetailRow(
         'Schedule Adjustment:',
         `+$${confirmedFreqSurcharge.toFixed(2)}`,
@@ -1448,7 +1523,7 @@
       );
     }
 
-    if (confirmed.isUpdated && Number.isFinite(Number(confirmed.previousTotal))) {
+    if (!isCommercial && confirmed.isUpdated && Number.isFinite(Number(confirmed.previousTotal))) {
       addDetailRow(
         'Previous Estimated Total:',
         `$${Number(confirmed.previousTotal).toFixed(2)}`,
@@ -1457,8 +1532,14 @@
     }
 
     addDetailRow(
-      confirmed.isUpdated ? 'Updated Verified Total:' : 'Verified Estimate Total:',
-      `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (50% Deposit Required In Person)`,
+      isCommercial
+        ? 'Walkthrough Pricing:'
+        : confirmed.isUpdated
+          ? 'Updated Verified Total:'
+          : 'Verified Estimate Total:',
+      isCommercial
+        ? 'Custom Quote at Walkthrough (Owner settles price on-site • 50% deposit in person)'
+        : `$${Number(confirmed.verifiedEstimate.grandTotal || 0).toFixed(2)} (50% Deposit Required In Person)`,
       true
     );
 
@@ -1483,7 +1564,9 @@
         ? 'Email dispatch did not finish. Click below to open a pre-filled email to smartsprosolutions@gmail.com or call (318) 564-4360.'
         : isCutoffLocked
           ? 'Online changes lock 24 hours before arrival. Call (318) 564-4360 for last-minute changes. A 50% deposit is required in person.'
-          : 'Your time, base service, and home size are locked (50% deposit required in person). Need to add extra items or Specific Areas? Click Edit Request up to 24 hours ahead (call (318) 564-4360 for removals or rescheduling).'
+          : isCommercial
+            ? 'Your walkthrough time is locked. The owner will settle your custom quote with you at the walkthrough (50% deposit required in person once finalized). Need to add facility notes? Click Edit Request up to 24 hours ahead (call (318) 564-4360 to reschedule).'
+            : 'Your time, base service, and home size are locked (50% deposit required in person). Need to add extra items or Specific Areas? Click Edit Request up to 24 hours ahead (call (318) 564-4360 for removals or rescheduling).'
     );
 
     // 4. Action Buttons Row
@@ -2351,6 +2434,8 @@
       schedulerState.refs.modeBtnStandard = modeBtnStandard;
       schedulerState.refs.modeBtnDeep = modeBtnDeep;
       schedulerState.refs.editRoomsRow = editRoomsRow;
+      schedulerState.refs.addInfoGroup = addInfoGroup;
+      schedulerState.refs.addonsGroup = addonsGroup;
       schedulerState.refs.btnBedMinus = btnBedMinus;
       schedulerState.refs.btnBedPlus = btnBedPlus;
       schedulerState.refs.btnBathMinus = btnBathMinus;
@@ -3034,7 +3119,7 @@
         if (isLockedEditMode) {
           selectedSummary.textContent = `Locked Window: ${chosenDateText} • ${chosenSlotText}`;
         } else if (isOvernightMode) {
-          selectedSummary.textContent = `Tentative Overnight: ${chosenDateText} • ${chosenSlotText} (Call (318) 564-4360)`;
+          selectedSummary.textContent = `Tentative Overnight: ${chosenDateText} · ${chosenSlotText} — Call (318)\u00A0564-4360`;
         } else {
           selectedSummary.textContent = `Selected: ${chosenDateText} • ${chosenSlotText}`;
         }
@@ -3341,6 +3426,7 @@
             ? (schedulerState.confirmedSubmission?.updateCount || 0) + 1
             : 0;
         const confirmedIsUpdated = Boolean(result.isUpdated || isUpdate);
+        const isCommercialRequest = quotePayload.serviceCategory === 'commercial';
         schedulerState.confirmedSubmission = {
           isUpdated: confirmedIsUpdated,
           updateCount: nextUpdateCount,
@@ -3352,8 +3438,12 @@
           confirmedEndMinutes: result?.appointment?.endMinutes,
           headingText: confirmedIsUpdated
             ? `Updated Appointment Sent! (#${Math.max(1, nextUpdateCount)} · Ref: ${result.referenceCode})`
-            : `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
-          detailText: `${result.message} Verified Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (50% deposit required in person).`,
+            : isCommercialRequest
+              ? `Walkthrough Appointment Sent! (Ref: ${result.referenceCode})`
+              : `Estimate & Appointment Sent! (Ref: ${result.referenceCode})`,
+          detailText: isCommercialRequest
+            ? `${result.message} Pricing: Custom Quote at Walkthrough (owner settles price with you after walkthrough; 50% deposit required in person once finalized).`
+            : `${result.message} Verified Total: $${Number(verifiedEstimate.grandTotal || 0).toFixed(2)} (50% deposit required in person).`,
           icsContent: result.icsContent || '',
           icsFilename: result.icsFilename || '',
           fallbackMailtoUrl: '',
@@ -3424,6 +3514,7 @@
     refreshModalRecapUI();
     loadCalendarSchedule();
     syncAllContactValidationUI(false);
+    updateSubmitButtonLockState();
 
     // If a request was already confirmed in this session and calculator options match, keep Confirmed View locked
     if (schedulerState.confirmedSubmission) {

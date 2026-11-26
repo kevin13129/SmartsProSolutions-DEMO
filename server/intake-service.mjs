@@ -236,8 +236,22 @@ const FREQUENCY_DISPLAY_LABELS = Object.freeze({
   turnover: 'Per Turnover / Custom Schedule • Anchor Rate (+$0)',
   monthly: 'Monthly • Schedule Adjustment (+$50 min / 20%)',
   onetime: 'One-Time Service • Schedule Adjustment (+$65 min / 26%)',
-  overnight: 'Commercial Overnight (Special Request • Tentative Slot, +$85 min / 30%)'
+  overnight: 'Commercial Overnight (Special Request • Tentative Slot)'
 });
+
+const COMMERCIAL_FREQUENCY_DISPLAY_LABELS = Object.freeze({
+  weekly: 'Weekly (Every 7 Days)',
+  biweekly: 'Every 2 Weeks',
+  turnover: 'Custom / Daily Commercial Schedule',
+  monthly: 'Monthly',
+  onetime: 'One-Time Commercial Service',
+  overnight: 'Commercial Overnight (Special Request • Tentative Slot)'
+});
+
+function getFrequencyDisplayLabel(frequency, isCommercial) {
+  const table = isCommercial ? COMMERCIAL_FREQUENCY_DISPLAY_LABELS : FREQUENCY_DISPLAY_LABELS;
+  return table[frequency] || frequency;
+}
 
 /**
  * Checks whether an object contains own prototype-pollution keys or non-plain objects.
@@ -852,14 +866,16 @@ export function calculateAuthoritativeQuote(quoteInput) {
   if (isCommercial) {
     const hourlyRate = cfg.hourlyRates.commercial;
     const estimatedHours = 3.0;
-    const basePrice = Math.round(estimatedHours * hourlyRate);
-    const frequencySurcharge = calculateFrequencySurcharge(basePrice, frequency);
-    const grandTotal = basePrice + frequencySurcharge;
+    const basePrice = 0;
+    const frequencySurcharge = 0;
+    const grandTotal = 0;
     return Object.freeze({
       pricingRulesVersion: PRICING_RULES_VERSION,
       pricingModel: 'WEEKLY_ANCHOR_HYBRID_PRICING',
       isCommercial: true,
       isSpecificAreas: false,
+      customQuoteAtWalkthrough: true,
+      priceDisplay: 'Custom Quote at Walkthrough',
       hourlyRate,
       estimatedHours,
       addonHours: 0,
@@ -1558,9 +1574,13 @@ export function buildCalendarIcs(validatedRecord, referenceCode, ownerEmail = DE
       : []),
     ...(quote.serviceDetails ? [`Details Needed: ${quote.serviceDetails}`] : []),
     `Scheduled Window: ${startLabel} – ${endLabel}${endDayOffset > 0 ? ' (Next Morning)' : ''}`,
-    `Schedule: ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`,
-    ...(scheduleSurcharge > 0 ? [`Schedule Adjustment: +$${scheduleSurcharge.toFixed(2)}`] : []),
-    `Estimated Total: $${calculation.grandTotal.toFixed(2)}`,
+    `Schedule: ${getFrequencyDisplayLabel(quote.frequency, quote.serviceCategory === 'commercial')}`,
+    ...(quote.serviceCategory !== 'commercial' && scheduleSurcharge > 0
+      ? [`Schedule Adjustment: +$${scheduleSurcharge.toFixed(2)}`]
+      : []),
+    quote.serviceCategory === 'commercial'
+      ? 'Estimated Total: Custom Quote at Walkthrough (Owner settles price with customer)'
+      : `Estimated Total: $${calculation.grandTotal.toFixed(2)}`,
     'Payment Policy: 50% deposit required in person (No Online Payment Collected)',
     customer.notes ? `Customer Notes: ${customer.notes}` : 'Customer Notes: None provided'
   ];
@@ -1901,10 +1921,11 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
     });
   }
   if (prevSnap.freq && quote.frequency && prevSnap.freq !== quote.frequency) {
+    const isComm = quote.serviceCategory === 'commercial';
     items.push({
       badge: 'UPDATED',
       label: 'Cleaning Frequency',
-      detail: `${FREQUENCY_DISPLAY_LABELS[prevSnap.freq] || prevSnap.freq} → ${FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency}`
+      detail: `${getFrequencyDisplayLabel(prevSnap.freq, isComm)} → ${getFrequencyDisplayLabel(quote.frequency, isComm)}`
     });
   }
 
@@ -1936,7 +1957,7 @@ function computeBookingChangeItems(prevSnap, validatedRecord) {
   // 6. Price Summary
   const prevTot = Number(prevSnap.tot);
   const curTot = Number(calculation.grandTotal);
-  if (Number.isFinite(prevTot) && prevTot !== curTot) {
+  if (quote.serviceCategory !== 'commercial' && Number.isFinite(prevTot) && prevTot !== curTot) {
     const delta = roundMoney(curTot - prevTot);
     items.push({
       badge: delta > 0 ? 'ADDED' : 'UPDATED',
@@ -1974,16 +1995,15 @@ export function buildAutomatedEmailContent(
     ? SERVICE_DISPLAY_LABELS.commercial
     : SERVICE_DISPLAY_LABELS[quote.serviceType] || SERVICE_DISPLAY_LABELS.standard;
 
-  const freqLabel = FREQUENCY_DISPLAY_LABELS[quote.frequency] || quote.frequency;
+  const freqLabel = getFrequencyDisplayLabel(quote.frequency, isCommercial);
   const scheduleSurcharge = Number(calculation.frequencySurcharge || 0);
-  const scheduleSurchargeLine =
-    scheduleSurcharge > 0
-      ? `+$${scheduleSurcharge.toFixed(2)} (${quote.frequency === 'overnight' ? 'Commercial Overnight Request' : 'Non-Weekly Schedule Fee'})`
+  const scheduleSurchargeLine = isCommercial
+    ? 'Quoted at Walkthrough (No Online Price)'
+    : scheduleSurcharge > 0
+      ? `+$${scheduleSurcharge.toFixed(2)} (Non-Weekly Schedule Fee)`
       : '$0.00 (Weekly / Anchor Base Rate)';
   const isOvernight = Boolean(quote.frequency === 'overnight' || appointment.isOvernight);
   const recurrence = appointment.recurrence || getRecurrenceForFrequency(quote.frequency);
-  const durationHours = calculation.totalEstimatedHours || calculation.estimatedHours;
-  const durationSummary = `${formatDurationHours(durationHours)} (Calendar Time Block: ${appointment.preferredWindowShort})`;
 
   const extraLivingPart =
     quote.extraLivingRooms > 0
@@ -2049,7 +2069,7 @@ export function buildAutomatedEmailContent(
           `ACTION REQUIRED: Special Overnight Commercial Request — customer instructed to call (318) 564-4360 or reply to confirm overnight building access, keys/alarm procedures, and final bid.`
         ]
       : []),
-    ...(isUpdated && previousTotal !== null
+    ...(isUpdated && !isCommercial && previousTotal !== null
       ? [`Price Revision: Previously $${previousTotal.toFixed(2)} -> Updated Total $${calculation.grandTotal.toFixed(2)}`]
       : []),
     ...(isUpdated
@@ -2077,7 +2097,6 @@ export function buildAutomatedEmailContent(
     `Preferred Date:    ${appointment.preferredDateFormatted} (${appointment.preferredDate})`,
     `Time Block:        ${appointment.preferredWindowLabel}`,
     `Recurrence:        ${recurrence.label}`,
-    `Est. Cleaning Time:${durationSummary}`,
     `Business Zone:     ${BUSINESS_TIMEZONE}`,
     ``,
     `3. SERVER-VERIFIED ESTIMATE BREAKDOWN`,
@@ -2089,8 +2108,9 @@ export function buildAutomatedEmailContent(
     `Schedule Adjustment: ${scheduleSurchargeLine}`,
     `Custom Add-Ons:      ${addonsLine}`,
     ...(quote.serviceDetails ? [`Details Needed:      ${quote.serviceDetails}`] : []),
-    `Est. Cleaning Hrs:   ${formatDurationHours(durationHours)}`,
-    `Estimated Total:     $${calculation.grandTotal.toFixed(2)} (50% Deposit Required In Person • No Online Payment)`,
+    isCommercial
+      ? `Estimated Total:     Custom Quote at Walkthrough (Owner settles price with customer • 50% Deposit Required In Person)`
+      : `Estimated Total:     $${calculation.grandTotal.toFixed(2)} (50% Deposit Required In Person • No Online Payment)`,
     ``,
     `4. ADDITIONAL CUSTOMER NOTES`,
     `----------------------------`,
@@ -2170,7 +2190,7 @@ export function buildAutomatedEmailContent(
             UPDATED APPOINTMENT #${Math.max(1, updateCount)} &bull; REPLACE PRIOR VERSION
           </div>
           <div style="margin-top: 6px; font-size: 13px; color: #166534;">
-            Applied to original booking (<strong style="color: #1D4ED8;">${escapeHtml(referenceCode)}</strong>) in locked window <strong>${escapeHtml(appointment.preferredWindowLabel)}</strong>.${previousTotal !== null ? ` Previous Total: <strong>$${previousTotal.toFixed(2)}</strong> &rarr; New Total: <strong>$${calculation.grandTotal.toFixed(2)}</strong>.` : ''}
+            Applied to original booking (<strong style="color: #1D4ED8;">${escapeHtml(referenceCode)}</strong>) in locked window <strong>${escapeHtml(appointment.preferredWindowLabel)}</strong>.${!isCommercial && previousTotal !== null ? ` Previous Total: <strong>$${previousTotal.toFixed(2)}</strong> &rarr; New Total: <strong>$${calculation.grandTotal.toFixed(2)}</strong>.` : ''}
           </div>
           ${ownerChangesOrderedRows}
         </div>`
@@ -2205,7 +2225,6 @@ export function buildAutomatedEmailContent(
           <div><strong>Date:</strong> ${escapeHtml(appointment.preferredDateFormatted)}</div>
           <div style="margin-top: 4px;"><strong>Time Block:</strong> ${escapeHtml(appointment.preferredWindowLabel)}</div>
           <div style="margin-top: 4px;"><strong>Recurrence:</strong> ${escapeHtml(recurrence.label)}</div>
-          <div style="margin-top: 4px;"><strong>Est. Cleaning Time:</strong> ${escapeHtml(formatDurationHours(durationHours))}</div>
         </div>
 
         <h3 style="margin: 0 0 12px; font-size: 15px; color: #0066CC; text-transform: uppercase;">3. ${isUpdated ? '<span style="color: #16A34A;">Updated</span> Estimate Summary (Server-Verified)' : 'Estimate Summary (Server-Verified)'}</h3>
@@ -2217,9 +2236,8 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B;">Schedule Adjustment:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(scheduleSurchargeLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
           ${quote.serviceDetails ? `<tr><td style="padding: 6px 0; color: #64748B;">Details Needed:</td><td style="padding: 6px 0;">${escapeHtml(quote.serviceDetails)}</td></tr>` : ''}
-          <tr><td style="padding: 6px 0; color: #64748B;">Est. Cleaning Time:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(formatDurationHours(durationHours))}</td></tr>
-          ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Total:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? '<span style="color: #16A34A;">Updated Total:</span>' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(50% Deposit Required In Person &bull; No Online Payment)</span></td></tr>
+          ${isUpdated && !isCommercial && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Total:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? '<span style="color: #16A34A;">Updated Total:</span>' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">${isCommercial ? 'Custom Quote at Walkthrough <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Owner settles price with customer &bull; 50% Deposit Required In Person)</span>' : `$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(50% Deposit Required In Person &bull; No Online Payment)</span>`}</td></tr>
         </table>
 
         <h3 style="margin: 0 0 8px; font-size: 15px; color: #0066CC; text-transform: uppercase;">4. Additional Customer Notes</h3>
@@ -2259,8 +2277,10 @@ export function buildAutomatedEmailContent(
     `Additional Info:     ${addInfoLine}`,
     `Custom Add-Ons:      ${addonsLine}`,
     ...(quote.serviceDetails ? [`Details Needed:      ${quote.serviceDetails}`] : []),
-    ...(isUpdated && previousTotal !== null ? [`Previous Total:      $${previousTotal.toFixed(2)}`] : []),
-    `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}     $${calculation.grandTotal.toFixed(2)} (50% Deposit Required In Person • No Online Payment)`,
+    ...(isUpdated && !isCommercial && previousTotal !== null ? [`Previous Total:      $${previousTotal.toFixed(2)}`] : []),
+    isCommercial
+      ? `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}     Custom Quote at Walkthrough (Owner settles price with you • 50% Deposit Required In Person)`
+      : `${isUpdated ? 'Updated Total:' : 'Estimated Total:'}     $${calculation.grandTotal.toFixed(2)} (50% Deposit Required In Person • No Online Payment)`,
     `Deposit Policy:      A 50% deposit is required in person for the service.`,
     ...(customer.notes ? [`Your Notes:          ${customer.notes}`] : []),
     ``,
@@ -2327,8 +2347,8 @@ export function buildAutomatedEmailContent(
           <tr><td style="padding: 6px 0; color: #64748B;">Schedule Adjustment:</td><td style="padding: 6px 0; font-weight: 600;">${escapeHtml(scheduleSurchargeLine)}</td></tr>
           <tr><td style="padding: 6px 0; color: #64748B;">Custom Add-Ons:</td><td style="padding: 6px 0;">${escapeHtml(addonsLine)}</td></tr>
           ${quote.serviceDetails ? `<tr><td style="padding: 6px 0; color: #64748B;">Details Needed:</td><td style="padding: 6px 0;">${escapeHtml(quote.serviceDetails)}</td></tr>` : ''}
-          ${isUpdated && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Estimate:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
-          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? 'Updated Total:' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(50% Deposit Required In Person &bull; No Online Payment)</span></td></tr>
+          ${isUpdated && !isCommercial && previousTotal !== null ? `<tr><td style="padding: 6px 0; color: #64748B;">Previous Estimate:</td><td style="padding: 6px 0; color: #64748B; text-decoration: line-through;">$${previousTotal.toFixed(2)}</td></tr>` : ''}
+          <tr style="border-top: 2px solid #E2E8F0;"><td style="padding: 10px 0; font-weight: 700;">${isUpdated ? 'Updated Total:' : 'Estimated Total:'}</td><td style="padding: 10px 0; font-weight: 800; font-size: 18px; color: #0066CC;">${isCommercial ? 'Custom Quote at Walkthrough <span style="font-size: 12px; color: #64748B; font-weight: 500;">(Owner settles price with you &bull; 50% Deposit Required In Person)</span>' : `$${calculation.grandTotal.toFixed(2)} <span style="font-size: 12px; color: #64748B; font-weight: 500;">(50% Deposit Required In Person &bull; No Online Payment)</span>`}</td></tr>
         </table>
 
         <div style="background: #EFF6FF; border: 1px solid #BFDBFE; border-radius: 8px; padding: 10px 14px; margin-bottom: 14px; font-size: 13px; color: #1E3A8A;">
@@ -3255,7 +3275,7 @@ export function createIntakeService({
             success: false,
             code: 'APPOINTMENT_TIME_LOCKED',
             message:
-              'Appointment dates and time blocks are locked once booked. You can add add-ons or extra hours, or call (318) 564-4360 to reschedule your time.'
+              'Appointment dates and time blocks are locked once booked. You can add add-ons or extra details, or call (318) 564-4360 to reschedule your time.'
           }
         };
       }
@@ -3400,6 +3420,9 @@ export function createIntakeService({
     const verifiedEstimateSummary = {
       grandTotal: record.calculation.grandTotal,
       basePrice: record.calculation.basePrice,
+      customQuoteAtWalkthrough: Boolean(record.calculation.customQuoteAtWalkthrough),
+      priceDisplay:
+        record.calculation.priceDisplay || `$${record.calculation.grandTotal.toFixed(2)}`,
       frequency: record.quote.frequency,
       frequencySurcharge: record.calculation.frequencySurcharge || 0,
       addonsTotal: record.calculation.addonsTotal,
